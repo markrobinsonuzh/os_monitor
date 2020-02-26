@@ -58,6 +58,15 @@ df_lists <- lapply(fs, function(u) {
   tbl_dewey <- data.frame(eprintid=rep(eprintid, n_dewey),
                           dewey = unlist(dewey),
                           stringsAsFactors = FALSE)
+  
+  orcid <- lapply(this, function(u) {
+    unlist(lapply(u$contributor_lookup, function(v) v$orcid))
+  })
+  n_orcid <- sapply(orcid, length)
+  tbl_orcid <- data.frame(eprintid=rep(eprintid, n_orcid),
+                          orcid=unlist(orcid),
+                          stringsAsFactors = FALSE)
+  
 
   subjects <- lapply(this, function(u) as.character(u$subjects))
   n_subjects <- sapply(subjects, length)
@@ -69,11 +78,15 @@ df_lists <- lapply(fs, function(u) {
   tbl_eprints <- data.frame(eprintid=eprintid,
              date=sapply(this, function(u) substr(first_na(u$date),1,4)),
              doi=sapply(this, function(u) first_na(u$doi)),
+             type=sapply(this, function(u) first_na(u$type)),
+             refereed=sapply(this, function(u) first_na(u$refereed_set)),
+             institution=sapply(this, function(u) first_na(u$institution)),
              oa_status=sapply(this, function(u) first_na(u$oa_status)),
              stringsAsFactors = FALSE)
   list(tbl_dewey = tbl_dewey,
        tbl_subjects = tbl_subjects,
-       tbl_eprints = tbl_eprints)
+       tbl_eprints = tbl_eprints,
+       tbl_orcid = tbl_orcid)
 })
 
 
@@ -81,6 +94,7 @@ tbl_eprints <- do.call(rbind, lapply(df_lists, .subset2, "tbl_eprints"))
 tbl_eprints <- tbl_eprints %>% filter(!is.na(oa_status), !is.na(date))
 tbl_dewey <- do.call(rbind, lapply(df_lists, .subset2, "tbl_dewey"))
 tbl_subjects <- do.call(rbind, lapply(df_lists, .subset2, "tbl_subjects"))
+tbl_orcid <- do.call(rbind, lapply(df_lists, .subset2, "tbl_orcid"))
 
 rm(fs, first_na); gc()
 ```
@@ -90,15 +104,35 @@ rm(fs, first_na); gc()
 ```{r subjects}
 # sub_lookup <- xmlToDataFrame("data/subjects_combined_20200108.xml")
 sub_list <- xmlToList("data/subjects_combined_20200108.xml")
-sub_df <- data.frame(subjectid=sapply(sub_list, .subset2, "subjectid"),
+sub_df <- data.frame(subjects=sapply(sub_list, .subset2, "subjectid"),
                      name=sapply(sub_list, function(u) u$name[[1]]$name),
                      parent=sapply(sub_list, function(u) u$parents$item),
                      stringsAsFactors = FALSE)
-subject_lookup <- setNames(sub_df$name, sub_df$subjectid)
+subject_lookup <- setNames(sub_df$name, sub_df$subjects)
 sub_df$parent_name <- subject_lookup[sub_df$parent]
 
-df <- tbl_subjects %>% left_join(tbl_eprints)
+tbl_subjects <- tbl_subjects %>% left_join(sub_df)
 
+df <- tbl_subjects %>% left_join(tbl_eprints)
+df$oa_status <- factor(df$oa_status, levels=c("closed","hybrid","green","gold"))
+
+nm <- names(sort(table(df$name), decreasing = TRUE)[1:20])
+
+ggplot(df %>% filter(date < 2020, name %in% nm), aes(x=date, fill=oa_status)) + 
+  geom_bar() + 
+  facet_wrap(~name, scales="free_y", ncol=5) +
+  theme(axis.text.x = element_text(angle = 90))
+
+
+df <- tbl_subjects %>% left_join(tbl_eprints)
+df$oa_status <- factor(df$oa_status, levels=c("closed","hybrid","green","gold"))
+
+nm <- names(sort(table(df$parent_name), decreasing = TRUE)[1:15])
+
+ggplot(df %>% filter(date < 2020, parent_name %in% nm), aes(x=date, fill=oa_status)) + 
+  geom_bar() + 
+  facet_wrap(~parent_name, scales="free_y", ncol=5) +
+  theme(axis.text.x = element_text(angle = 90))
 
 ```
 
@@ -139,3 +173,18 @@ ggplot(df %>% filter(date > 2007, date < 2020), aes(x=date, fill=oa_status)) +
 
 ```
 
+## ORCID
+
+```{r orcid}
+
+df <- tbl_orcid %>% filter(grepl("0000-0003-3841-6207", orcid)) %>%
+  left_join(tbl_eprints)
+
+df$oa_status <- factor(df$oa_status, levels=c("closed","hybrid","green","gold"))
+
+ggplot(df, aes(x=date, fill=oa_status)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(angle = 90))
+
+
+```

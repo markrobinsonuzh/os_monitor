@@ -27,17 +27,17 @@ for(i in z) {
 
 ## Load packages
 
-```{r cars}
+```{r load_packages}
 library(rjson)
 library(XML)
-library(ggplot2)
 library(dplyr)
 ```
 
 
 ## Reading in ZORA JSON files
 
-```{r cars}
+```{r read_zora_files}
+outdir <- "output"
 fs <- dir("data", ".js.gz$", full.names = TRUE)
 
 first_na <- function(x, subset=1) {
@@ -97,6 +97,10 @@ tbl_subjects <- do.call(rbind, lapply(df_lists, .subset2, "tbl_subjects"))
 tbl_orcid <- do.call(rbind, lapply(df_lists, .subset2, "tbl_orcid"))
 
 rm(fs, first_na); gc()
+
+saveRDS(tbl_eprints, file.path(outdir, "tbl_eprints.rds"))
+saveRDS(tbl_orcid, file.path(outdir, "tbl_orcid.rds"))
+
 ```
 
 ## Subjects
@@ -113,27 +117,7 @@ sub_df$parent_name <- subject_lookup[sub_df$parent]
 
 tbl_subjects <- tbl_subjects %>% left_join(sub_df)
 
-df <- tbl_subjects %>% left_join(tbl_eprints)
-df$oa_status <- factor(df$oa_status, levels=c("closed","hybrid","green","gold"))
-
-nm <- names(sort(table(df$name), decreasing = TRUE)[1:20])
-
-ggplot(df %>% filter(date < 2020, name %in% nm), aes(x=date, fill=oa_status)) + 
-  geom_bar() + 
-  facet_wrap(~name, scales="free_y", ncol=5) +
-  theme(axis.text.x = element_text(angle = 90))
-
-
-df <- tbl_subjects %>% left_join(tbl_eprints)
-df$oa_status <- factor(df$oa_status, levels=c("closed","hybrid","green","gold"))
-
-nm <- names(sort(table(df$parent_name), decreasing = TRUE)[1:15])
-
-ggplot(df %>% filter(date < 2020, parent_name %in% nm), aes(x=date, fill=oa_status)) + 
-  geom_bar() + 
-  facet_wrap(~parent_name, scales="free_y", ncol=5) +
-  theme(axis.text.x = element_text(angle = 90))
-
+saveRDS(tbl_subjects, file.path(outdir, "tbl_subjects.rds"))
 ```
 
 ## Dewey
@@ -156,35 +140,11 @@ tbl_dewey <- tbl_dewey %>% dplyr::filter(dewey %in% top_dewey)
 tbl_dewey$field <- dewey_lookup[gsub("ddc","", tbl_dewey$dewey)]
 
 
-df <- tbl_dewey %>% left_join(tbl_eprints)
-
-# ggplot(mydf, aes(x=date, fill=oa_status)) + 
-#   geom_bar() + facet_wrap(~oa_status, ncol=1, scales = "free_y")
-# ggplot(df, aes(x=date, fill=oa_status)) + 
-#   geom_bar() + scale_y_sqrt()
-
-df$oa_status <- factor(df$oa_status, levels=c("closed","hybrid","green","gold"))
-
-ggplot(df %>% filter(date > 2007, date < 2020), aes(x=date, fill=oa_status)) + 
-  geom_bar() + 
-  facet_wrap(~paste0(gsub("ddc","",dewey),":",field), scales="free_y", ncol=6) +
-  theme(axis.text.x = element_text(angle = 90))
-
-
+saveRDS(tbl_dewey, file.path(outdir, "tbl_dewey.rds"))
 ```
 
-## ORCID
+## sessionInfo()
 
-```{r orcid}
-
-df <- tbl_orcid %>% filter(grepl("0000-0003-3841-6207", orcid)) %>%
-  left_join(tbl_eprints)
-
-df$oa_status <- factor(df$oa_status, levels=c("closed","hybrid","green","gold"))
-
-ggplot(df, aes(x=date, fill=oa_status)) + 
-  geom_bar() + 
-  theme(axis.text.x = element_text(angle = 90))
-
-
+```{r sessioninfo}
+sessionInfo()
 ```

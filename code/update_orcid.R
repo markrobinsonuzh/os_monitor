@@ -1,100 +1,140 @@
-library(dplyr)
-library(rentrez)
-library(RefManageR)
-library(scholar)
+
+# source("../code/functions.R")
+source("code/functions.R")
 
 # set these
+email <- "mark.robinson@mls.uzh.ch"
 orcid <- "0000-0002-3048-5518"
-scholarid <- "XPfrRQEAAAAJ"
-pmid_search <- "Robinson Mark D[au]"
+scholar_id <- "XPfrRQEAAAAJ"
+pubmed_search <- "Robinson Mark D[au]"
 pmid_remove <- c("28824762", "26295592", "23288288", "21516278", "18830830",
-                 "18025499", "15786672", "15779224", "15322224", "30039500",
-                 "31925006")
-pmid_add <- c("11743205", "15761153", "23857251", "26493315", 
+                 "18025499", "15786672", "15779224", "15322224", "30039500")
+pmid_add <- c("11743205", "15761153", "23857251", "26493315",
               "31178352", "18772890", "18573797")
+# paste0(pmid_add, collapse=";")
 
-# orcid <- "0000-0003-2278-120X"
-# pmid_search <- "Greber Urs[au]"
+# email <- "wong@immunology.uzh.ch"
+# orcid <- "0000-0003-3155-1211"
+# pubmed_search <- "wong, w wei-lynn[author] OR Wong, Wendy W-L[Author] OR Wong, Wendy Wei-Lynn[Author] OR (gerondakis s and wong l)"
+# scholar_id <- "JynlX_8AAAAJ"
 # pmid_remove <- NULL
 # pmid_add <- NULL
 
+# email <- "mering@imls.uzh.ch"
+# orcid <- "0000-0001-7734-9102"
+# pubmed_search <- "von Mering c[au]"
+# scholar_id <- "Av-VeeEAAAAJ"
+# pmid_remove <- "18814862"
+# pmid_add <- NULL
 
-# grab everything from Entrez
-x <- entrez_search(db = "pubmed", term = pmid_search, retmax = 1000)
-x$ids <- unique(c(base::setdiff(x$ids, pmid_remove), pmid_add))
-summ <- entrez_summary(db = "pubmed", id = x$ids)
 
-fix_null <- function(x) {
-  if (is.null(x) || length(x) == 0) NA
-  else x
+# pm_file <- paste0("PUBMED_", gsub(".uzh.ch","", email), ".txt")
+# orcid_file <- paste0("ORCID_", gsub(".uzh.ch","", email), ".txt")
+# scholar_file <- paste0("SCHOLAR_", gsub(".uzh.ch","", email), ".txt")
+master_file <- paste0("MASTERTABLE_", gsub(".uzh.ch","", email), ".txt")
+bibtex_file <- paste0("BIBTEX_FOR_ORCID_", gsub(".uzh.ch","", email), ".bib")
+
+df_pubmed <- retrieve_from_entrez(pubmed_search, pmid_remove, pmid_add)
+dim(df_pubmed)
+# write.table(df_pubmed, pm_file, sep="\t", quote=FALSE, row.names = FALSE)
+
+
+df_orcid <- retrieve_from_orcid(orcid)
+dim(df_orcid)
+
+
+# In ORCID, not in PubMed (mostly preprints?)
+setdiff(df_orcid$doi, df_pubmed$doi)
+
+
+# In Pubmed, not in ORCID
+(to_update <- na.omit(setdiff(df_pubmed$doi, df_orcid$doi)))
+
+if(length(to_update) > 0) {
+  df_pubmed[df_pubmed$doi %in% to_update,] %>% select(-authors,-pmid)
+  
+  # write missing entries to bibtex file
+  bibtex_from_doi <- GetBibEntryWithDOI(to_update)
+  # toBiblatex(bibtex_from_doi)
+  writeLines(toBiblatex(bibtex_from_doi), bibtex_file)
 }
 
-summ <- lapply(summ, function(w) {
-  data.frame(pubyear = fix_null(strsplit(w$pubdate, " ")[[1]][1]), 
-             title = fix_null(w$title), 
-             authors = fix_null(paste(w$authors$name, collapse = ", ")),
-             journal = fix_null(w$source), 
-             doi = fix_null(w$articleids$value[w$articleids$idtype == "doi"]),
-             pmid = fix_null(w$articleids$value[w$articleids$idtype == "pubmed"]),
-             stringsAsFactors = FALSE)
-})
-summ <- do.call(rbind, summ)
-summ$title <- sub("\\.$","",summ$title)
-summ$doi <- tolower(summ$doi)
-write.table(summ, "records_from_pubmed.txt", sep="\t", quote=FALSE, row.names = FALSE)
 
-# grab everything from ORCID
-works <- rorcid::orcid_works(orcid)
-works <- works[[1]]$works
-dim(works)
-works$pub_doi <- sapply(works$`external-ids.external-id`, 
-                        function(u) ifelse(nrow(u)>0, u$`external-id-value`[u$`external-id-type`=="doi"], NA))
-works$pub_doi <- tolower(works$pub_doi)
-works %>% #filter(type=="journal-article") %>% 
-  select(title.title.value, `journal-title.value`, pub_doi) -> orcid_doi
-write.table(orcid_doi, "records_from_orcid.txt", sep="\t", quote=FALSE, row.names = FALSE)
+tbl_eprints <- readRDS(file.path("output", "tbl_eprints.rds"))
+
+tbl_merge <- full_join(df_orcid, df_pubmed, by="doi", suffix = c(".orcid", ".pubmed"))
+tbl_merge$doi[is.na(tbl_merge$doi)] <- "no_doi"
+tbl_merge <- tbl_merge %>% left_join(tbl_eprints %>% select(-date,-institution), 
+                                     by="doi", suffix=c("",".zora"))
 
 
-# m <- full_join(summ, orcid_doi, by=c("doi"="pub_doi"))
-
-setdiff(orcid_doi$pub_doi, summ$doi)
-
-(to_update <- na.omit(setdiff(summ$doi, orcid_doi$pub_doi)))
+df_scholar <- retrieve_from_scholar(scholar_id)
+dim(df_scholar)
 
 
+m1 <- match(toupper(df_scholar$title), toupper(tbl_merge$title.orcid))
+m2 <- match(toupper(df_scholar$title), toupper(tbl_merge$title.pubmed))
+df_scholar$doi <- df_orcid$doi[pmin(m1,m2)]
 
-# write missing entries to bibtex file
-z <- GetBibEntryWithDOI(to_update,
-                        temp.file = tempfile(fileext = ".bib"),
-                        delete.file = TRUE)
-toBiblatex(z)
-writeLines(toBiblatex(z), "upload_to_orcid.tex")
+# non-matching titles
+w <- is.na(df_scholar$doi)
+df_scholar$title[w]
 
+# bit of faffing to find what is in Google Scholar, not in ORCID
+scores <- calcScore(df_scholar$title[w], tbl_merge$title.orcid)
+top_score <- apply(scores$dist, 1, max)
+which_top_score <- apply(scores$dist, 1, which.max)
 
+scholar_to_orcid_matches <- data.frame(top_score, scholar_title=df_scholar$title[w], 
+                                       orcid_title=scores$cols[which_top_score])
+# scholar_to_orcid_matches
 
-starts <- seq(0,1000,by=100)
-scholar_pubs <- lapply(starts, function(u) {
-  get_publications("XPfrRQEAAAAJ", cstart = u, pagesize = 100, flush = FALSE)  
-})
-scholar_pubs <- do.call(rbind, scholar_pubs)
-scholar_pubs$title <- as.character(scholar_pubs$title)
-dim(scholar_pubs)
-
-m <- match(scholar_pubs$title, summ$title)
-scholar_pubs$lookup <- m
-
-# many appear to be not match b/w Pubmed list and Google scholar list because:
-# - weird markup (in either title)
-# - published somewhere not indexed by pubmed
-# - is a preprint
-scholar_pubs %>% filter(is.na(lookup), journal != "bioRxiv")
+# View(scholar_to_orcid_matches)
+cutoff <- .85
+keep <- top_score > cutoff
+df_scholar$doi[which(w)[keep]] <- tbl_merge$doi[which_top_score[keep]]
 
 
-my_search <- "Comparison"
-grep(my_search, summ$title, value=TRUE)
-grep(my_search, scholar_pubs$title, value=TRUE)
+# non-matching titles
+w <- is.na(df_scholar$doi)
+df_scholar$title[w]
+
+# bit of faffing to find what is in Google Scholar, not in ORCID
+scores <- calcScore(df_scholar$title[w], tbl_merge$title.pubmed)
+top_score <- apply(scores$dist, 1, max)
+which_top_score <- apply(scores$dist, 1, which.max)
+
+scholar_to_pubmed_matches <- data.frame(top_score, scholar_title=df_scholar$title[w], 
+                                       pubmed_title=scores$cols[which_top_score])
+# scholar_to_pubmed_matches
+
+# View(scholar_to_pubmed_matches)
+cutoff <- .85
+keep <- top_score > cutoff
+df_scholar$doi[which(w)[keep]] <- tbl_merge$doi[which_top_score[keep]]
 
 
-write.table(scholar_pubs, "records_from_googlescholar.txt", sep="\t", 
-            quote=FALSE, row.names = FALSE)
+tbl_master <- full_join(tbl_merge, df_scholar, by="doi", suffix=c("",".scholar"))
+write.table(tbl_master, master_file, sep="\t", quote=FALSE, row.names = FALSE)
+
+
+# # found in Google Scholar, but unable to match to DOI/ORCID
+# with(df_scholar, title[is.na(doi) & is.na(probable_doi)])
+# write.table(df_scholar, scholar_file, sep="\t", quote=FALSE, row.names = FALSE)
+
+# # what is in ORCID, but not in Google Scholar?
+# scholar_dois <- unname(apply(df_scholar[,c("doi","probable_doi")], 
+#                              1, function(u) na.omit(u)[1]))
+# m <- match(df_orcid$doi, scholar_dois)
+# df_orcid$scholar_id <- df_scholar$pubid[m]
+# 
+# df_orcid %>% filter(is.na(scholar_id))
+# 
+# write.table(df_orcid, orcid_file, sep="\t", quote=FALSE, row.names = FALSE)
+
+
+
+# my_search <- "trypsinosome"
+# grep(my_search, df_scholar$title[w], value=TRUE)
+# grep(my_search, df_orcid$title, value=TRUE)
 

@@ -74,6 +74,7 @@ df_lists <- lapply(fs, function(u) {
   tbl_subjects <- data.frame(eprintid=rep(eprintid, n_subjects),
                              subjects = unlist(subjects),
                              stringsAsFactors = FALSE)
+
   
   tbl_eprints <- data.frame(eprintid=eprintid,
              date=sapply(this, function(u) substr(first_na(u$date),1,4)),
@@ -83,10 +84,21 @@ df_lists <- lapply(fs, function(u) {
              institution=sapply(this, function(u) first_na(u$institution)),
              oa_status=sapply(this, function(u) first_na(u$oa_status)),
              stringsAsFactors = FALSE)
+  
+  list_lookup <- lapply(this, function(u) unlist(sapply(u$contributor_lookup, 
+                                                 function(v) v$lookup)))
+  names(list_lookup) <- tbl_eprints$eprintid
+  n_list <- sapply(list_lookup, length)
+  tbl_authorkeys <- data.frame(eprintid=rep(eprintid, n_list),
+                               authorkey=unlist(list_lookup),
+                               stringsAsFactors = FALSE)
+  
   list(tbl_dewey = tbl_dewey,
        tbl_subjects = tbl_subjects,
        tbl_eprints = tbl_eprints,
-       tbl_orcid = tbl_orcid)
+       tbl_orcid = tbl_orcid,
+       tbl_authorkeys = tbl_authorkeys,
+       list_lookup = list_lookup)
 })
 
 
@@ -95,6 +107,8 @@ tbl_eprints <- tbl_eprints %>% filter(!is.na(oa_status), !is.na(date))
 tbl_dewey <- do.call(rbind, lapply(df_lists, .subset2, "tbl_dewey"))
 tbl_subjects <- do.call(rbind, lapply(df_lists, .subset2, "tbl_subjects"))
 tbl_orcid <- do.call(rbind, lapply(df_lists, .subset2, "tbl_orcid"))
+tbl_authorkeys <- do.call(rbind, lapply(df_lists, .subset2, "tbl_authorkeys"))
+list_lookup <- do.call(c, lapply(df_lists, .subset2, "list_lookup"))
 
 rm(fs, first_na); gc()
 

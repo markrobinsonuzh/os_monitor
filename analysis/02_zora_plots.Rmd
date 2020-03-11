@@ -32,9 +32,9 @@ tbl_eprints <- readRDS(file.path(outdir, "tbl_eprints.rds"))
 df <- tbl_subjects %>% left_join(tbl_eprints)
 df$oa_status <- factor(df$oa_status, levels=c("closed","hybrid","green","gold"))
 
-nm <- names(sort(table(df$name), decreasing = TRUE)[1:20])
+nm <- names(sort(table(df$name), decreasing = TRUE)[1:50])
 
-ggplot(df %>% filter(date < 2020, name %in% nm), aes(x=date, fill=oa_status)) + 
+ggplot(df %>% filter(date > 2007, date < 2020, name %in% "Institute of Molecular Life Sciences"), aes(x=date, fill=oa_status)) + 
   geom_bar() + 
   facet_wrap(~name, scales="free_y", ncol=5) +
   theme(axis.text.x = element_text(angle = 90)) +
@@ -57,6 +57,17 @@ ggplot(df1, aes(x=date, fill=oa_status)) +
   my_scale
 
 ggsave("by_faculty.pdf", width=12, height=6)
+
+
+df1 <- df1[df1$parent_name=="07 Faculty of Science",]
+df1 <- na.omit(df1)
+
+ggplot(df1, aes(x=date, fill=oa_status)) + 
+  geom_bar() + 
+  facet_wrap(~name, scales="free_y", ncol=7) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  my_scale
+
 
 
 df2 <- df1 %>% group_by(name) %>% 
@@ -117,6 +128,7 @@ ggplot(df %>% filter(date > 2007, date < 2020), aes(x=date, fill=oa_status)) +
   theme(axis.text.x = element_text(angle = 90)) +
   my_scale
 
+ggsave("by_dewey.pdf", width=15, height=7)
 
 ```
 
@@ -124,13 +136,20 @@ ggplot(df %>% filter(date > 2007, date < 2020), aes(x=date, fill=oa_status)) +
 
 ```{r orcid}
 
-df <- tbl_orcid %>% filter(grepl("0000-0003-3841-6207", orcid)) %>%
-  left_join(tbl_eprints)
+tbl_orcid <- readRDS(file.path(outdir, "tbl_orcid.rds"))
+
+df <- tbl_orcid %>% left_join(tbl_eprints) %>% 
+  left_join(tbl_subjects)
+
+df <- df[df$name == "Institute of Molecular Life Sciences",]
 
 df$oa_status <- factor(df$oa_status, levels=c("closed","hybrid","green","gold"))
 
-ggplot(df, aes(x=date, fill=oa_status)) + 
+ggplot(df %>% filter(date>2007, date<2020), aes(x=date, fill=oa_status)) + 
   geom_bar() + 
   theme(axis.text.x = element_text(angle = 90)) +
+  my_scale
+
+
   
 ```

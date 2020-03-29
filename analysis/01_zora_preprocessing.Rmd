@@ -114,6 +114,7 @@ rm(fs, first_na); gc()
 
 saveRDS(tbl_eprints, file.path(outdir, "tbl_eprints.rds"))
 saveRDS(tbl_orcid, file.path(outdir, "tbl_orcid.rds"))
+saveRDS(tbl_authorkeys, file.path(outdir, "tbl_authorkeys.rds"))
 
 ```
 

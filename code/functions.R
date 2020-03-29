@@ -33,6 +33,8 @@ retrieve_from_entrez <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, j
   summ$title <- gsub("&lt;/u&gt;","",gsub("&lt;u&gt;","",summ$title, fixed=TRUE))
   summ$title <- gsub("&lt;/i&gt;","",gsub("&lt;i&gt;","",summ$title, fixed=TRUE))
   summ$doi <- tolower(summ$doi)
+  summ$doi <- gsub("&lt;","<", summ$doi)
+  summ$doi <- gsub("&gt;",">", summ$doi)
   summ
 }
 
@@ -67,7 +69,9 @@ retrieve_from_orcid <- function(orcid) {
     else
       return(u[1,,drop=FALSE])
   })
-  do.call(rbind,c(z,works_split[n==1]))
+  df <- do.call(rbind,c(z,works_split[n==1]))
+  rownames(df) <- NULL
+  df
 }
 
 

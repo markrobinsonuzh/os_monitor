@@ -5,9 +5,27 @@ tbl_subjects <- readRDS(file.path(outdir, "tbl_subjects.rds"))
 tbl_eprints <- readRDS(file.path(outdir, "tbl_eprints.rds"))
 tbl_authorkeys <- readRDS(file.path(outdir, "tbl_authorkeys.rds"))
 
+View(tbl_subjects %>% group_by(subjects, name) %>% tally())
+
 # dmls <- tbl_subjects %>% filter(subjects==10124) %>% left_join(tbl_eprints)
 geo <- tbl_subjects %>% filter(subjects==10124) %>% left_join(tbl_eprints) %>%
   left_join(tbl_authorkeys)
+
+
+
+ieu <- tbl_subjects %>% filter(subjects==10127) %>% left_join(tbl_eprints) %>%
+  left_join(tbl_authorkeys)
+
+author <- c("altermatt f 0000 0002 4831 6958", "altermatt f")
+orcid <- "0000-0002-4831-6958"
+
+tbl_author <- tbl_authorkeys %>% filter(authorkey %in% author) %>%
+  left_join(tbl_eprints) # %>%  left_join(tbl_subjects)
+
+
+tg <- table(ieu$authorkey)
+head(sort(tg, decreasing = TRUE), 50)
+
 
 tg <- table(geo$authorkey)
 sort(tg, decreasing = TRUE)

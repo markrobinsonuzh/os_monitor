@@ -1,0 +1,223 @@
+---
+title: "Michael Schaepman"
+output:
+  html_document:
+    toc: true
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load packages/data and set parameters
+
+```{r packages_params_load, message=FALSE}
+
+library(dplyr)
+library(rcrossref)
+library(roadoi)
+library(ggplot2)
+source(here::here("code/functions.R"))
+
+outdir <- here::here("output")
+tbl_eprints <- readRDS(file.path(outdir, "tbl_eprints.rds"))
+tbl_authorkeys <- readRDS(file.path(outdir, "tbl_authorkeys.rds"))
+
+author <- c("schaepman m 0000 0002 9627 9565 schäpman", "schaepman m e schäpman")
+orcid <- "0000-0002-9627-9565"
+
+open_cols <- c("closed" = "gray48", "hybrid" = "darkorange1",
+               "green" = "chartreuse4", "gold" = "gold",
+               "preprint" = "red", "bronze" = "darkgoldenrod4",
+               "blue" = "blue")
+my_scale <- scale_fill_manual(values=open_cols)
+```
+
+
+# Extract ZORA, ORCID and Unpaywall entries
+
+```{r tables, message=FALSE}
+tbl_author <- tbl_authorkeys %>% 
+  filter(authorkey %in% author) %>%
+  left_join(tbl_eprints) %>%
+  mutate(year = date) %>%
+  filter(eprintid != 149052)
+dim(tbl_author) # ZORA
+
+# add blue OA
+tbl_author$oa_status[tbl_author$published_doc & tbl_author$oa_status=="closed"] <- "blue" 
+
+ws <- retrieve_from_orcid(orcid)
+dim(ws) # ORCID
+
+# hacks
+ws$doi[ws$doi=="10.3390/rs90201010"] <- "10.3390/rs9020110"
+ws$doi <- gsub("doi: ","",ws$doi)
+
+tbl_author <- tbl_author %>% filter(!(doi %in% c("10.5589/m08-026","10.5589/m08-024")))
+tbl_author$doi[tbl_author$doi=="10.5194/bgd-5-1293-2008, 2008"] <- "10.5194/bgd-5-1293-2008"
+
+
+m <- full_join(ws, tbl_author, 
+               by="doi", suffix=c(".orcid",".zora")) %>%
+  filter(doi != "logical(0)")
+m$doi <- tolower(m$doi)
+
+oaf <- oadoi_fetch(unique(na.omit(m$doi)),
+                   email="mark.robinson@mls.uzh.ch")
+
+m <- m %>% left_join(oaf %>% select(doi, oa_status), 
+                     by = "doi", suffix=c(".zora", ".unpaywall")) %>%
+  mutate(year = year.orcid, title = title.orcid)
+m$overall_oa <- m$oa_status.unpaywall
+m$overall_oa[m$type.orcid=="other"] <- "preprint"
+w <- is.na(m$overall_oa)
+m$overall_oa[w] <- m$oa_status.zora[w]
+w <- is.na(m$year)
+m$year[w] <- m$year.zora[w]
+w <- is.na(m$title)
+m$title[w] <- m$title.zora[w]
+w <- m$overall_oa == "closed" & m$oa_status.zora=="blue"
+m$overall_oa[w] <- "blue"
+```
+
+# Cross-tabulation of ZORA and Unpaywall entries
+
+```{r crosstab, message=FALSE}
+with(m, table(oa_status.zora, oa_status.unpaywall, useNA="ifany"))
+```
+
+
+# Plot of OA over time: only ZORA records
+
+```{r plot_oa_zora, message=FALSE, fig.width=14}
+tbl_author$oa_status <- factor(tbl_author$oa_status, levels = names(open_cols))
+
+ggplot(tbl_author %>% filter(date >= 2005, date <= 2020), aes(x=date, fill=oa_status)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("ZORA OA Status") +
+  my_scale
+```
+
+# Plot of OA over time: ZORA + ORCIDs
+
+```{r plot_oa_combined, message=FALSE, fig.width=14}
+m$overall_oa <- factor(m$overall_oa, levels = names(open_cols))
+
+ggplot(m %>% filter(year >= 2005, year <= 2020), aes(x=year, fill=overall_oa)) + 
+  geom_bar() + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("ZORA + ORCID OA Status") +
+  my_scale
+```
+
+
+# OA percent over time (w/ or w/o blue as OA)
+
+```{r blue}
+z <- m %>% filter(year >= 2005) %>% 
+  group_by(year) %>% 
+  summarize(oa_pct_blue = round(100*mean(overall_oa != "closed"),2),
+            oa_pct = round(100*mean(!(overall_oa %in% c("blue","closed")))),
+            closed = sum(overall_oa == "closed")) %>% 
+  data.frame()
+DT::datatable(z, extensions = 'Buttons',
+              options = list(dom = 'Bfrtip',
+                             pageLength = 200,
+                             buttons = list('copy', 'csv', 'excel')), 
+              escape = FALSE, rownames = FALSE)
+```
+
+
+# Articles listed as 'closed' in either ZORA or Unpaywall
+
+```{r}
+z <- m %>% filter(overall_oa == "closed") %>% 
+  select(doi, eprintid, overall_oa, oa_status.zora, 
+         oa_status.unpaywall, year, title, journal) %>%
+  arrange(desc(year))
+z <- z %>% 
+  mutate(oa_status.unpaywall = ifelse(is.na(oa_status.unpaywall), "",
+                                      paste0("<a href='https://api.unpaywall.org/v2/",
+                                      doi,"?email=YOUR_EMAIL'>",
+                                      oa_status.unpaywall, "</a>"))) %>%
+  mutate(doi = ifelse(is.na(doi), "", paste0("<a href='https://www.doi.org/",
+                      doi, "'>", doi, "</a>"))) %>%
+  mutate(eprintid = ifelse(is.na(eprintid), "", paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
+                                                  eprintid, "'>", eprintid, "</a>")))
+DT::datatable(z, extensions = 'Buttons',
+              options = list(dom = 'Bfrtip',
+                             pageLength = 200,
+                             buttons = list('copy', 'csv', 'excel')), 
+              escape = FALSE, rownames = FALSE)
+```
+
+# Records in ZORA but not in ORCID (using DOI as key)
+
+```{r}
+z <- m %>% filter(!is.na(eprintid), is.na(type.orcid))
+z <- z %>% 
+  select(doi, eprintid, type.zora, refereed, title, oa_status.zora, year) %>%
+  mutate(doi = ifelse(is.na(doi), "", paste0("<a href='https://www.doi.org/",
+                      doi, "'>", doi, "</a>"))) %>%
+  mutate(eprintid = paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
+                           eprintid, "'>", eprintid, "</a>")) %>%
+  arrange(desc(year))
+DT::datatable(z, extensions = 'Buttons',
+              options = list(dom = 'Bfrtip',
+                             pageLength = 200,
+                             buttons = list('copy', 'csv', 'excel')), 
+              escape = FALSE, rownames = FALSE)
+```
+
+# Records in ORCID but not in ZORA (using DOI as key; type.orcid='other' is usually a preprint)
+
+```{r}
+z <- m %>% filter(is.na(eprintid), !is.na(type.orcid))
+z <- z %>% 
+  select(doi, type.orcid, title, journal, year) %>%
+  mutate(doi = ifelse(is.na(doi), "", paste0("<a href='https://www.doi.org/",
+                      doi, "'>", doi, "</a>"))) %>%
+  arrange(desc(year))
+DT::datatable(unique(z), extensions = list('Buttons','Scroller','FixedHeader'),
+              class = 'cell-border stripe',
+              options = list(dom = 'Bfrtip',
+                             buttons = c('excel', "csv"),
+                             pageLength = 100, fixedHeader = TRUE),
+              escape = FALSE, rownames = FALSE)
+```
+
+# Where ZORA and Unpaywall differ in OA Status (assuming they match on DOI)
+
+```{r}
+z <- m %>% filter(!is.na(oa_status.unpaywall), 
+                  !is.na(oa_status.zora), 
+                  oa_status.zora != oa_status.unpaywall) %>% 
+  select(doi, eprintid, oa_status.zora, year,
+         oa_status.unpaywall, title, journal) %>%
+  arrange(desc(year))
+
+z <- z %>% 
+  mutate(oa_status.unpaywall = paste0("<a href='https://api.unpaywall.org/v2/",
+                                      doi,"?email=YOUR_EMAIL'>",
+                                      oa_status.unpaywall, "</a>")) %>%
+  mutate(doi = paste0("<a href='https://www.doi.org/",
+                      doi, "'>", doi, "</a>")) %>%
+  mutate(eprintid = paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
+                           eprintid, "'>", eprintid, "</a>"))
+DT::datatable(z, extensions = 'Buttons',
+              options = list(dom = 'Bfrtip',
+                             pageLength = 200,
+                             buttons = list('copy', 'csv', 'excel')), 
+              escape = FALSE, rownames = FALSE)
+```
+
+# sessionInfo
+
+```{r pressure, echo=FALSE}
+sessionInfo()
+```

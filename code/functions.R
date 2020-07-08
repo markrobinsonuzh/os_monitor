@@ -51,13 +51,20 @@ retrieve_from_entrez <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, j
 retrieve_from_orcid <- function(orcid) {
   works <- rorcid::orcid_works(orcid)
   works <- works[[1]]$works
+  if(nrow(works)==0) {
+    df <- data.frame(title = character(0), journal=character(0),
+                     type = character(0), doi = character(0), 
+                     year = integer(0))
+    return(df)
+  }
   works$doi <- sapply(works$`external-ids.external-id`, 
                           function(u) ifelse(nrow(u)>0, u$`external-id-value`[u$`external-id-type`=="doi"], NA))
   works$doi <- tolower(works$doi)
   works$doi <- gsub("http://dx.doi.org/", "", works$doi)
   works <- works %>% filter(type != "data-set") %>%
-    mutate(title = title.title.value, journal = `journal-title.value`) %>%
-    select(title, journal, type, doi)
+    mutate(title = title.title.value, journal = `journal-title.value`,
+           year = `publication-date.year.value`) %>%
+    select(title, journal, type, doi, year)
   works$title <- sub("\\.$","",works$title)
   works <- unique(works)
   works_split <- split(works, works$doi)

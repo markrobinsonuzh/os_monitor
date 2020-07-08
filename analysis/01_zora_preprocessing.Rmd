@@ -9,22 +9,6 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Generating ZORA JSON files
-
-These have been run in advance and then gzipped to save space ..
-
-```{r eval=FALSE}
-stub <- "wget -O zora_YEAR.js --no-check-certificate https://www.zora.uzh.ch/cgi/exportview/yearnew/YEAR/JSON/YEAR.js"
-
-z <- 2000:2020
-
-for(i in z) {
-  cmd <- gsub("YEAR",i,stub)
-  cat(cmd,"\n")
-  system(cmd)
-}
-```
-
 ## Load packages
 
 ```{r load_packages}
@@ -34,11 +18,11 @@ library(dplyr)
 ```
 
 
-## Reading in ZORA JSON files
+## Read in ZORA JSON files
 
 ```{r read_zora_files}
-outdir <- "output"
-fs <- dir("data", ".js.gz$", full.names = TRUE)
+outdir <- here::here("output")
+fs <- dir(here::here("data"), ".js.gz$", full.names = TRUE)
 
 first_na <- function(x, subset=1) {
   x <- x[subset]
@@ -51,6 +35,12 @@ df_lists <- lapply(fs, function(u) {
   this <- fromJSON(file = gzfile(u))
   
   eprintid <- sapply(this, function(u) first_na(u$eprintid))
+  
+  published_doc <- sapply(this, function(v) {
+    # v <- sapply(u$documents, .subset2, "content")
+    # "published" %in% v
+    length(v$documents)>0
+  })
 
   dewey <- lapply(this, function(u) as.character(u$dewey))
   n_dewey <- sapply(dewey, length)
@@ -79,10 +69,12 @@ df_lists <- lapply(fs, function(u) {
   tbl_eprints <- data.frame(eprintid=eprintid,
              date=sapply(this, function(u) substr(first_na(u$date),1,4)),
              doi=sapply(this, function(u) first_na(u$doi)),
+             title=sapply(this, function(u) first_na(u$title)),
              type=sapply(this, function(u) first_na(u$type)),
              refereed=sapply(this, function(u) first_na(u$refereed_set)),
              institution=sapply(this, function(u) first_na(u$institution)),
              oa_status=sapply(this, function(u) first_na(u$oa_status)),
+             published_doc = published_doc,
              stringsAsFactors = FALSE)
   
   list_lookup <- lapply(this, function(u) unlist(sapply(u$contributor_lookup, 
@@ -103,7 +95,7 @@ df_lists <- lapply(fs, function(u) {
 
 
 tbl_eprints <- do.call(rbind, lapply(df_lists, .subset2, "tbl_eprints"))
-tbl_eprints <- tbl_eprints %>% filter(!is.na(oa_status), !is.na(date))
+tbl_eprints <- tbl_eprints %>% dplyr::filter(!is.na(oa_status), !is.na(date))
 tbl_dewey <- do.call(rbind, lapply(df_lists, .subset2, "tbl_dewey"))
 tbl_subjects <- do.call(rbind, lapply(df_lists, .subset2, "tbl_subjects"))
 tbl_orcid <- do.call(rbind, lapply(df_lists, .subset2, "tbl_orcid"))
@@ -122,7 +114,7 @@ saveRDS(tbl_authorkeys, file.path(outdir, "tbl_authorkeys.rds"))
 
 ```{r subjects}
 # sub_lookup <- xmlToDataFrame("data/subjects_combined_20200108.xml")
-sub_list <- xmlToList("data/subjects_combined_20200108.xml")
+sub_list <- xmlToList("../data/subjects_combined_20200108.xml")
 sub_df <- data.frame(subjects=sapply(sub_list, .subset2, "subjectid"),
                      name=sapply(sub_list, function(u) u$name[[1]]$name),
                      parent=sapply(sub_list, function(u) u$parents$item),
@@ -138,24 +130,24 @@ saveRDS(tbl_subjects, file.path(outdir, "tbl_subjects.rds"))
 ## Dewey
 
 ```{r dewey}
-# read in Dewey file to get classifications
-dewey_file <- read.table("https://www.gutenberg.org/cache/epub/12513/pg12513.txt", 
-                         sep="\n", quote="")
-# dewey_list <- grep("^[0-9][0-9]0", dewey_file$V1, value=TRUE)
-dewey_list <- grep("^=[0-9][0-9][0-9]", dewey_file$V1, value=TRUE)
-dewey_list <- gsub("=","", dewey_list)
-dewey_num <- substr(dewey_list, 1, 3)
-dewey_cat <- trimws(substr(dewey_list, 5, 200))
-dewey_lookup <- setNames(dewey_cat, dewey_num)
-rm(dewey_file, dewey_list, dewey_num, dewey_cat)
-
-
-top_dewey <- names(sort(table(tbl_dewey$dewey), decreasing = TRUE)[1:18])
-tbl_dewey <- tbl_dewey %>% dplyr::filter(dewey %in% top_dewey)
-tbl_dewey$field <- dewey_lookup[gsub("ddc","", tbl_dewey$dewey)]
-
-
-saveRDS(tbl_dewey, file.path(outdir, "tbl_dewey.rds"))
+# # read in Dewey file to get classifications
+# dewey_file <- read.table("https://www.gutenberg.org/cache/epub/12513/pg12513.txt", 
+#                          sep="\n", quote="")
+# # dewey_list <- grep("^[0-9][0-9]0", dewey_file$V1, value=TRUE)
+# dewey_list <- grep("^=[0-9][0-9][0-9]", dewey_file$V1, value=TRUE)
+# dewey_list <- gsub("=","", dewey_list)
+# dewey_num <- substr(dewey_list, 1, 3)
+# dewey_cat <- trimws(substr(dewey_list, 5, 200))
+# dewey_lookup <- setNames(dewey_cat, dewey_num)
+# rm(dewey_file, dewey_list, dewey_num, dewey_cat)
+# 
+# 
+# top_dewey <- names(sort(table(tbl_dewey$dewey), decreasing = TRUE)[1:18])
+# tbl_dewey <- tbl_dewey %>% dplyr::filter(dewey %in% top_dewey)
+# tbl_dewey$field <- dewey_lookup[gsub("ddc","", tbl_dewey$dewey)]
+# 
+# 
+# saveRDS(tbl_dewey, file.path(outdir, "tbl_dewey.rds"))
 ```
 
 ## sessionInfo()

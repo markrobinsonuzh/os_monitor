@@ -64,16 +64,15 @@ df1 <- na.omit(df1)
 
 ggplot(df1, aes(x=date, fill=oa_status)) + 
   geom_bar() + 
-  facet_wrap(~name, scales="free_y", ncol=7) +
+  facet_wrap(~name, scales="free_y", ncol=5) +
   theme(axis.text.x = element_text(angle = 90)) +
   my_scale
-
 
 
 df2 <- df1 %>% group_by(name) %>% 
   summarize(sum_oa=sum(oa_status!="closed"), n=n()) %>%
   mutate(mean_oa=sum_oa/n) %>% 
-  filter(n>1000) %>% 
+  filter(n>100) %>% 
   arrange(-mean_oa)
 
 top_bottom <- rbind( top_n(df2, 4), top_n(df2, -4) )
@@ -152,4 +151,4 @@ ggplot(df %>% filter(date>2007, date<2020), aes(x=date, fill=oa_status)) +
 
 
   
-```
+s```

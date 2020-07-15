@@ -1,0 +1,151 @@
+---
+title: "Florian Altermatt"
+output:
+  html_document:
+    toc: true
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load packages/data and set parameters
+
+```{r packages_params_load, message=FALSE}
+
+#rmarkdown::render("analysis/florian_altermatt.Rmd")
+
+library(dplyr)
+library(rcrossref)
+library(roadoi)
+source(here::here("code/functions.R"))
+
+outdir <- here::here("output")
+tbl_eprints <- readRDS(file.path(outdir, "tbl_eprints.rds"))
+tbl_authorkeys <- readRDS(file.path(outdir, "tbl_authorkeys.rds"))
+
+author <- c("altermatt f 0000 0002 4831 6958", "altermatt f")
+orcid <- "0000-0002-4831-6958"
+```
+
+
+# Extract ZORA, ORCID and Unpaywall entries
+
+```{r tables, message=FALSE}
+tbl_author <- tbl_authorkeys %>% filter(authorkey %in% author) %>%
+  left_join(tbl_eprints)
+
+ws <- retrieve_from_orcid(orcid)
+
+m <- full_join(ws, tbl_author, 
+               by="doi", suffix=c(".orcid",".zora"))
+
+oaf <- oadoi_fetch(unique(na.omit(m$doi)),
+                   email="mark.robinson@mls.uzh.ch")
+
+m <- m %>% left_join(oaf %>% select(doi, oa_status), 
+                     by = "doi", suffix=c(".zora", ".unpaywall"))
+```
+
+# Cross-tabulation of ZORA and Unpaywall entries
+
+```{r crosstab, message=FALSE}
+with(m, table(oa_status.zora, oa_status.unpaywall, useNA="ifany"))
+```
+
+
+# Articles listed as 'closed' in either ZORA or Unpaywall
+
+```{r}
+z <- m %>% filter(oa_status.unpaywall == "closed" | oa_status.zora == "closed") %>% 
+  select(doi, eprintid, oa_status.zora, 
+         oa_status.unpaywall, title, journal)
+z <- z %>% 
+  mutate(oa_status.unpaywall = ifelse(is.na(oa_status.unpaywall), "",
+                                      paste0("<a href='https://api.unpaywall.org/v2/",
+                                      doi,"?email=YOUR_EMAIL'>",
+                                      oa_status.unpaywall, "</a>"))) %>%
+  mutate(doi = ifelse(is.na(doi), "", paste0("<a href='https://www.doi.org/",
+                      doi, "'>", doi, "</a>"))) %>%
+  mutate(eprintid = ifelse(is.na(eprintid), "", paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
+                                                  eprintid, "'>", eprintid, "</a>")))
+DT::datatable(z, extensions = list('Buttons','Scroller','FixedHeader'),
+              class = 'cell-border stripe',
+              options = list(dom = 'Bfrtip',
+                             buttons = c('excel', "csv"),
+                             pageLength = 100,
+                             scrollY = TRUE, fixedHeader = TRUE),
+              escape = FALSE, rownames = FALSE)
+```
+
+
+# Where ZORA and Unpaywall differ in OA Status (assuming they match on DOI)
+
+```{r}
+z <- m %>% filter(!is.na(oa_status.unpaywall), 
+                  !is.na(oa_status.zora), 
+                  oa_status.zora != oa_status.unpaywall) %>% 
+  select(doi, eprintid, oa_status.zora, 
+         oa_status.unpaywall, title, journal)
+z <- z %>% 
+  mutate(oa_status.unpaywall = paste0("<a href='https://api.unpaywall.org/v2/",
+                                      doi,"?email=YOUR_EMAIL'>",
+                                      oa_status.unpaywall, "</a>")) %>%
+  mutate(doi = paste0("<a href='https://www.doi.org/",
+                      doi, "'>", doi, "</a>")) %>%
+  mutate(eprintid = paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
+                           eprintid, "'>", eprintid, "</a>"))
+DT::datatable(z, extensions = list('Buttons','Scroller','FixedHeader'),
+              class = 'cell-border stripe',
+              options = list(dom = 'Bfrtip',
+                             buttons = c('excel', "csv"),
+                             pageLength = 100,
+                             scrollY = TRUE, fixedHeader = TRUE),
+              escape = FALSE, rownames = FALSE)
+```
+
+# Records in ZORA but not in ORCID (using DOI as key)
+
+```{r}
+z <- m %>% filter(!is.na(eprintid), is.na(type.orcid))
+z <- z %>% 
+  select(doi, eprintid, date, type.zora, refereed, oa_status.zora) %>%
+  mutate(doi = ifelse(is.na(doi), "", paste0("<a href='https://www.doi.org/",
+                      doi, "'>", doi, "</a>"))) %>%
+  mutate(eprintid = paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
+                           eprintid, "'>", eprintid, "</a>"))
+DT::datatable(z, extensions = list('Buttons','Scroller','FixedHeader'),
+              class = 'cell-border stripe',
+              options = list(dom = 'Bfrtip',
+                             buttons = c('excel', "csv"),
+                             pageLength = 100,
+                             scrollY = TRUE, fixedHeader = TRUE),
+              escape = FALSE, rownames = FALSE)
+```
+
+# Records in ORCID but not in ZORA (using DOI as key; type.orcid='other' is usually a preprint)
+
+```{r}
+z <- m %>% filter(is.na(eprintid), !is.na(type.orcid))
+z <- z %>% 
+  select(doi, type.orcid, title, journal) %>%
+  mutate(doi = ifelse(is.na(doi), "", paste0("<a href='https://www.doi.org/",
+                      doi, "'>", doi, "</a>")))
+DT::datatable(unique(z), extensions = list('Buttons','Scroller','FixedHeader'),
+              class = 'cell-border stripe',
+              options = list(dom = 'Bfrtip',
+                             buttons = c('excel', "csv"),
+                             pageLength = 100, fixedHeader = TRUE),
+              escape = FALSE, rownames = FALSE)
+```
+
+
+# sessionInfo
+
+
+```{r pressure, echo=FALSE}
+sessionInfo()
+```

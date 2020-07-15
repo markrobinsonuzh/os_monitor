@@ -1,0 +1,33 @@
+---
+title: "01_zora_download"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Generating ZORA JSON files from API
+
+These have been run in advance and then gzipped to save space ..
+
+```{r eval=FALSE}
+stub <- "wget -O data/zora_YEAR.js --no-check-certificate https://www.zora.uzh.ch/cgi/exportview/yearnew/YEAR/JSON/YEAR.js"
+
+z <- 2020:2000
+
+for(i in z) {
+  cmd <- gsub("YEAR",i,stub)
+  cat(cmd,"\n")
+  system(cmd, show.output.on.console = FALSE)
+}
+system("gzip data/*.js")
+```
+
+## sessionInfo()
+
+```{r sessioninfo}
+sessionInfo()
+```

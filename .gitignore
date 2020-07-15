@@ -3,6 +3,11 @@
 .RData
 .Ruserdata
 .httr-oauth
+.DS_Store
+*/.DS_Store
 */*.pdf
 */*.md
 */*.html
+*/*.js.gz
+*/*.zip
+*/*.rds

@@ -1,0 +1,13 @@
+Package: uzhOS
+Title: R package with tools for Open Science activities at UZH
+Version: 1.0
+Date: 2020-07-14
+Depends: R (>= 4.0.0)
+Author: Mark Robinson <mark.robinson@mls.uzh.ch>
+Maintainer: Mark Robinson <mark.robinson@mls.uzh.ch>
+Description: Tools for monitoring people, departments, etc. from ZORA, ORCID, Google Scholar, etc.
+License: MIT
+Encoding: UTF-8
+URL: https://github.com/markrobinsonuzh/os_monitor
+BugReports: https://github.com/markrobinsonuzh/os_monitor/issues
+RoxygenNote: 7.1.1

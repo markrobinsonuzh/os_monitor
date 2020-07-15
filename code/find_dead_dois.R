@@ -28,6 +28,9 @@ for(i in 1:nrow(hundreds)) {
 
 n <- sapply(cns,length)
 
+
+n <- sapply(cns,length)
+
 sink("big.bib")
 cat(paste0(unlist(cns[n==1]), collapse = "\n"))
 sink()

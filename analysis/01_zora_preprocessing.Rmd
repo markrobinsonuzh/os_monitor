@@ -114,7 +114,7 @@ saveRDS(tbl_authorkeys, file.path(outdir, "tbl_authorkeys.rds"))
 
 ```{r subjects}
 # sub_lookup <- xmlToDataFrame("data/subjects_combined_20200108.xml")
-sub_list <- xmlToList("../data/subjects_combined_20200108.xml")
+sub_list <- xmlToList(paste0(here::here("data"),"/subjects_combined_20200108.xml"))
 sub_df <- data.frame(subjects=sapply(sub_list, .subset2, "subjectid"),
                      name=sapply(sub_list, function(u) u$name[[1]]$name),
                      parent=sapply(sub_list, function(u) u$parents$item),

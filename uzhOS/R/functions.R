@@ -91,7 +91,7 @@ retrieve_from_orcid <- function(orcid, exclude = "data-set") {
                           function(u) ifelse(nrow(u)>0, u$`external-id-value`[u$`external-id-type`=="doi"], NA))
   works$doi <- tolower(works$doi)
   works$doi <- gsub("http://dx.doi.org/", "", works$doi)
-  works <- works %>% filter(!(type %in% include)) %>%
+  works <- works %>% filter(!(type %in% exclude)) %>%
     mutate(title = title.title.value, journal = `journal-title.value`,
            year = `publication-date.year.value`) %>%
     select(title, journal, type, doi, year)
@@ -124,7 +124,7 @@ retrieve_from_orcid <- function(orcid, exclude = "data-set") {
 retrieve_from_scholar <- function(scholar_id) {
   starts <- seq(0,1000,by=100)
   scholar_pubs <- lapply(starts, function(u) {
-    get_publications(scholar_id, cstart = u, pagesize = 100, flush = FALSE)  
+    scholar::get_publications(scholar_id, cstart = u, pagesize = 100, flush = FALSE)  
   })
   scholar_pubs <- do.call(rbind, scholar_pubs)
   scholar_pubs <- unique(scholar_pubs)
@@ -197,6 +197,152 @@ calcScore <- function(x,y) {
 
 
 
+#' fetch doi entries from local unpaywall
+#'
+#' @param dois dois to get open access status from
+#' @param file filename or data.frame of unpaywall data 
+#'
+#' @return open access status for each doi
+#' @export
+#'
+#' @examples 
+#' oadoi_fetch_local("10.1177/000271625529700159")
+oadoi_fetch_local <- function(dois,file=readRDS(here::here("output","dois_unpaywall.rds"))){
+  if(!is(file,"data.frame")){
+    file <- readRDS(here::here("output","dois_unpaywall.rds"))
+  }
+  dplyr::filter(file,doi %in% dois)
+}
+
+
+#' key of oa status
+#'
+#' @return list of keypairs
+#' @export
+#'
+#' @examples
+open_cols_fn <- function(){
+  c("closed" = "gray48", "hybrid" = "darkorange1",
+    "green" = "chartreuse4", "gold" = "gold",
+    "preprint" = "red", "bronze" = "darkgoldenrod4",
+    "blue" = "blue") 
+}
+
+
+#' create_tbl_author
+#'
+#' @param tbl_authorkeys tibble created in '01_zora_preprocessing.Rmd'
+#' @param tbl_eprints tibble created in '01_zora_preprocessing.Rmd'
+#' @param pri_author author id (with attached orcid)
+#' @param sec_author author id 
+#'
+#' @return tbl_author
+#' 
+#' @importFrom magrittr %>%
+#' @export
+#'
+#' @examples
+create_tbl_author <- function(tbl_authorkeys,tbl_eprints,pri_author,sec_author){
+  tbl_authorkeys %>% 
+    dplyr::filter(authorkey %in% c(pri_author, sec_author)) %>%
+    dplyr::left_join(tbl_eprints) %>%
+    dplyr::mutate(year = date, doi = tolower(doi))
+} 
+
+#' create_zora
+#'
+#' @param pri_author author id (with attached orcid)
+#' @param sec_author author id 
+#' @param tbl_author tibble, created from \code{\link{create_tbl_author}}
+#' @param tbl_subjects tibble created in '01_zora_preprocessing.Rmd'
+#'
+#' @return
+#' 
+#' @export
+#' @importFrom magrittr %>%
+#' 
+#' @examples
+create_zora <- function(pri_author,sec_author,tbl_author,tbl_subjects){
+  open_cols <-  open_cols_fn()
+  dept_fac <- tbl_author %>% dplyr::left_join(tbl_subjects %>%
+                                                dplyr::select(eprintid, name, parent_name))
+  org_unit <- dept_fac %>% dplyr::select(name) %>% dplyr::group_by(name) %>%
+    dplyr::tally %>% dplyr::top_n(1) %>% dplyr::pull(name)
+  zora <- dept_fac %>%
+    dplyr::mutate(dept = name, faculty = parent_name) %>%
+    dplyr::filter(authorkey == pri_author | (authorkey %in% sec_author & dept == org_unit)) %>%
+    dplyr::select(-dept, -faculty, -name, -parent_name) %>% unique()
+  
+  # add blue OA
+  zora$oa_status[zora$published_doc & zora$oa_status=="closed"] <- "blue" 
+  zora$oa_status <- factor(zora$oa_status, levels = names(open_cols))
+  zora
+}
+
+#' create combined data from zora, orcid and unpaywall
+#'
+#' @param ws tibble from \code{\link{retrieve_from_orcid}}
+#' @param zora tibble from \code{\link{create_zora}}
+#' @param unpaywall data.frame of reduced unpaywall database
+#'
+#' @return
+#' 
+#' @export
+#' @importFrom magrittr %>%
+#'
+#' @examples
+create_combined_data <- function(ws,zora,unpaywall){
+  open_cols <-  open_cols_fn()
+  m <- dplyr::full_join(ws, zora, 
+                 by="doi", suffix=c(".orcid",".zora")) %>%
+    dplyr::filter(doi != "logical(0)")
+  
+  oaf <- oadoi_fetch_local(unique(na.omit(m$doi)),unpaywall)
+  
+  m <- m %>% dplyr::left_join(oaf %>% select(doi, oa_status), 
+                       by = "doi", suffix=c(".zora", ".unpaywall")) %>%
+    dplyr::mutate(year = year.orcid, title = title.orcid)
+  m$overall_oa <- m$oa_status.unpaywall
+  m$overall_oa[m$type.orcid=="other"] <- "preprint"
+  w <- is.na(m$overall_oa)
+  m$overall_oa[w] <- m$oa_status.zora[w]
+  w <- is.na(m$year)
+  m$year[w] <- m$year.zora[w]
+  w <- is.na(m$title)
+  m$title[w] <- m$title.zora[w]
+  w <- m$overall_oa == "closed" & m$oa_status.zora=="blue"
+  m$overall_oa[w] <- "blue"
+  m$overall_oa <- factor(m$overall_oa, levels = names(open_cols))
+  m
+}
 
 
 
+#' create_combined_data_wrapper
+#'
+#' @param tbl_authorkeys tibble created in '01_zora_preprocessing.Rmd'
+#' @param tbl_eprints tibble created in '01_zora_preprocessing.Rmd'
+#' @param tbl_subjects tibble created in '01_zora_preprocessing.Rmd'
+#' @param pri_author author id (with attached orcid)
+#' @param sec_author author id 
+#' @param orcid orcid
+#' @param unpaywall data.frame of reduced unpaywall database
+#'
+#' @return
+#' 
+#' @export
+#' @importFrom magrittr %>%
+#'
+#' @examples
+create_combined_data_wrapper <- function(tbl_authorkeys,tbl_eprints,tbl_subjects,pri_author,sec_author,orcid,unpaywall){
+  tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,pri_author,sec_author)
+  
+  dept_fac <- tbl_author %>% dplyr::left_join(tbl_subjects %>% 
+                                                dplyr::select(eprintid, name, parent_name))
+  org_unit <- dept_fac %>% dplyr::select(name) %>% dplyr::group_by(name) %>% 
+    dplyr::tally %>% dplyr::top_n(1) %>% dplyr::pull(name)
+  ws <- retrieve_from_orcid(orcid) %>%
+    dplyr::mutate(doi = tolower(doi))
+  zora <- create_zora(pri_author,sec_author,tbl_author,tbl_subjects)
+  create_combined_data(ws,zora,unpaywall)
+}

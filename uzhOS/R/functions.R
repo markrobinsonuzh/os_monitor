@@ -208,10 +208,22 @@ calcScore <- function(x,y) {
 #' @examples 
 #' oadoi_fetch_local("10.1177/000271625529700159")
 oadoi_fetch_local <- function(dois,file=readRDS(here::here("output","dois_unpaywall.rds"))){
-  if(!is(file,"data.frame")){
+  if (is(file,"mongo")){
+    lapply(dois,function(doi){
+      single_query <- file$find(paste0('{"doi":"',doi,'"}'))
+      if (length(single_query)<2){
+        tibble::tibble(doi=NULL,oa_status=NULL)
+      } else {
+        tibble::tibble(doi=single_query[[1]],oa_status=single_query[[2]])
+      }
+    }) %>% purrr::reduce(rbind)
+  } else if (!is(file,"data.frame")){
     file <- readRDS(here::here("output","dois_unpaywall.rds"))
+    dplyr::filter(file,doi %in% dois)
+  } else {
+    dplyr::filter(file,doi %in% dois)
   }
-  dplyr::filter(file,doi %in% dois)
+  
 }
 
 
@@ -245,7 +257,7 @@ open_cols_fn <- function(){
 create_tbl_author <- function(tbl_authorkeys,tbl_eprints,pri_author,sec_author){
   tbl_authorkeys %>% 
     dplyr::filter(authorkey %in% c(pri_author, sec_author)) %>%
-    dplyr::left_join(tbl_eprints) %>%
+    dplyr::left_join(tbl_eprints,by="eprintid") %>%
     dplyr::mutate(year = date, doi = tolower(doi))
 } 
 
@@ -265,9 +277,9 @@ create_tbl_author <- function(tbl_authorkeys,tbl_eprints,pri_author,sec_author){
 create_zora <- function(pri_author,sec_author,tbl_author,tbl_subjects){
   open_cols <-  open_cols_fn()
   dept_fac <- tbl_author %>% dplyr::left_join(tbl_subjects %>%
-                                                dplyr::select(eprintid, name, parent_name))
-  org_unit <- dept_fac %>% dplyr::select(name) %>% dplyr::group_by(name) %>%
-    dplyr::tally %>% dplyr::top_n(1) %>% dplyr::pull(name)
+                                                dplyr::select(eprintid, name, parent_name),by="eprintid")
+  org_unit <- suppressMessages(dept_fac %>% dplyr::select(name) %>% dplyr::group_by(name) %>%
+    tally %>% dplyr::top_n(1) %>% dplyr::pull(name))
   zora <- dept_fac %>%
     dplyr::mutate(dept = name, faculty = parent_name) %>%
     dplyr::filter(authorkey == pri_author | (authorkey %in% sec_author & dept == org_unit)) %>%
@@ -293,15 +305,22 @@ create_zora <- function(pri_author,sec_author,tbl_author,tbl_subjects){
 #' @examples
 create_combined_data <- function(ws,zora,unpaywall){
   open_cols <-  open_cols_fn()
-  m <- dplyr::full_join(ws, zora, 
-                 by="doi", suffix=c(".orcid",".zora")) %>%
-    dplyr::filter(doi != "logical(0)")
-  
+  if (!is.null(ws)){
+    m <- dplyr::full_join(ws, zora, 
+                          by="doi", suffix=c(".orcid",".zora")) %>%
+      dplyr::filter(doi != "logical(0)")
+  } else {
+    m <- zora
+  }
+
   oaf <- oadoi_fetch_local(unique(na.omit(m$doi)),unpaywall)
   
   m <- m %>% dplyr::left_join(oaf %>% select(doi, oa_status), 
-                       by = "doi", suffix=c(".zora", ".unpaywall")) %>%
-    dplyr::mutate(year = year.orcid, title = title.orcid)
+                       by = "doi", suffix=c(".zora", ".unpaywall"))
+  if (!is.null(ws)){
+    m <- m %>% dplyr::mutate(year = year.orcid, title = title.orcid)
+  } 
+  
   m$overall_oa <- m$oa_status.unpaywall
   m$overall_oa[m$type.orcid=="other"] <- "preprint"
   w <- is.na(m$overall_oa)
@@ -334,15 +353,38 @@ create_combined_data <- function(ws,zora,unpaywall){
 #' @importFrom magrittr %>%
 #'
 #' @examples
-create_combined_data_wrapper <- function(tbl_authorkeys,tbl_eprints,tbl_subjects,pri_author,sec_author,orcid,unpaywall){
+create_combined_data_wrapper <- function(tbl_authorkeys,tbl_eprints,tbl_subjects,pri_author,sec_author,orcid,unpaywall,progress=NULL){
   tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,pri_author,sec_author)
-  
+  if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
   dept_fac <- tbl_author %>% dplyr::left_join(tbl_subjects %>% 
-                                                dplyr::select(eprintid, name, parent_name))
-  org_unit <- dept_fac %>% dplyr::select(name) %>% dplyr::group_by(name) %>% 
-    dplyr::tally %>% dplyr::top_n(1) %>% dplyr::pull(name)
-  ws <- retrieve_from_orcid(orcid) %>%
-    dplyr::mutate(doi = tolower(doi))
+                                                dplyr::select(eprintid, name, parent_name),by="eprintid")
+  if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
+  org_unit <- suppressMessages(dept_fac %>% dplyr::select(name) %>% dplyr::group_by(name) %>% 
+    tally %>% dplyr::top_n(1) %>% dplyr::pull(name))
+  if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
+  ws <- tryCatch({retrieve_from_orcid(orcid) %>%
+      dplyr::mutate(doi = tolower(doi))},
+      error=function(e) NULL)
+  if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
+  # ws <- retrieve_from_orcid(orcid) %>%
+  #     dplyr::mutate(doi = tolower(doi))
   zora <- create_zora(pri_author,sec_author,tbl_author,tbl_subjects)
+  if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
   create_combined_data(ws,zora,unpaywall)
 }
+
+
+
+org_unit_fac <- function(pri_author,sec_author,tbl_subjects,tbl_authorkeys,tbl_eprints){
+  tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,pri_author,sec_author)
+  dept_fac <- tbl_author %>% left_join(tbl_subjects %>%
+                                         select(eprintid, name, parent_name),by="eprintid")
+  org_unit <- suppressMessages(dept_fac %>% select(name) %>% group_by(name) %>%
+    tally %>% top_n(1) %>% pull(name))
+  fac <- suppressMessages(dept_fac %>% select(parent_name) %>% group_by(parent_name) %>%
+    tally %>% top_n(1) %>% pull(parent_name))
+  return(list(org_unit=org_unit,fac=fac))
+}
+
+
+

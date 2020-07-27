@@ -24,17 +24,31 @@ possible_alias_author <- function(author_string){
 
 
 
-
-pot_alias_and_affil <- function(author_string,unique_authorkeys, unique_authorkeys_no_digits,tbl_subjects,tbl_authorkeys,tbl_eprints){
-  ind_auth <- which(unique_authorkeys_no_digits$author==author_string)
-  ind_pot <- lapply(possible_alias_author(author_string), function(auth){
-    which(unique_authorkeys_no_digits$author==auth)
-  })
-  tpmind <- ind_pot[lapply(ind_pot,length)>0]
-  if (length(tpmind)==0){
-    pot_aliases <- unique_authorkeys[ind_auth]
+pot_alias_and_affil <- function(author_string,tbl_unique_authorkeys,tbl_subjects,tbl_authorkeys,tbl_eprints){
+  # if data in mongodb 
+  if (is(tbl_unique_authorkeys,"mongo")){
+    ind_auth <- tbl_unique_authorkeys$find(paste0('{"authorkey_processed":"',author_string,'"}'))[["id"]]
+    ind_pot <- lapply(possible_alias_author(author_string), function(auth){
+      tbl_unique_authorkeys$find(paste0('{"authorkey_processed":"',auth,'"}'))[["id"]]
+    })
+    tpmind <- ind_pot[lapply(ind_pot,length)>0]
+    if (length(tpmind)==0){
+      pot_aliases <- tbl_unique_authorkeys$find(paste0('{"id": { "$in": [',paste0(ind_auth,collapse = ','),'] } }'))[["authorkey"]]
+    } else {
+      pot_aliases <- tbl_unique_authorkeys$find(paste0('{"id": { "$in": [',paste0(c(ind_auth,tpmind[[1]]),collapse = ','),'] } }'))[["authorkey"]]
+    }
+    # if data as data.frame
   } else {
-    pot_aliases <- c(unique_authorkeys[ind_auth],unique_authorkeys[tpmind[[1]]])
+    ind_auth <- which(tbl_unique_authorkeys$authorkey_processed==author_string)
+    ind_pot <- lapply(possible_alias_author(author_string), function(auth){
+      which(tbl_unique_authorkeys$authorkey_processed==auth)
+    })
+    tpmind <- ind_pot[lapply(ind_pot,length)>0]
+    if (length(tpmind)==0){
+      pot_aliases <- tbl_unique_authorkeys$authorkey[ind_auth]
+    } else {
+      pot_aliases <- c(tbl_unique_authorkeys$authorkey[ind_auth],tbl_unique_authorkeys$authorkey[tpmind[[1]]])
+    }
   }
   pot_affil <- lapply(pot_aliases, function(pot_alias){
     org_unit_fac(pot_alias,"",tbl_subjects,tbl_authorkeys,tbl_eprints)

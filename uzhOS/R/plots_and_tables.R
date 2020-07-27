@@ -7,12 +7,14 @@
 #' @export
 #'
 #' @examples
-zora_only_plot <- function(zora,cutoff_year){
+oa_status_time_plot <- function(zora,cutoff_year,colname=year,title="ZORA OA Status",oa_status_used=oa_status){
+  q_colname <- enquo(colname)
+  q_oa_status_used <- enquo(oa_status_used)
   open_cols <- open_cols_fn()
-  ggplot(zora %>% dplyr::filter(date >= cutoff_year, date <= 2020), aes(x=date, fill=oa_status)) + 
+  ggplot(zora %>% dplyr::filter(!!q_colname >= cutoff_year, !!q_colname <= 2020), aes(x=!!q_colname, fill=!!q_oa_status_used)) + 
     geom_bar() + 
     theme(axis.text.x = element_text(angle = 90)) +
-    ggtitle("ZORA OA Status") +
+    ggtitle(title) +
     scale_fill_manual(values=open_cols)
 }
 
@@ -88,7 +90,7 @@ oa_percent_time_table <- function(m,cutoff_year){
 overall_closed_table <- function(m,cutoff_year){
   z <- m %>% filter(overall_oa == "closed", year >= cutoff_year) %>% 
     select(doi, eprintid, overall_oa, oa_status.zora, 
-           oa_status.unpaywall, year, title, journal) %>%
+           oa_status.unpaywall, year, title) %>%
     arrange(desc(year))
   z <- z %>% 
     mutate(oa_status.unpaywall = ifelse(is.na(oa_status.unpaywall), "",
@@ -108,7 +110,7 @@ overall_closed_table <- function(m,cutoff_year){
 
 
 zora_without_orcid_table <- function(m,cutoff_year){
-  z <- m %>% filter(!is.na(eprintid), is.na(type.orcid), year >= cutoff_year)
+  z <- m %>% filter(!is.na(eprintid), is.na(type.orcid), year >= cutoff_year, is_zora, !is_orcid)
   z <- z %>% 
     select(doi, eprintid, type.zora, refereed, title, oa_status.zora, year) %>%
     mutate(doi = ifelse(is.na(doi), "", paste0("<a href='https://www.doi.org/",
@@ -163,3 +165,15 @@ oa_status_diff_zora_unpaywall_table <- function(m,cutoff_year){
                                buttons = list('copy', 'csv', 'excel')), 
                 escape = FALSE, rownames = FALSE)
 }
+
+
+upset_plot <- function(m){
+  tib_plt <- m %>% 
+    dplyr::select(starts_with("in_")) %>% 
+    dplyr::mutate(across(starts_with("in_"),~as.integer(.x)))
+  print(head(tib_plt))
+  upset(tib_plt)
+}
+
+
+

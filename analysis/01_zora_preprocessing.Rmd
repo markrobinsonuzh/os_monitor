@@ -77,12 +77,33 @@ df_lists <- lapply(fs, function(u) {
              published_doc = published_doc,
              stringsAsFactors = FALSE)
   
-  list_lookup <- lapply(this, function(u) unlist(sapply(u$contributor_lookup, 
-                                                 function(v) v$lookup)))
+  list_lookup <- lapply(this, function(uu) 
+    sapply(seq_along(uu$contributor_lookup), function(i) {
+      tryCatch({
+        data.frame(authorkey=ifelse(is.null(unlist(uu$contributor_lookup[[i]]$lookup)),NA,unlist(uu$contributor_lookup[[i]]$lookup)),
+                   author_name_family=ifelse(is.null(unlist(uu$contributor_stat[[i]]$name$family)),NA,unlist(uu$contributor_stat[[i]]$name$family)),
+                   author_name_given=ifelse(is.null(unlist(uu$contributor_stat[[i]]$name$given)),NA,unlist(uu$contributor_stat[[i]]$name$given)))
+      },error=function(e) {
+        if (is.null(uu$contributor_lookup[[i]]$lookup)){
+          data.frame(authorkey=NA,
+                     author_name_family=NA,
+                     author_name_given=NA)
+        } else{
+        data.frame(
+          authorkey=ifelse(is.null(unlist(uu$contributor_lookup[[i]]$lookup)),NA,unlist(uu$contributor_lookup[[i]]$lookup)),
+          author_name_family=rep(NA,length(unlist(uu$contributor_lookup[[i]]$lookup))),
+          author_name_given=rep(NA,length(unlist(uu$contributor_lookup[[i]]$lookup))))
+      }})
+        }))
+  
+  
   names(list_lookup) <- tbl_eprints$eprintid
-  n_list <- sapply(list_lookup, length)
+  n_list <- unlist(sapply(list_lookup, function(x) ifelse(length(ncol(x))>0,ncol(x),0)))
+  # n_list <- sapply(n_list, function(x) ifelse(is.null(x),0,x))
   tbl_authorkeys <- data.frame(eprintid=rep(eprintid, n_list),
-                               authorkey=unlist(list_lookup),
+                               authorkey=unlist(lapply(list_lookup,function(u) if(length(u)==0) NULL else u[1,])),
+                               author_name_family=unlist(lapply(list_lookup,function(u) if(length(u)==0) NULL else  u[2,])),
+                               author_name_given=unlist(lapply(list_lookup,function(u) if(length(u)==0) NULL else  u[3,])),
                                stringsAsFactors = FALSE)
   
   list(tbl_dewey = tbl_dewey,
@@ -109,6 +130,67 @@ saveRDS(tbl_orcid, file.path(outdir, "tbl_orcid.rds"))
 saveRDS(tbl_authorkeys, file.path(outdir, "tbl_authorkeys.rds"))
 
 ```
+
+
+```{r}
+tbl_unique_authorkeys <- tbl_authorkeys %>% group_by(authorkey)  %>% 
+    summarise(author_name_family_given=max(unique(paste(ifelse(is.na(author_name_family),"",author_name_family),ifelse(is.na(author_name_given),"",author_name_given))))) %>% 
+    mutate(id=row_number(),
+           authorkey_processed=authorkey)
+
+unique_authorkeys_which <-
+    stringr::str_which(tbl_unique_authorkeys$authorkey,"([:digit:]{3,4} ?)+[:alpha:]?($| )")
+# unique_authorkeys_which_inv <- seq_along(unique_authorkeys)[-unique_authorkeys_which]
+
+unique_authorkeys_sub <- tibble(id=unique_authorkeys_which,
+       authorkeys_sub_no_digits = stringr::str_replace_all(tbl_unique_authorkeys$authorkey[unique_authorkeys_which],"([:digit:]{3,4} ?)+[:alpha:]?($| )","") %>%
+    stringr::str_trim() ,
+    authorkeys_sub_only_digits = stringr::str_extract_all(tbl_unique_authorkeys$authorkey[unique_authorkeys_which],"([:digit:]{3,4} ?)+[:alpha:]?($| )") %>%
+    stringr::str_trim())
+
+tbl_unique_authorkeys$authorkey_processed[unique_authorkeys_which] <- unique_authorkeys_sub$authorkeys_sub_no_digits
+
+tbl_unique_authorkeys_processed <- tbl_unique_authorkeys
+tbl_unique_authorkeys_processed$authorkey[unique_authorkeys_which] <- unique_authorkeys_sub$authorkeys_sub_no_digits
+# tbl_unique_authorkeys_processed <- tbl_unique_authorkeys_processed %>% group_by(authorkey)  %>% 
+#     summarise(author_name_family_given=min(unique(author_name_family_given))) 
+
+
+
+
+saveRDS(tbl_unique_authorkeys, file.path(outdir, "tbl_unique_authorkeys.rds"))
+saveRDS(tbl_unique_authorkeys_processed, file.path(outdir, "tbl_unique_authorkeys_processed.rds"))
+# saveRDS(unique_authorkeys_processed, file.path(outdir, "unique_authorkeys_processed.rds"))
+
+# tbl_eprints <- readRDS(file.path(outdir, "tbl_eprints.rds"))
+db_eprints <- mongo(collection="eprints", db="oa", url="mongodb://192.168.16.2/20")
+db_eprints$insert(tbl_eprints)
+db_eprints$index(add="doi")
+db_eprints$index(add="eprintid")
+
+# tbl_authorkeys <- readRDS(file.path(outdir, "tbl_authorkeys.rds"))
+db_authorkeys <- mongo(collection="authorkeys", db="oa", url="mongodb://192.168.16.2/20")
+db_authorkeys$insert(tbl_authorkeys)
+db_authorkeys$index(add="authorkey")
+db_authorkeys$index(add="eprintid")
+
+
+# tbl_subjects <- readRDS(file.path(outdir, "tbl_subjects.rds"))
+db_subjects <- mongo(collection="subjects", db="oa", url="mongodb://192.168.16.2/20")
+db_subjects$insert(tbl_subjects)
+db_subjects$index(add="subjects")
+db_subjects$index(add="eprintid")
+
+# tbl_unique_authorkeys <- readRDS(file.path(outdir, "tbl_unique_authorkeys.rds"))
+db_unique_authorkeys <- mongo(collection="unique_authorkeys", db="oa", url="mongodb://192.168.16.2/20")
+db_unique_authorkeys$insert(tbl_unique_authorkeys)
+db_unique_authorkeys$index(add="authorkey")
+db_unique_authorkeys$index(add="id")
+
+```
+
+
+
 
 ## Subjects
 

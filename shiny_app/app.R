@@ -10,13 +10,13 @@ suppressPackageStartupMessages({
     library(RefManageR)
     library(scholar)
     library(rorcid)
+    library(mongolite)
 })
-tryCatch(library(mongolite),error=function(e) NA)
 tryCatch({setwd("/srv/shiny-server/os_monitor/shiny_app")},
          error=function(e) setwd("~/ownCloud/Projects/open_access/os_monitor/shiny_app/"))
-
-devtools::load_all(here::here("uzhOS"))
-outdir <- here::here("output")
+maindir <- getwd()
+devtools::load_all(file.path(maindir,"..","uzhOS"))
+outdir <- file.path(maindir,"..","output")
 Sys.setenv(ORCID_TOKEN="8268867c-bf2c-4841-ab9c-bfeddd582a9c")
 
 
@@ -25,89 +25,25 @@ cat("load unpaywall data\n")
 unpaywall <- tryCatch({mongo(collection="unpaywall", db="oa", url="mongodb://192.168.16.2/20")},
                       error=function(e) readRDS(file.path(outdir,"dois_unpaywall_subset.rds")))
 cat("load other data\n")
-tbl_eprints <- readRDS(file.path(outdir, "tbl_eprints.rds"))
-tbl_authorkeys <- readRDS(file.path(outdir, "tbl_authorkeys.rds"))
-tbl_subjects <- readRDS(file.path(outdir, "tbl_subjects.rds"))
-unique_authorkeys <- unique(tbl_authorkeys$authorkey)
+tbl_eprints <- tryCatch({mongo(collection="eprints", db="oa", url="mongodb://192.168.16.2/20")},
+                        error=function(e) readRDS(file.path(outdir, "tbl_eprints.rds")))
+tbl_authorkeys <- tryCatch({mongo(collection="authorkeys", db="oa", url="mongodb://192.168.16.2/20")},
+                           error=function(e) readRDS(file.path(outdir, "tbl_authorkeys.rds")))
+tbl_subjects <- tryCatch({mongo(collection="subjects", db="oa", url="mongodb://192.168.16.2/20")},
+                         error=function(e) readRDS(file.path(outdir, "tbl_subjects.rds")))
+tbl_unique_authorkeys <- tryCatch({mongo(collection="unique_authorkeys", db="oa", url="mongodb://192.168.16.2/20")},
+                                  error=function(e) readRDS(file.path(outdir, "tbl_unique_authorkeys.rds")))
+# tbl_unique_authorkeys_processed <- readRDS(file.path(outdir, "tbl_unique_authorkeys_processed.rds"))
 
-unique_authorkeys_which <-
-    stringr::str_which(unique_authorkeys,"([:digit:]{3,4} ?)+[:alpha:]?($| )")
-# unique_authorkeys_which_inv <- seq_along(unique_authorkeys)[-unique_authorkeys_which]
-
-unique_authorkeys_sub <- tibble(id=unique_authorkeys_which,
-       authorkeys_sub_no_digits = stringr::str_replace_all(unique_authorkeys[unique_authorkeys_which],"([:digit:]{3,4} ?)+[:alpha:]?($| )","") %>%
-    stringr::str_trim() ,
-    authorkeys_sub_only_digits = stringr::str_extract_all(unique_authorkeys[unique_authorkeys_which],"([:digit:]{3,4} ?)+[:alpha:]?($| )") %>%
-    stringr::str_trim())
-
-unique_authorkeys_no_digits <- tibble(author=unique_authorkeys,id=seq_along(unique_authorkeys))
-unique_authorkeys_no_digits$author[unique_authorkeys_which] <- unique_authorkeys_sub$authorkeys_sub_no_digits
-
-unique_authorkeys_processed <- unique(unique_authorkeys_no_digits$author)
-
-# lensauth <- BiocParallel::bplapply(BPPARAM = BiocParallel::MulticoreParam(workers = 14),
-#                        unique_authorkeys_processed,function(elem){
-#     c(ind_auth=elem,len=length(unique_authorkeys[which(unique_authorkeys_no_digits==elem)]))
-# }) %>% purrr::reduce(rbind)
-
-# lensauth
-# pri_author <- c("robinson m 0000 0002 3048 5518")
-# sec_author <- c("robinson m d")
-# orcid <- "0000-0002-3048-5518"
-# m <- create_combined_data_wrapper(tbl_authorkeys,tbl_eprints,tbl_subjects,pri_author,sec_author,orcid,unpaywall)
-# 
-# oaf <- oadoi_fetch_local(unique(na.omit(m$doi)),unpaywall)
-
-# author_string <- "robinson m d"
-# author_string <- "schmid m r t"
-
-# author_string <- "schmid b"
-
-# potnam <- pot_alias_and_affil(author_string,unique_authorkeys_no_digits,tbl_subjects,tbl_authorkeys,tbl_eprints)
-# org_unit_fac(potnam[[1]][4],"",tbl_subjects,tbl_authorkeys,tbl_eprints)
-
-# ind_auth <- which(unique_authorkeys_no_digits$author==author_string)
-# ind_pot <- lapply(possible_alias_author(author_string), function(auth){
-#     which(unique_authorkeys_no_digits$author==auth)
-# })
-# tpmind <- ind_pot[lapply(ind_pot,length)>0]
-# if (length(tpmind)==0){
-#     pot_aliases <- unique_authorkeys[ind_auth]
-# } else {
-#     pot_aliases <- c(unique_authorkeys[ind_auth],unique_authorkeys[tpmind[[1]]])
-# }
-# pot_affil <- lapply(pot_aliases, function(pot_alias){
-#     org_unit_fac(pot_aliases,"",tbl_subjects,tbl_authorkeys,tbl_eprints)
-#     })
+if (is(tbl_unique_authorkeys,"mongo")){
+  unique_authorkeys_processed <- tbl_unique_authorkeys$find('{}', fields='{"_id":0,"authorkey":0,"id":0,"author_name_family_given":0}') %>% dplyr::pull(authorkey_processed)
+  names(unique_authorkeys_processed) <- stringr::str_to_title(unique_authorkeys_processed)
+} else {
+  unique_authorkeys_processed <- tbl_unique_authorkeys$authorkey_processed
+  names(unique_authorkeys_processed) <- stringr::str_to_title(tbl_unique_authorkeys$authorkey_processed)
+}
 
 
-# tmpentr <- unique_authorkeys[tpmind[[1]]]
-# org_unit_fac(tmpentr[1],"",tbl_subjects,tbl_authorkeys,tbl_eprints)
-
-
-
-
-
-# ind_auth <- pmatch("robinson m",unique_authorkeys_no_digits$author,duplicates.ok = TRUE)
-
-# tmpentr <- unique_authorkeys[ind_auth]
-
-# tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,"robinson m 0000 0002 3048 5518","robinson m d")
-# org_unit_fac(tmpentr[1],"",tbl_subjects,tbl_authorkeys,tbl_eprints)
-
-
-
-# dept_fac <- tbl_author %>% left_join(tbl_subjects %>%
-#                                          select(eprintid, name, parent_name))
-#  dept_fac %>% select(name) %>% group_by(name) %>%
-#     tally %>% top_n(1) %>% pull(name)
-# dept_fac %>% select(parent_name) %>% group_by(parent_name) %>%
-#     tally %>% top_n(1) %>% pull(parent_name)
-# 
-# eprintids <- sapply(tmpentr, function(i) tbl_authorkeys$eprintid[which(i==tbl_authorkeys$authorkey)])
-# tbl_subjects %>% filter(eprintid %in% eprintids[[1]]) %>% select(name,parent_name) %>% unique()
-# tbl_subjects %>% filter(eprintid %in% eprintids[[2]]) %>% select(name,parent_name) %>% unique()
-# tbl_subjects %>% filter(eprintid %in% eprintids[[3]]) %>% select(name,parent_name) %>% unique()
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -125,6 +61,9 @@ ui <- fluidPage(
             verbatimTextOutput("fac_inst"),
             checkboxGroupInput("aliases_selected","",""),
             textInput("orcid",label = "Orcid", value=""),
+            textInput("pubmed",label = "Pubmed Query", value=""),
+            textInput("scholar",label = "Google Scholar id", value=""),
+            textInput("publons",label = "Publons id (or if linked: ORCID, ResearcherID or TRUID)", value=""),
             disabled(sliderInput("cutoff_year",label = "cutoff_year",min=2001,max = 2020,value=2001)),
 
             disabled(actionButton(inputId = "show_report",label = "Show report"))
@@ -140,16 +79,14 @@ ui <- fluidPage(
         tabsetPanel(type = "tabs",
                     tabPanel("Zora", plotOutput("plot_zora_only")),
                     tabPanel("Closed in Zora", DT::dataTableOutput("table_closed_in_zora")),
+                    tabPanel("Orcid", plotOutput("plot_orcid_only")),
+                    tabPanel("Pubmed", plotOutput("plot_pubmed_only")),
                     tabPanel("Zora & Orcid", plotOutput("plot_zora_orcid")),
                     tabPanel("Percent closed", DT::dataTableOutput("table_oa_percent_time")),
                     tabPanel("Overall closed", DT::dataTableOutput("table_overall_closed")),
                     tabPanel("Zora", DT::dataTableOutput("table_zora_without_orcid")),
-                    tabPanel("Orcid", DT::dataTableOutput("table_orcid_without_zora"))
-                    
-                    
-                    
-                    # tabPanel("Summary", verbatimTextOutput("summary")),
-                    # tabPanel("Table", tableOutput("table"))
+                    tabPanel("Orcid", DT::dataTableOutput("table_orcid_without_zora")),
+                    tabPanel("Upset", plotOutput("plot_upset"))
         )
 
     )
@@ -163,22 +100,26 @@ server = function(input, output,session) {
     updateSelectizeInput(session, 'author_search', choices = unique_authorkeys_processed, server = TRUE,selected = sample(unique_authorkeys_processed,1))
     
     observeEvent(input$author_search,{
-        pot_aliases_ls <- pot_alias_and_affil(input$author_search[1],unique_authorkeys,unique_authorkeys_no_digits,tbl_subjects,tbl_authorkeys,tbl_eprints)
+        pot_aliases_ls <- pot_alias_and_affil(input$author_search[1],tbl_unique_authorkeys,tbl_subjects,tbl_authorkeys,tbl_eprints)
         pot_aliases_ls_text <- lapply(pot_aliases_ls[[1]],function(alias){
             HTML(paste(alias,"<br>",
                        paste(pot_aliases_ls[[2]][[alias]][[1]],collapse = " - "),"<br>",
                        paste(pot_aliases_ls[[2]][[alias]][[2]],collapse = " - ")))
         })
         d$pot_aliases_ls <- pot_aliases_ls
+        if(length(pot_aliases_ls$pot_affil)==0){
+          pot_aliases_ls$pot_affil <- NULL
+          pot_aliases_ls_text <- NULL
+        }
         updateCheckboxGroupInput(session,"aliases_selected",label = "Found authors, please select (max 2)", 
                                  choiceNames = pot_aliases_ls_text, choiceValues = pot_aliases_ls[[1]])
     })
     
-    observe({
+    observeEvent(input$aliases_selected,{
         orcid_ind <- str_which(input$aliases_selected,"([:digit:]{3,4} ?)+[:alpha:]?($| )")
         if(length(orcid_ind)>=1){
             d$pri_author <- input$aliases_selected[orcid_ind]
-            d$orcid <- str_extract_all(input$aliases_selected[orcid_ind],"([:digit:]{3,4} ?)+[:alpha:]?($| )") %>% str_replace_all("[:space:]+","-")
+            d$orcid <- str_extract_all(input$aliases_selected[orcid_ind],"([:digit:]{3,4} ?)+[:alpha:]?($| )") %>% str_trim() %>% str_replace_all("[:space:]+","-")
             d$sec_author <- ifelse(length(input$aliases_selected)>1,input$aliases_selected[seq_along(input$aliases_selected)[-orcid_ind]],"")
         } else{
             d$pri_author <- input$aliases_selected[1]
@@ -186,6 +127,11 @@ server = function(input, output,session) {
             d$orcid <- NULL
         }
         updateTextInput(session,"orcid",value=d$orcid)
+        d$pubmed <- tryCatch({pubmed_search_string_from_zora_id(d$pri_author,tbl_unique_authorkeys, input$cutoff_year)},error=function(e)"")
+        updateTextInput(session,"pubmed",value=d$pubmed)
+        d$publons <- tryCatch({get_ids_from_publons(d$orcid)[["publonsid"]]},error=function(e) "")
+        d$publons <- ifelse(length(d$publons)==0,"",d$publons)
+        updateTextInput(session,"publons",value=d$publons)
         if (is.null(d$pri_author)){
             disable("show_report")
             disable("report")
@@ -200,25 +146,68 @@ server = function(input, output,session) {
     observeEvent(input$orcid,{
         d$orcid <- input$orcid
     })
-
+    observeEvent(input$pubmed,{
+      d$pubmed <- input$pubmed
+    })
+    observeEvent(input$scholar,{
+      d$scholar <- input$scholar
+    })
+    observeEvent(input$publons,{
+      d$publons <- input$publons
+    })
     
     observeEvent(input$show_report,{
         progress <- shiny::Progress$new()
         progress$set(message = "Computing data", value = 0)
         # Close the progress when this reactive exits (even if there's an error)
         on.exit(progress$close())
-            tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,d$pri_author,d$sec_author)
-            if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
-            zora <- create_zora(d$pri_author,d$sec_author,tbl_author,tbl_subjects)
-            if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
-            m <- create_combined_data_wrapper(tbl_authorkeys,tbl_eprints,tbl_subjects,d$pri_author,d$sec_author,d$orcid,unpaywall,progress)
-            if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
-            d$m <- m
-            d$zora <- zora
+        tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,d$pri_author,d$sec_author)
+        if (!is.null(progress)) progress$set( value = progress$getValue() + 1/5, message="create table from Zora")
+        d$zora <- create_zora(d$pri_author,d$sec_author,tbl_author,tbl_subjects)
+        if (!is.null(progress)) progress$set(value = progress$getValue() + 1/5, message="create table from Pubmed")
+        if (str_trim(d$pubmed) != ""){
+          d$df_pubmed <- retrieve_from_pubmed(d$pubmed)
+        }
+        if (!is.null(d$df_pubmed)){
+          tmpoadoi <- oadoi_fetch_local(na.omit(d$df_pubmed$doi),unpaywall)
+          d$df_pubmed <- left_join(d$df_pubmed,tmpoadoi,by="doi")
+        }
+        print("df_pubmed")
+        print(dim(d$df_pubmed))
+        if (!is.null(progress)) progress$set(value = progress$getValue() + 1/5, message="create table from Orcid")
+        d$df_orcid <- tryCatch({retrieve_from_orcid(d$orcid) %>%
+                dplyr::mutate(doi = tolower(doi))},
+                error=function(e) NULL)
+        # print(d$df_orcid)
+        if (!is.null(d$df_orcid)){
+          tmpoadoi <- oadoi_fetch_local(na.omit(d$df_orcid$doi),unpaywall)
+          d$df_orcid <- left_join(d$df_orcid,tmpoadoi,by="doi")
+        }
+        print("df_orcid")
+        print(dim(d$df_orcid))
+        if (str_trim(d$publons) != ""){
+          d$df_publons <- retrieve_from_publons(d$publons)
+          print("df_publons")
+          print(dim(d$df_publons))
+        }
+        if (!is.null(progress)) progress$set(value = progress$getValue() + 1/5, message="Combine table")
+        # tbl_merge <- create_combined_data_wrapper(tbl_authorkeys,tbl_unique_authorkeys,tbl_eprints,tbl_subjects,d$pri_author,d$sec_author,d$orcid,unpaywall,progress)
+        tbl_merge <- create_combined_data(d$df_orcid,d$df_pubmed,d$zora,d$df_publons,unpaywall)
+        
+        if (str_trim(d$scholar) != ""){
+          d$df_scholar <- retrieve_from_scholar(d$scholar)
+          d$df_scholar <- df_scholar_matching(tbl_merge,d$df_scholar)
+          print(dim(tbl_merge))
+          tbl_merge <- full_join(tbl_merge,d$df_scholar,by="doi",suffix=c("",".scholar"))
+          print(dim(tbl_merge))
+          print(names(tbl_merge))
+        }
+        d$m <- tbl_merge
+        if (!is.null(progress)) progress$set(value = progress$getValue() + 1/5)
     })
     
     ### Zora only plot
-    p_t$zora_only_plot <- reactive({tryCatch({zora_only_plot(d$zora,input$cutoff_year)},error=function(e) ggplot() + geom_blank())})
+    p_t$zora_only_plot <- reactive({tryCatch({oa_status_time_plot(d$zora,input$cutoff_year)},error=function(e) ggplot() + geom_blank())})
     output$plot_zora_only <- renderPlot({
         p_t$zora_only_plot()
     })
@@ -229,8 +218,20 @@ server = function(input, output,session) {
         p_t$closed_in_zora_table()
     })
 
+    ### Orcid only plot
+    p_t$orcid_only_plot <- reactive({tryCatch({oa_status_time_plot(d$df_orcid,input$cutoff_year,year,title="Orcid OA Status")},error=function(e) ggplot() + geom_blank())})
+    output$plot_orcid_only <- renderPlot({
+        p_t$orcid_only_plot()
+    })
+    
+    ### Pubmed only plot
+    p_t$pubmed_only_plot <- reactive({tryCatch({oa_status_time_plot(d$df_pubmed,input$cutoff_year,pubyear,title="Pubmed OA Status")},error=function(e) ggplot() + geom_blank())})
+    output$plot_pubmed_only <- renderPlot({
+      p_t$pubmed_only_plot()
+    })
+    
     ### Zora and Orcid plot
-    p_t$zora_orcid_plot <- reactive({tryCatch({zora_orcid_plot(d$m,input$cutoff_year)},error=function(e) ggplot() + geom_blank())})
+    p_t$zora_orcid_plot <- reactive({tryCatch({oa_status_time_plot(d$m %>% filter(in_zora | in_orcid),input$cutoff_year,title = "Zora + Orcid OA Status",oa_status_used=overall_oa)},error=function(e) ggplot() + geom_blank())})
     output$plot_zora_orcid <- renderPlot({
         p_t$zora_orcid_plot()
     })
@@ -265,6 +266,11 @@ server = function(input, output,session) {
         p_t$oa_status_diff_zora_unpaywall_table()
     })
     
+    ### oa status difference between zora and unpaywall
+    p_t$upset_plot <- reactive({tryCatch({upset_plot(d$m)},error=function(e) ggplot() + geom_blank())})
+    output$plot_upset <- renderPlot({
+      p_t$upset_plot()
+    })
         
     
     output$report <- downloadHandler(

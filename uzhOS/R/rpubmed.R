@@ -20,15 +20,14 @@
 #' @examples
 #' pri_author <- "robinson m 0000 0002 3048 5518"
 #' pubmed_search_string_from_zora_id(pri_author,tbl_unique_authorkeys)
-pubmed_search_string_from_zora_id <- function(pri_author,tbl_unique_authorkeys,cutoff_year=2001){
+pubmed_search_string_from_zora_id <- function(pri_author,tbl_unique_authorkeys_fullname,cutoff_year=2001){
   scaffold <- "(%s[au] or %s[au] or %s[au]) AND (%i:%i[pdat]) AND (zurich[affiliation])"
-  if (is(tbl_unique_authorkeys,"mongo")){
-    auth_name <- tbl_unique_authorkeys$find(paste0('{"authorkey":"',pri_author,'"}')) 
+  if (is(tbl_unique_authorkeys_fullname,"mongo")){
+    auth_name <- tbl_unique_authorkeys_fullname$find(paste0('{"authorkey_fullname":"',pri_author,'"}')) 
   } else {
-    auth_name <- tbl_unique_authorkeys %>% filter(authorkey %in% pri_author) 
+    auth_name <- tbl_unique_authorkeys_fullname %>% filter(authorkey %in% pri_author) 
   }
-  full_name <- auth_name %>% pull(author_name_family_given) %>% 
-    stringr::str_extract("^[^(]+") %>% stringr::str_trim()
+  full_name <- auth_name$authorname
   split_name <- strsplit(full_name," ")
   pubmed_search <- sprintf(scaffold,
                            tolower(full_name), 
@@ -65,7 +64,12 @@ retrieve_from_pubmed <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, j
   } else {
     x <- list(ids=just_ids)
   }
-  summ <- entrez_summary(db = "pubmed", id = x$ids)
+  summ <- tryCatch({
+    entrez_summary(db = "pubmed", id = x$ids)
+    },error=function(e) NULL)
+  if (is.null(summ)){
+    return(NULL)
+  }
   summ <- lapply(summ, function(w) {
     data.frame(pubyear = fix_null(strsplit(w$pubdate, " ")[[1]][1]), 
                title = fix_null(w$title), 
@@ -84,5 +88,5 @@ retrieve_from_pubmed <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, j
   summ$doi <- gsub("&lt;","<", summ$doi)
   summ$doi <- gsub("&gt;",">", summ$doi)
   summ$in_pubmed <- TRUE
-  summ
+  return(summ)
 }

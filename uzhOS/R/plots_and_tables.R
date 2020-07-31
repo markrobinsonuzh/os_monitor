@@ -88,7 +88,7 @@ oa_percent_time_table <- function(m,cutoff_year){
 
 
 overall_closed_table <- function(m,cutoff_year){
-  z <- m %>% filter(overall_oa == "closed", year >= cutoff_year) %>% 
+  z <- m %>% filter(overall_oa == "closed", as.integer(year) >= cutoff_year) %>% 
     select(doi, eprintid, overall_oa, oa_status.zora, 
            oa_status.unpaywall, year, title) %>%
     arrange(desc(year))
@@ -167,12 +167,13 @@ oa_status_diff_zora_unpaywall_table <- function(m,cutoff_year){
 }
 
 
+# tbl_merge <- full_join(tbl_merge,df_scholar,by="doi",suffix=c("",".scholar"))
+# m <- tbl_merge
 upset_plot <- function(m){
   tib_plt <- m %>% 
     dplyr::select(starts_with("in_")) %>% 
     dplyr::mutate(across(starts_with("in_"),~as.integer(.x)))
-  print(head(tib_plt))
-  upset(tib_plt)
+  UpSetR::upset(tib_plt)
 }
 
 

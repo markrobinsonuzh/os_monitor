@@ -20,7 +20,7 @@
 #' @examples
 #' pri_author <- "robinson m 0000 0002 3048 5518"
 #' pubmed_search_string_from_zora_id(pri_author,tbl_unique_authorkeys)
-pubmed_search_string_from_zora_id <- function(pri_author,tbl_unique_authorkeys_fullname,cutoff_year=2001){
+pubmed_search_string_from_zora_id <- function(pri_author,tbl_unique_authorkeys_fullname,cutoff_year=2001, orcid = NULL){
   scaffold <- "(%s[au] or %s[au] or %s[au]) AND (%i:%i[pdat]) AND (zurich[affiliation])"
   if (is(tbl_unique_authorkeys_fullname,"mongo")){
     auth_name <- tbl_unique_authorkeys_fullname$find(paste0('{"authorkey_fullname":"',pri_author,'"}')) 
@@ -35,6 +35,9 @@ pubmed_search_string_from_zora_id <- function(pri_author,tbl_unique_authorkeys_f
                            paste(split_name[[1]][1],paste0(sapply(split_name[[1]][-1],function(elem) str_sub(elem,end=1)),collapse = "")),
                            cutoff_year,
                            as.integer(str_extract(Sys.Date(),"[:digit:]{4}")))
+  if (!is.null(orcid)){
+    pubmed_search <- paste(pubmed_search, "OR (orcid", orcid, "[auid])")
+  }
   return(pubmed_search)
 }
 

@@ -15,19 +15,19 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev
 
 # Install R packages
-RUN install2.r \
-	rcrossref \
-	roadoi \
-	mongolite \
-	shinyjs \
-	rentrez \
-	RefManageR \
-	scholar \
-	here \
-	rorcid \
-	testthat \
-	devtools \
-	shinyhelper
+RUN install2.r rcrossref 
+RUN install2.r roadoi 
+RUN install2.r 	mongolite 
+RUN install2.r  shinyjs 
+RUN install2.r 	rentrez 
+RUN install2.r 	RefManageR 
+RUN install2.r	scholar 
+RUN install2.r	here 
+RUN install2.r	rorcid 
+RUN install2.r	testthat 
+RUN install2.r	devtools 
+RUN install2.r	shinyhelper 
+RUN install2.r	UpSetR
 
 RUN mkdir -p /srv/shiny-server/os_monitor/shiny_app
 RUN mkdir -p /srv/shiny-server/os_monitor/uzhOS

@@ -31,8 +31,9 @@ fix_null <- function(x) {
 #' @export
 #'
 #' @examples 
-#' oadoi_fetch_local("10.1177/000271625529700159")
+#' oadoi_fetch_local("10.1177/000271625529700159",unpaywall)
 oadoi_fetch_local <- function(dois,file=readRDS(here::here("output","dois_unpaywall.rds"))){
+  dois <- tolower(dois)
   # if is database connection to mongodb
   if (is(file,"mongo")){
     lapply(dois,function(doi){
@@ -71,8 +72,8 @@ open_cols_fn <- function(){
   c("closed" = "gray48", "hybrid" = "darkorange1",
     "green" = "chartreuse4", "gold" = "gold",
     "preprint" = "red", "bronze" = "darkgoldenrod4",
-    "blue" = "blue",
-    "NA"="white") 
+    "blue" = "blue", 
+    "unknown"="white") 
 }
 
 oa_status_order <- function(){
@@ -95,7 +96,8 @@ oa_status_order <- function(){
 #' @examples
 create_tbl_author <- function(tbl_authorkeys,tbl_eprints,pri_author,sec_author=""){
   if (is(tbl_authorkeys,"mongo") & is(tbl_eprints,"mongo")){
-    tbl_author <- tbl_authorkeys$find(paste0('{"authorkey_fullname": {"$in": ["',pri_author,'","',sec_author,'"] }   }'))
+    # tbl_author <- tbl_authorkeys$find(paste0('{"authorkey_fullname": {"$in": ["',pri_author,'","',sec_author,'"] }   }'))
+    tbl_author <- tbl_authorkeys$find(paste0('{"authorkey_fullname": {"$in": ["',paste0(pri_author,collapse = '","'),'"] }   }'))
     tbl_eprints <- tbl_eprints$find(paste0('{"eprintid": { "$in": [',paste0(tbl_author$eprintid,collapse = ','),'] } }'))
     if(!("doi" %in% names(tbl_eprints))){
       tbl_eprints <- tbl_eprints %>% mutate(doi=NA)
@@ -179,21 +181,29 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,unpaywall){
                           by="doi", suffix=c(".orcid",".zora"),na_matches="never") %>%
       dplyr::filter(doi != "logical(0)") #%>% 
   } else {
-    m <- zora %>% mutate(doi=tolower(doi),
-                         year.zora=year,
-                         oa_status.zora = oa_status,
-                         title.zora = title)
+    m <- zora %>% 
+      mutate(doi=tolower(doi)) %>% 
+      rename(year.zora=year,
+             oa_status.zora = oa_status,
+             title.zora = title)
   }
   if (!is.null(df_pubmed)){
     m <- full_join(m, df_pubmed %>% dplyr::mutate(doi=tolower(doi)), by="doi", suffix = c("", ".pubmed"),na_matches="never")
+    if("oa_status" %in% names(m)){
+      m <- m %>% dplyr::rename(oa_status.pubmed=oa_status)
+    }
+      
   }
   if (!is.null(df_publons)){
     m <- full_join(m, df_publons %>% dplyr::mutate(doi=tolower(doi)), by="doi", suffix = c("", ".publons"),na_matches="never")
+    if("oa_status" %in% names(m)){
+      m <- m %>% dplyr::rename(oa_status.publons=oa_status)
+    }
   }
   oaf <- oadoi_fetch_local(unique(na.omit(m$doi)),unpaywall)
   m <- m %>% dplyr::left_join(oaf %>% select(doi, oa_status), 
                        by = "doi", suffix=c("", ".unpaywall")) %>% 
-    mutate(oa_status.unpaywall=oa_status)
+    dplyr::rename(oa_status.unpaywall=oa_status)
   
   
   m$overall_oa <- m$oa_status.unpaywall

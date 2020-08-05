@@ -11,6 +11,13 @@ oa_status_time_plot <- function(zora,cutoff_year,colname=year,title="ZORA OA Sta
   q_colname <- enquo(colname)
   q_oa_status_used <- enquo(oa_status_used)
   open_cols <- open_cols_fn()
+  tmp <- zora %>% dplyr::pull(!!q_oa_status_used) 
+  levels(tmp) <- c(levels(tmp),"unknown")
+  tmp[is.na(tmp)] <- "unknown"
+  # tmp <- ifelse(is.na(tmp),rep("unknown",length(tmp)),tmp)
+  # tmp <- factor(tmp,levels = open_cols)
+  # print(tmp)
+  zora <- zora %>% dplyr::mutate(!!q_oa_status_used := tmp)
   ggplot(zora %>% dplyr::filter(!!q_colname >= cutoff_year, !!q_colname <= 2020), aes(x=!!q_colname, fill=!!q_oa_status_used)) + 
     geom_bar() + 
     theme(axis.text.x = element_text(angle = 90)) +
@@ -175,6 +182,6 @@ upset_plot <- function(m){
     dplyr::mutate(across(starts_with("in_"),~as.integer(.x)))
   UpSetR::upset(tib_plt)
 }
-
+# m <- tbl_merge
 
 

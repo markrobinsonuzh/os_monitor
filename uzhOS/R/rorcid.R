@@ -5,6 +5,7 @@
 #'
 #' @return
 #' @export
+#' @importFrom magrittr %>% 
 #'
 #' @examples
 #' mr_orcs <- retrieve_from_orcid("0000-0002-3048-5518")
@@ -21,10 +22,11 @@ retrieve_from_orcid <- function(orcid, exclude = "data-set") {
                       function(u) ifelse(nrow(u)>0, u$`external-id-value`[u$`external-id-type`=="doi"], NA))
   works$doi <- tolower(works$doi)
   works$doi <- gsub("http://dx.doi.org/", "", works$doi)
-  works <- works %>% filter(!(type %in% exclude)) %>%
-    mutate(title = title.title.value, journal = `journal-title.value`,
-           year = `publication-date.year.value`) %>%
-    select(title, journal, type, doi, year)
+  works <- works %>% dplyr::filter(!(type %in% exclude)) %>%
+    dplyr::mutate(title = title.title.value, 
+                  journal = `journal-title.value`,
+                  year = `publication-date.year.value`) %>%
+    dplyr::select(title, journal, type, doi, year)
   works$title <- sub("\\.$","",works$title)
   works <- unique(works)
   works_split <- split(works, works$doi)
@@ -39,5 +41,5 @@ retrieve_from_orcid <- function(orcid, exclude = "data-set") {
   df <- do.call(rbind,c(z,works_split[n==1]))
   rownames(df) <- NULL
   df$in_orcid <- TRUE
-  df
+  return(df)
 }

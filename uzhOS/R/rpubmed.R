@@ -1,3 +1,20 @@
+#' Trim null values or length 0 vectors to return single NA
+#'
+#' @param x value to fix
+#'
+#' @return the fixed values
+#' @export
+#'
+#' @examples
+#' fix_null(NULL)
+#' fix_null(10)
+#' fix_null(character(0))
+fix_null <- function(x) {
+  if (is.null(x) || length(x) == 0) return(NA)
+  else return(x)
+}
+
+
 # pri_author <- "robinson m 0000 0002 3048 5518"
 # sec_author <- "robinson m d"
 # orcid <- "0000-0002-3048-5518"
@@ -10,22 +27,24 @@
 
 #' Create pubmed search query
 #'
-#' @param pri_author author name
-#' @param tbl_unique_authorkeys tibble
+#' @param authorname author id
+#' @param tbl_unique_authorkeys_fullname mongodb connection of unique authorkeys
 #' @param cutoff_year year, everything below will be excluded
 #'
 #' @return
 #' @export
+#' @import mongolite
+#' @importFrom magrittr %>% 
 #'
 #' @examples
 #' pri_author <- "robinson m 0000 0002 3048 5518"
 #' pubmed_search_string_from_zora_id(pri_author,tbl_unique_authorkeys)
-pubmed_search_string_from_zora_id <- function(pri_author,tbl_unique_authorkeys_fullname,cutoff_year=2001, orcid = NULL){
+pubmed_search_string_from_zora_id <- function(authorname,tbl_unique_authorkeys_fullname,cutoff_year=2001, orcid = NULL){
   scaffold <- "(%s[au] or %s[au] or %s[au]) AND (%i:%i[pdat]) AND (zurich[affiliation])"
   if (is(tbl_unique_authorkeys_fullname,"mongo")){
-    auth_name <- tbl_unique_authorkeys_fullname$find(paste0('{"authorkey_fullname":"',pri_author,'"}')) 
+    auth_name <- tbl_unique_authorkeys_fullname$find(paste0('{"authorkey_fullname":"',authorname,'"}')) 
   } else {
-    auth_name <- tbl_unique_authorkeys_fullname %>% filter(authorkey %in% pri_author) 
+    auth_name <- tbl_unique_authorkeys_fullname %>% dplyr::filter(authorkey %in% authorname) 
   }
   full_name <- auth_name$authorname
   split_name <- strsplit(full_name," ")

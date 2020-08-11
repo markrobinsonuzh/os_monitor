@@ -1,5 +1,3 @@
-
-
 #' retrieve from publons
 #'
 #' @param id either publons ID, ORCID, ResearcherID or TRUID
@@ -7,6 +5,7 @@
 #'
 #' @return data.frame with columns doi, title, date, year
 #' @export
+#' @importFrom magrittr %>% 
 #'
 #' @examples
 #' orcid <- "0000-0002-3048-5518"
@@ -35,7 +34,7 @@ retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db
       publls <- httr::content(publget, encoding = "UTF-8")
     }
     
-    df_publons$year <- str_extract(df_publons$date,"[:digit:]{4}")
+    df_publons$year <- stringr::str_extract(df_publons$date,"[:digit:]{4}")
     df_publons$in_publons <- TRUE
     return(df_publons)
   } else {
@@ -47,13 +46,6 @@ retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db
   }
 
 }
-# 
-# tbl_publons <- retrieve_from_publons("0000-0002-4129-301X")
-# 
-# 
-# 0000-0002-8485-0648
-# publget <- httr::GET(url=paste0("https://publons.com/api/v2/academic"),auth_header)
-# publls <- httr::content(publget)
 
 
 #' get ids from publons

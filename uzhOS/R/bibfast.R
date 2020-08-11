@@ -5,6 +5,7 @@
 #'
 #' @return vector of bib entries as vector
 #' @export
+#' @import shiny
 #'
 #' @examples
 #' doi <- "10.1177/000271625529700159"
@@ -25,42 +26,13 @@ GetBibEntryWithDOI_no_temp <- function (doi, progress = shiny::Progress$new())
     
     # temp <- GET(modify_url("https://doi.org/", path = doi[i]), 
                 # config = list(followlocation = TRUE), add_headers(Accept = "application/x-bibtex"))
-    temp <- GET(modify_url("https://data.crossref.org/", path = doi[i]), 
-                config = list(followlocation = TRUE), add_headers(Accept = "application/x-bibtex"))
-    return(content(temp, as = "text", encoding = "UTF-8"))
+    temp <- httr::GET(httr::modify_url("https://data.crossref.org/", path = doi[i]), 
+                      config = list(followlocation = TRUE), httr::add_headers(Accept = "application/x-bibtex"))
+    return(httr::content(temp, as = "text", encoding = "UTF-8"))
   })
     return(bibout)
-  }
+}
 
-# library(httr)
-# doi <- "10.1177/000271625529700159"
-# dois <- rep(doi,20)
-# system.time({
-#   tmp1 <- GetBibEntryWithDOI(dois)
-#   writeLines(toBiblatex(tmp1),"/srv/shiny-server/os_monitor/bibtest_normal.bib")
-#   
-# })
-# system.time({
-#   tmp2 <- GetBibEntryWithDOI_no_temp(dois)
-#   writeLines( paste(tmp2,collapse = "\n"),"/srv/shiny-server/os_monitor/bibtest_fast.bib")
-# })
-#   
-# system.time({
-#   rcrossref::cr_cn(dois = dois, format = "bibtex", "bibentry") 
-# })
-#   
-# 
-# temp <- GET(modify_url("https://data.crossref.org/", path = doi[i]), 
-#             config = list(followlocation = TRUE), add_headers(Accept = "application/x-bibtex"))
-# content(temp, as = "text", encoding = "UTF-8")
-# toBiblatex(tmp)
-# 
-# bibtex_from_doi <- GetBibEntryWithDOI(doi)
-# print("all found")
-# # toBiblatex(bibtex_from_doi)
-# writeLines(toBiblatex(bibtex_from_doi),"/srv/shiny-server/os_monitor/bibtest_normal.bib")
-# print("all written")
-# getwd()
 
 
 

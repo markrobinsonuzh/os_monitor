@@ -5,18 +5,25 @@
 #'
 #' @return df_scholar with additional column 'doi'
 #' @export
+#' @importFrom magrittr %>% 
 #'
 #' @examples
 # scholar_id <- "XPfrRQEAAAAJ"
 # pri_author <- "robinson m 0000 0002 3048 5518"
-# # sec_author <- "robinson m d"
-# sec_author <- ""
+# sec_author <- "robinson m d"
+# full_author <- "robinson mark d"
+# pri_author <- "robinson mark d (orcid: 0000-0002-3048-5518)"
+# sec_author <- "robinson mark d"
+# # sec_author <- ""
 # orcid <- "0000-0002-3048-5518"
 # 
-# pubmed <- pubmed_search_string_from_zora_id(pri_author,tbl_unique_authorkeys)
+# pubmed <- pubmed_search_string_from_zora_id(full_author,tbl_unique_authorkeys_fullname,2001)
 # 
-# tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,pri_author,sec_author)
-# zora <- create_zora(pri_author,sec_author,tbl_author,tbl_subjects)
+# # tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,pri_author)
+# tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,c(pri_author,sec_author))
+# 
+# zora <- create_zora(c(pri_author,sec_author),tbl_author,tbl_subjects)
+# 
 # df_pubmed <- retrieve_from_pubmed(pubmed)
 # if (!is.null(df_pubmed)){
 #   tmpoadoi <- oadoi_fetch_local(na.omit(df_pubmed$doi),unpaywall)
@@ -33,7 +40,9 @@
 # df_scholar_master <- retrieve_from_scholar(scholar_id)
 # df_scholar <- df_scholar_master
 # 
-# df_scholar_matching(tbl_merge,df_scholar)
+# df_scholar <- df_scholar_matching(tbl_merge,df_scholar)
+# tbl_merge <- full_join(tbl_merge,df_scholar,by="doi",suffix=c("",".scholar"))
+# tbl_merge <- tbl_merge %>% mutate(across(starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
 df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
   
   df_scholar$doi <- NA
@@ -84,7 +93,8 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
     top_score <- apply(scores$dist, 1, max)
     which_top_score <- apply(scores$dist, 1, which.max)
     
-    scholar_to_orcid_matches <- data.frame(top_score, scholar_title=df_scholar$title[doi_is_na], 
+    scholar_to_orcid_matches <- data.frame(top_score, 
+                                           scholar_title=df_scholar$title[doi_is_na], 
                                            orcid_title=scores$cols[which_top_score])
     
     cutoff <- .7999
@@ -164,13 +174,13 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
     doi_is_na <- which(is.na(df_scholar$doi))
     # get info from rcrossref
     qrows <- df_scholar[doi_is_na,]
-    Sys.setenv(crossref_email="reto.gerber@uzh.ch")
+    Sys.setenv(crossref_email="somemail@someplace.com")
     out <- lapply(seq_along(doi_is_na),function(i){
-      sq <- cr_works(flq=list(query.bibliographic=paste(qrows$title[i],qrows$year[i], qrows$journal[i]),
+      sq <- rcrossref::cr_works(flq=list(query.bibliographic=paste(qrows$title[i],qrows$year[i], qrows$journal[i]),
                               query.author=qrows$author[i]),limit = 3)
       scores <- as.numeric(sq$data$score)
       if (scores[1]/scores[2]>1.5 & scores[1]>70 & !is.null(sq)){
-        sq$data[1,] %>% select(doi,container.title,published.print,title)
+        sq$data[1,] %>% dplyr::select(doi,container.title,published.print,title)
       } else{
         data.frame(doi=character(),container.title=character(),published.print=character(),title=character())
       }

@@ -1,9 +1,9 @@
 
 #' Retrieve a table of records from Google Scholar
 #'
-#' @param scholar_id 
+#' @param scholar_id google scholar id
 #'
-#' @return
+#' @return data.frame
 #' @export
 #'
 #' @examples
@@ -17,7 +17,7 @@ retrieve_from_scholar <- function(scholar_id) {
   scholar_pubs <- unique(scholar_pubs)
   scholar_pubs$title <- as.character(scholar_pubs$title)
   scholar_pubs$in_scholar <- TRUE
-  scholar_pubs
+  return(scholar_pubs)
 }
 
 
@@ -38,7 +38,7 @@ split_to_rank <- function(u) {
     n <- length(v)
     setNames(1:n, toupper(v))
   })
-  setNames(ss, u)
+  return(setNames(ss, u))
 }
 
 #' Compute distance between two titles
@@ -77,11 +77,6 @@ calcScore <- function(x,y) {
   for(i in seq_along(ss_x))
     for(j in seq_along(ss_y))
       dist[i,j] <- sentence_Dist(ss_x[[i]], ss_y[[j]])
-  list(dist=dist, rows=x, cols=y)
-  # keep_x <- rowSums(dist)>0
-  # keep_y <- colSums(dist)>0
-  # list(dist=dist[keep_x,keep_y,drop=FALSE], 
-  #      rows=x[keep_x], 
-  #      cols=y[keep_y])
+  return(list(dist=dist, rows=x, cols=y))
 }
 

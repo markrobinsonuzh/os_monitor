@@ -24,5 +24,6 @@ Imports:
   rentrez,
   RefManageR,
   scholar,
-  rcrossref
+  rcrossref,
+  htmlTable
 RoxygenNote: 7.1.1

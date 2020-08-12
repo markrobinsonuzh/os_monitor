@@ -78,23 +78,73 @@ oa_status_order <- function(){
 #' @export
 #'
 #' @examples
-create_tbl_author <- function(tbl_authorkeys,tbl_eprints,author_vec){
+create_tbl_author <- function(tbl_authorkeys,tbl_eprints,author_vec, fac_vec=NULL, dep_vec=NULL){
   if (is(tbl_authorkeys,"mongo") & is(tbl_eprints,"mongo")){
     tbl_author <- tbl_authorkeys$find(paste0('{"authorkey_fullname": {"$in": ["',paste0(author_vec,collapse = '","'),'"] }   }'))
     tbl_eprints <- tbl_eprints$find(paste0('{"eprintid": { "$in": [',paste0(tbl_author$eprintid,collapse = ','),'] } }'))
     if(!("doi" %in% names(tbl_eprints))){
       tbl_eprints <- tbl_eprints %>% dplyr::mutate(doi=NA)
     }
-    return(tbl_author%>%
+    tbl_author <- tbl_author%>%
       dplyr::left_join(tbl_eprints,by="eprintid") %>%
-      dplyr::mutate(year = date, doi = tolower(doi)))
+      dplyr::mutate(year = date, doi = tolower(doi)) %>% 
+        dplyr::group_by(doi) %>% 
+        dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
+        unique()
+    # filter by department if 'dep_vec' is given
+    if (!is.null(fac_vec) | !is.null(dep_vec)){
+      if(!is.null(fac_vec) & is.null(dep_vec)){
+        tmpquo_ls_fac <- lapply(fac_vec, function(fac) expr(!!fac %in% unlist(.data[["parent_name"]])))
+        tmpquo_fac <- purrr::reduce(tmpquo_ls_fac,function(x,y) expr(!!x|!!y), .init = FALSE)
+      }
+      if(!is.null(dep_vec)){
+        tmpquo_ls_dep <- lapply(dep_vec, function(dep) expr(!!dep %in% unlist(.data[["name"]])))
+        tmpquo_dep <- purrr::reduce(tmpquo_ls_dep,function(x,y) expr(!!x|!!y), .init = FALSE)
+      }
+      if (exists("tmpquo_fac") & exists("tmpquo_dep")){
+        tmpquo <- quo(!!tmpquo_fac | !!tmpquo_dep)
+      } else if (exists("tmpquo_fac")){
+        tmpquo <- tmpquo_fac
+      } else if (exists("tmpquo_dep")){
+        tmpquo <- tmpquo_dep
+      }
+      tbl_author <- tbl_author %>% filter(!!tmpquo)
+    }
+    return(tbl_author)
   } else {
     tbl_authorkeys %>% 
       dplyr::filter(authorkey %in% c(author_vec)) %>%
       dplyr::left_join(tbl_eprints,by="eprintid") %>%
-      dplyr::mutate(year = date, doi = tolower(doi))
+      dplyr::mutate(year = date, doi = tolower(doi)) %>% 
+      dplyr::group_by(doi) %>% 
+      dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
+      unique() 
   }
 } 
+# author_vec <- c("robinson mark d")
+# fac_vec <- "04 Faculty of Medicine"
+# dep_vec <- c("Epidemiology, Biostatistics and Prevention Institute (EBPI)","Institute of Evolutionary Medicine")
+# tmpquo <- quo(FALSE | "04 Faculty of Medicine" %in% unlist(.data[["parent_name"]]) | (FALSE | "Institute of Medical Virology" %in% unlist(.data[["name"]]) |
+#                                                                                         "Institute of Medical Molecular Genetics" %in% unlist(.data[["name"]]) | "Institute of Biomedical Ethics and History of Medicine" %in% unlist(.data[[
+#                                                                                           "name"]]) | "Institute of Molecular Cancer Research" %in% unlist(.data[["name"]]) | "Swiss Research Institute for Public Health and Addiction" %in%
+#                                                                                         unlist(.data[["name"]]) | "Department of Biochemistry" %in% unlist(.data[["name"]]) | "Cancer Research Center (CRC)" %in% unlist(.data[["name"]]) |
+#                                                                                         "Institute of Medical Microbiology" %in% unlist(.data[["name"]]) | "Institute of Evolutionary Medicine" %in% unlist(.data[["name"]]) |
+#                                                                                         "Institute of Medical Genetics" %in% unlist(.data[["name"]]) | "Zurich Center for Imaging Science and Technology" %in% unlist(.data[["name"]]) |
+#                                                                                         "Institute of Experimental Immunology" %in% unlist(.data[["name"]]) | "Institute of Biomedical Engineering" %in% unlist(.data[["name"]]) |
+#                                                                                         "Center of Competence Multimorbidity" %in% unlist(.data[["name"]]) | "Center for Integrative Human Physiology" %in% unlist(.data[["name"]]) |
+#                                                                                         "Institute of Physiology" %in% unlist(.data[["name"]]) | "Institute of Legal Medicine" %in% unlist(.data[["name"]]) |
+#                                                                                         "Swiss Institute of Allergy and Asthma Research" %in% unlist(.data[["name"]]) | "Center for Microscopy and Image Analysis" %in% unlist(.data[["name"]]) |
+#                                                                                         "Neuroscience Center Zurich" %in% unlist(.data[["name"]]) | "Institute of Laboratory Animal Science" %in% unlist(.data[["name"]]) |
+#                                                                                         "Functional Genomics Center Zurich" %in% unlist(.data[["name"]]) | "Institute of Anatomy" %in% unlist(.data[["name"]]) | "Cardiocentro Ticino" %in%
+#                                                                                         unlist(.data[["name"]]) | "Balgrist University Hospital, Swiss Spinal Cord Injury Center" %in% unlist(.data[["name"]]) |
+#                                                                                         "Brain Research Institute" %in% unlist(.data[["name"]]) | "Epidemiology, Biostatistics and Prevention Institute (EBPI)" %in% unlist(.data[["name"]]) |
+#                                                                                         "Institute of Pharmacology and Toxicology" %in% unlist(.data[["name"]]) | "Institute of Response Genetics" %in% unlist(.data[["name"]]) |
+#                                                                                         "Institute for Regenerative Medicine (IREM)" %in% unlist(.data[["name"]]) | "Center of Competence Systems Physiology and Metabolic Diseases" %in%
+#                                                                                         unlist(.data[["name"]]) | "Center for Molecular Cardiology" %in% unlist(.data[["name"]]) | "The KEY Institute for Brain-Mind Research" %in% unlist(
+#                                                                                           .data[["name"]]) | "Zentrum für Interdisziplinäre Schlafforschung" %in% unlist(.data[["name"]])))
+# tmptbl <- create_tbl_author(tbl_authorkeys,tbl_eprints,c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)"))
+# dim(unique(tmptbl))
+# tmptbl[c(44,45),]
 
 #' create_zora
 #'
@@ -115,10 +165,15 @@ create_tbl_author <- function(tbl_authorkeys,tbl_eprints,author_vec){
 #' create_zora(pri_author,sec_author,tbl_author,tbl_subjects)
 create_zora <- function(author_vec,tbl_author,tbl_subjects){
   if (is(tbl_subjects,"mongo")){
-    tbl_subjects <- tbl_subjects$find(paste0('{"eprintid": { "$in": [',paste0(tbl_author$eprintid,collapse = ','),'] } }'))
+    tbl_subjects <- tbl_subjects$find(paste0('{"eprintid": { "$in": [',paste0(tbl_author$eprintid,collapse = ','),'] } }'))%>% 
+      dplyr::group_by(eprintid) %>% 
+      dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
+      unique() %>% 
+      dplyr::select(eprintid, name, parent_name)
   }
   dept_fac <- tbl_author %>% 
-    dplyr::left_join(tbl_subjects %>% dplyr::select(eprintid, name, parent_name),
+    dplyr::left_join(tbl_subjects %>%
+                       dplyr::select(eprintid, name, parent_name),
                      by="eprintid",suffix=c("",".y"))
   zora <- dept_fac %>%
     dplyr::mutate(dept = name, faculty = parent_name, in_zora=TRUE) %>%
@@ -200,6 +255,9 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,unpaywall){
   m$overall_oa[w] <- m$oa_status.zora[w]
   w <- m$overall_oa == "closed" & m$oa_status.zora=="blue"
   m$overall_oa[w] <- "blue"
+  w <- m$oa_status.zora != "closed" & m$oa_status.unpaywall == "closed"
+  w[is.na(w)] <- FALSE
+  m$overall_oa[w] <- m$oa_status.zora[w]
   m$overall_oa <- factor(m$overall_oa, levels = names(open_cols_fn()))
   
   # set title
@@ -219,7 +277,7 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,unpaywall){
   
   # set NA's in 'in_..' columns to FALSE
   m <- m %>% dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
-  m
+  return(tibble::as_tibble(m))
 }
 
 
@@ -311,26 +369,51 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,unpaywall){
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-org_unit_fac <- function(author_vec,tbl_subjects,tbl_authorkeys,tbl_eprints){
-  tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,author_vec)
+org_unit_fac <- function(author_vec,tbl_subjects,tbl_authorkeys,tbl_eprints, fac_vec=NULL, dep_vec=NULL){
+  tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,author_vec,fac_vec,dep_vec)
+  if (dim(tbl_author)[1] == 0){
+    return(list(org_unit=NULL,fac=NULL,author_name=NULL))
+  }
   if (is(tbl_subjects,"mongo")){
     dept_fac <- tbl_author %>% dplyr::left_join(
-      tbl_subjects$find(paste0('{"eprintid": { "$in": [',paste0(tbl_author$eprintid,collapse = ','),'] } }')) %>%
+      tbl_subjects$find(paste0('{"eprintid": { "$in": [',paste0(tbl_author$eprintid,collapse = ','),'] } }')) %>% 
+        dplyr::group_by(eprintid) %>% 
+        dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
+        unique()  %>%
         dplyr::select(eprintid, name, parent_name),by="eprintid", suffix=c("",".y"))
   } else {
-    dept_fac <- tbl_author %>% dplyr::left_join(tbl_subjects %>%
+    dept_fac <- tbl_author %>% dplyr::left_join(tbl_subjects %>% 
+                                                  dplyr::group_by(eprintid) %>% 
+                                                  dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
+                                                  unique() %>%
                                                   dplyr::select(eprintid, name, parent_name),
                                                 by="eprintid", suffix=c("",".y"))
   }
   org_unit <- suppressMessages(dept_fac %>% dplyr::select(name) %>% 
-                                 dplyr::group_by(name) %>% dplyr::tally() %>% 
-                                 dplyr::top_n(1) %>% dplyr::pull(name))
+                                 dplyr::group_by(name) %>% 
+                                 # dplyr::top_n(1) %>% 
+                                 dplyr::pull(name) %>% 
+                                 unlist() %>% 
+                                 tibble::as_tibble() %>% 
+                                 dplyr::group_by(value) %>% 
+                                 dplyr::tally() %>% 
+                                 dplyr::arrange(dplyr::desc(n)) %>% 
+                                 dplyr::rename(dept=value,count=n)) 
   fac <- suppressMessages(dept_fac %>% dplyr::select(parent_name) %>% 
-                            dplyr::group_by(parent_name) %>% dplyr::tally() %>% 
-                            dplyr::top_n(1) %>% dplyr::pull(parent_name))
+                            dplyr::group_by(parent_name) %>% 
+                            dplyr::pull(parent_name) %>% 
+                            unlist() %>% 
+                            tibble::as_tibble() %>% 
+                            dplyr::group_by(value) %>% 
+                            dplyr::tally() %>% 
+                            dplyr::arrange(dplyr::desc(n)) %>% 
+                            dplyr::rename(fac=value,count=n))
   return(list(org_unit=org_unit,fac=fac,author_name=author_vec))
 }
-
+# author_vec <- c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)")
+# tmptbl <- org_unit_fac(c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)"),tbl_subjects,tbl_authorkeys,tbl_eprints)
+# org_unit_fac(author_vec,tbl_subjects,tbl_authorkeys,tbl_eprints)
+  
 
 #' affiliation of aliases from author search
 #'
@@ -345,7 +428,7 @@ org_unit_fac <- function(author_vec,tbl_subjects,tbl_authorkeys,tbl_eprints){
 #' @import mongolite
 #'
 #' @examples
-pot_alias_and_affil <- function(authorname,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints){
+pot_alias_and_affil <- function(authorname,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints,fac_vec=NULL, dep_vec=NULL){
   # if data in mongodb 
   # if (is(tbl_unique_authorkeys_fullname,"mongo")){
   ind_auth <- tbl_unique_authorkeys_fullname$find(paste0('{"authorname":"',authorname,'"}'))[["id"]]
@@ -364,7 +447,7 @@ pot_alias_and_affil <- function(authorname,tbl_unique_authorkeys_fullname,tbl_su
   #   }
   # }
   pot_affil <- lapply(pot_aliases, function(pot_alias){
-    org_unit_fac(pot_alias,tbl_subjects,tbl_authorkeys,tbl_eprints)
+    org_unit_fac(pot_alias,tbl_subjects,tbl_authorkeys,tbl_eprints,fac_vec,dep_vec)
   })
   names(pot_affil) <- pot_aliases
   return(list(pot_aliases=pot_aliases,pot_affil=pot_affil))

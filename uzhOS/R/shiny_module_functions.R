@@ -28,7 +28,10 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
                            function(e) ifelse((stringr::str_trim(e) == "") | is.null(e),FALSE,TRUE))
         progress_bar_len <- sum(not_null) + 3
         # author info
-        tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,d$author_vec)
+        tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,d$author_vec, d$fac_vec ,d$dep_vec)
+        print(dim(tbl_author))
+        print(length(tbl_author$doi))
+        print(length(unique(tbl_author$doi)))
         if (!is.null(progress)) progress$set( value = progress$getValue() + 1/progress_bar_len, message="create table from Zora")
         # zora data.frame
         d$zora <- create_zora(d$author_vec,tbl_author,tbl_subjects)

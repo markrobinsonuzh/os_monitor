@@ -45,6 +45,7 @@ ui <- navbarPage("Open science monitor UZH",
                     useShinyjs(),
                     sidebarLayout(
                         sidebarPanel(
+                          # splitLayout(
                             selectizeInput("author_search","Author search",NULL,selected = NULL, multiple = FALSE, 
                                            options = list(maxOptions = 50,placeholder="select author",maxItems=10)) %>% 
                               shinyhelper::helper(type="inline",
@@ -53,6 +54,11 @@ ui <- navbarPage("Open science monitor UZH",
                                                   The format is "(familiy name) (given name)". 
                                                   It is possible that of your given name only the initials are saved in ZORA.
                                                   Multiple selections are possible.'),
+                            selectizeInput("faculty_search","Faculty Filter",c("all",sort(unique_fac_dep(fac_dep_filt,"fac"))),selected="all",multiple=TRUE) %>% 
+                              disabled(),
+                            selectizeInput("department_search","Department Filter","all",selected="all",multiple=TRUE) %>% 
+                              disabled(),
+                          # ),
                             alias_selected_UI("alias_selected"),
                             textInput("orcid",label = a("Orcid",href="https://orcid.org",target="_blank"), value=""),
                             textInput("pubmed",label = a("Pubmed Query",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"), value=""),
@@ -125,14 +131,56 @@ server = function(input, output,session) {
     
     updateSelectizeInput(session, 'author_search', choices = unique_authorkeys_processed, server = TRUE)
     
+    
+    
     # show available alias if any author_search given, otherwise hide
-    observeEvent(input$author_search,{
+    observe({
       alias_selected_show_Server("alias_selected",input$author_search)
-    })
     # find and parse aliases of authors
-    observeEvent(input$author_search,{
-      alias_selected_Server("alias_selected",input$author_search,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints)
+      alias_selected_Server("alias_selected",input$author_search,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints,d$fac_vec,d$dep_vec)
+      if (is.null(input$author_search)){
+        disable("faculty_search")
+      } else{
+        enable("faculty_search")
+      }
     })
+    
+    observeEvent(input$faculty_search,{
+      if("all" %in% input$faculty_search | is.null(input$faculty_search)){
+        disable("department_search")
+        # d$fac_vec <- unique_fac_dep(fac_dep_filt,type="fac")
+        d$fac_vec <- NULL
+        updateSelectizeInput(session,"department_search",choices="all",selected = "all")
+      } else {
+        enable("department_search")
+        d$fac_vec <- input$faculty_search
+        deps <- unique_fac_dep(fac_dep_filt,type="fac_dep") %>% 
+          dplyr::filter(fac %in% input$faculty_search) %>% 
+          dplyr::pull(dep)
+        updateSelectizeInput(session,"department_search",choices=c("all",deps), selected = "all")
+      }
+    })
+    
+    observe({
+      if(("all" %in% input$department_search | is.null(input$department_search))){
+        d$dep_vec <- NULL
+      # } else if (("all" %in% input$department_search | is.null(input$department_search)) & 
+      #            !("all" %in% input$faculty_search | is.null(input$faculty_search))){
+      #   # deps <- unique_fac_dep(fac_dep_filt,type="fac_dep") %>% 
+      #   #   dplyr::filter(fac %in% input$faculty_search) %>% 
+      #   #   dplyr::pull(dep)
+      #   d$dep_vec <- NULL
+      } else{
+        d$dep_vec <- input$department_search
+      }
+    })
+    
+    observeEvent(d$dep_vec,{
+      print("in app d$dep_vec")
+      alias_selected_Server("alias_selected",input$author_search,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints,d$fac_vec,d$dep_vec)
+    })
+    
+    
     # Orcid and author vector into reactive value
     orcid_auth_react <- alias_selected_orcid_auth_Server("alias_selected")
     observe({
@@ -140,6 +188,7 @@ server = function(input, output,session) {
       d$orcid <- orcid_auth_tmp[["orcid"]]
       d$author_vec <- orcid_auth_tmp[["author_vec"]]
     })
+
     # automated string operations, enable, disable report buttons
     observeEvent(d$author_vec,{
         updateTextInput(session,"orcid",value=d$orcid)
@@ -188,8 +237,8 @@ server = function(input, output,session) {
       # in_selection_Server("plots_in_selection",d$m)
       # update single selection for plots and tables
       updateCheckboxGroupInput(session,"in_selection",
-                               choices =  c(names(d$m)[grep("in_",names(d$m))],"inverse"),
-                               selected = c(names(d$m)[grep("in_",names(d$m))]))
+                               choices =  c(colnames(d$m)[grep("in_",colnames(d$m))],"inverse"),
+                               selected = c(colnames(d$m)[grep("in_",colnames(d$m))]))
     })
     
     # create subset of combined table based on selection of tables
@@ -216,7 +265,7 @@ server = function(input, output,session) {
     })
     
     ### oa status upset plot
-    p_t$upset_plot <- reactive({tryCatch({upset_plot(d$m_sub)},error=function(e) {ggplot() + geom_blank()})})
+    p_t$upset_plot <- reactive({tryCatch({upset_plot(d$m_sub)},error=function(e) {print(e);ggplot() + geom_blank()})})
     output$plot_upset <- renderPlot({
       p_t$upset_plot()
     },res=100)

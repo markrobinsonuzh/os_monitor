@@ -82,12 +82,13 @@ alias_selected_Server <- function(id,author_search,tbl_unique_authorkeys_fullnam
       })
       # d$pot_aliases_ls <- pot_aliases_ls
       if(length(pot_aliases_ls)==0){
-        pot_aliases_ls <- NULL
-        pot_aliases_ls_text <- NULL
+        updateCheckboxGroupInput(session,"aliases_selected",label = "Found authors, please select entries", 
+                                 choices = character(0))
+      } else {
+        updateCheckboxGroupInput(session,"aliases_selected",label = "Found authors, please select entries", 
+                                 choiceNames = pot_aliases_ls_text, 
+                                 choiceValues = unlist(pot_alias_names_ls))
       }
-      updateCheckboxGroupInput(session,"aliases_selected",label = "Found authors, please select entries", 
-                               choiceNames = pot_aliases_ls_text, 
-                               choiceValues = unlist(pot_alias_names_ls))
     }
   )
 }

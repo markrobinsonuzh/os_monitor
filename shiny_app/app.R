@@ -13,17 +13,17 @@ maindir <- getwd()
 devtools::load_all(file.path(maindir,"..","uzhOS"))
 outdir <- file.path(maindir,"..","output")
 Sys.setenv(ORCID_TOKEN="8268867c-bf2c-4841-ab9c-bfeddd582a9c")
-
-unpaywall <- tryCatch({mongo(collection="unpaywall", db="oa", url="mongodb://192.168.16.2/20")},
+mongourl <- "mongodb://192.168.16.2/20"
+unpaywall <- tryCatch({mongo(collection="unpaywall", db="oa", url=mongourl)},
                       error=function(e) readRDS(file.path(outdir,"dois_unpaywall_subset.rds")))
-tbl_eprints <- tryCatch({mongo(collection="eprints", db="oa", url="mongodb://192.168.16.2/20")},
+tbl_eprints <- tryCatch({mongo(collection="eprints", db="oa", url=mongourl)},
                         error=function(e) readRDS(file.path(outdir, "tbl_eprints.rds")))
-tbl_authorkeys <- tryCatch({mongo(collection="authorkeys", db="oa", url="mongodb://192.168.16.2/20")},
+tbl_authorkeys <- tryCatch({mongo(collection="authorkeys", db="oa", url=mongourl)},
                            error=function(e) readRDS(file.path(outdir, "tbl_authorkeys.rds")))
-tbl_subjects <- tryCatch({mongo(collection="subjects", db="oa", url="mongodb://192.168.16.2/20")},
+tbl_subjects <- tryCatch({mongo(collection="subjects", db="oa", url=mongourl)},
                          error=function(e) readRDS(file.path(outdir, "tbl_subjects.rds")))
 
-tbl_unique_authorkeys_fullname <- tryCatch({mongo(collection="unique_authorkeys_fullname", db="oa", url="mongodb://192.168.16.2/20")},
+tbl_unique_authorkeys_fullname <- tryCatch({mongo(collection="unique_authorkeys_fullname", db="oa", url=mongourl)},
                                   error=function(e) readRDS(file.path(outdir, "tbl_unique_authorkeys_fullname.rds")))
 
 if (is(tbl_unique_authorkeys_fullname,"mongo")){
@@ -43,11 +43,11 @@ ui <- navbarPage("Open science monitor UZH",
                  tabPanel("Author OA explorer",
                  fluidPage(
                     useShinyjs(),
-                    sidebarLayout(
+                    # sidebarLayout(
                         sidebarPanel(
                           # splitLayout(
                             selectizeInput("author_search","Author search",NULL,selected = NULL, multiple = FALSE, 
-                                           options = list(maxOptions = 50,placeholder="select author",maxItems=10)) %>% 
+                                           options = list(maxOptions = 1000,placeholder="select author",maxItems=10)) %>% 
                               shinyhelper::helper(type="inline",
                                                   title = "Author search input help",
                                                   content = 'This is your full name as saved in ZORA. 
@@ -70,10 +70,10 @@ ui <- navbarPage("Open science monitor UZH",
                             disabled(actionButton(inputId = "show_report",label = "Show report"))
                             # downloadButton("report", "Generate report")
                             ),
-                        disabled(downloadButton("report", "Generate report"))
+                        # disabled(downloadButton("report", "Generate report"))
                         
                         
-                    ),
+                    # ),
                     mainPanel(
                         wellPanel(
                           titlePanel("Bibtex export"),
@@ -82,17 +82,28 @@ ui <- navbarPage("Open science monitor UZH",
                           disabled(downloadButton("bibtex", "Generate bibtex citation file"))
                           ),
                         # in_selection_UI("plots_in_selection"),
-                        splitLayout(cellWidths = c("25%", "75%"),
-                          checkboxGroupInput(inputId = "in_selection",label = "Data sets included","",inline = TRUE) %>% 
+                        wellPanel(
+                          splitLayout(cellWidths = c("25%", "75%"),
+                            checkboxGroupInput(inputId = "in_selection",label = "Data sets included","",inline = TRUE) %>% 
+                              shinyjs::hidden(),
+                            verbatimTextOutput("sub_summary")
+                          ),
+                          sliderInput("range_year",label = "Cutoff year",min=2001,max = 2020,value=c(2001,2020))%>% 
                             shinyjs::hidden(),
-                          verbatimTextOutput("sub_summary")
+                          checkboxGroupInput("oa_status_filtered_table","OA status",
+                                             choices = names(open_cols_fn()),
+                                             selected = names(open_cols_fn()),
+                                             inline = TRUE) %>% 
+                            shinyjs::hidden(),
                         ),
-                        
                         # Output: Tabset w/ plot, summary, and table ----
                         tabsetPanel(type = "tabs",
-                                    tabPanel("Upset", plotOutput("plot_upset"),height="600px"),
+                                    tabPanel("Upset Plot", plotOutput("plot_upset"),height="600px"),
                                     tabPanel("Selected", plotOutput("plot_selected")),
-                                    tabPanel("Selected closed", DT::dataTableOutput("table_selected_closed")),
+                                    tabPanel("Selected closed", 
+                                             actionButton(inputId = "apply_DT_selection",label = "Apply selection"),  
+                                             actionButton(inputId = "reset_DT_selection",label = "Reset selection"),  
+                                             DT::dataTableOutput("table_selected_closed")),
                                     tabPanel("Closed in Zora", DT::dataTableOutput("table_closed_in_zora")),
                                     tabPanel("Percent closed", DT::dataTableOutput("table_oa_percent_time"))
                         )
@@ -107,8 +118,8 @@ ui <- navbarPage("Open science monitor UZH",
                                            choices = c("all",sort(unique_fac_dep(fac_dep_filt,"fac")))),
                                # selectInput("dep_choice","Department",choices = NULL),
                                checkboxGroupInput("oa_status_filtered","OA status",
-                                                  choices = c("closed","hybrid","green","gold","blue"),
-                                                  selected = c("closed","hybrid","green","gold","blue"),
+                                                  choices = names(open_cols_fn()),
+                                                  selected = names(open_cols_fn()),
                                                   inline = TRUE)
                              ),
                              mainPanel(
@@ -177,6 +188,9 @@ server = function(input, output,session) {
     
     observeEvent(d$dep_vec,{
       print("in app d$dep_vec")
+      print(input$author_search)
+      print(d$fac_vec)
+      print(d$dep_vec)
       alias_selected_Server("alias_selected",input$author_search,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints,d$fac_vec,d$dep_vec)
     })
     
@@ -228,10 +242,11 @@ server = function(input, output,session) {
     show_report_reac <- ShowReportServer("show_report",d, tbl_authorkeys, tbl_subjects, tbl_eprints, unpaywall)
     observeEvent(input$show_report,{
       d <- show_report_reac()
-      enable("bibtex")
-      for(tmp_id in c("in_selection")){
-        shinyjs::show(id = tmp_id)
-      }
+      print("after ShowReportServer")
+      print(dim(d$m))
+      shinyjs::show(id = "in_selection")
+      shinyjs::show(id = "oa_status_filtered_table")
+      shinyjs::show(id = "range_year")
       # update and show selections
       in_selection_Server("bib",d$m)
       # in_selection_Server("plots_in_selection",d$m)
@@ -239,19 +254,25 @@ server = function(input, output,session) {
       updateCheckboxGroupInput(session,"in_selection",
                                choices =  c(colnames(d$m)[grep("in_",colnames(d$m))],"inverse"),
                                selected = c(colnames(d$m)[grep("in_",colnames(d$m))]))
+      
     })
     
     # create subset of combined table based on selection of tables
-    observeEvent(input$in_selection,{
+    observe({
+      req(input$in_selection)
       in_selection_quo <- quos(input$in_selection[input$in_selection != "inverse"])
       if (length(input$in_selection[input$in_selection != "inverse"]) != 0){
-        ind <- d$m %>%
+        m_filt <- d$m %>%
+          dplyr::filter((year >= input$range_year[1]) & (year <= input$range_year[2])) %>%
+          dplyr::filter(overall_oa %in% input$oa_status_filtered_table)
+        ind <- m_filt %>%
           dplyr::select(!!!in_selection_quo) %>%
-          purrr::reduce(.f=function(x,y){x|y})
+          purrr::reduce(.f=function(x,y){x|y},.init = FALSE)
         if ("inverse" %in% input$in_selection){
           ind <- !ind
         }
-        d$m_sub <- d$m[ind,]
+        d$m_sub <- m_filt[ind,]
+        d$m_sub_sel <- m_filt[ind,]
       }
 
       # summary of subset table
@@ -267,28 +288,46 @@ server = function(input, output,session) {
     ### oa status upset plot
     p_t$upset_plot <- reactive({tryCatch({upset_plot(d$m_sub)},error=function(e) {print(e);ggplot() + geom_blank()})})
     output$plot_upset <- renderPlot({
+      req(d$m_sub)
       p_t$upset_plot()
     },res=100)
+    
     ### selected plot
     p_t$selected_plot <- reactive({tryCatch({oa_status_time_plot(d$m_sub,input$cutoff_year,oa_status_used=overall_oa)},
                                             error=function(e) {print(e);ggplot() + geom_blank()})})
     output$plot_selected <- renderPlot({
+      req(d$m_sub)
       p_t$selected_plot()
     })
+
     ### selected closed table
-    p_t$selected_closed_table <- reactive({tryCatch({overall_closed_table(d$m_sub,input$cutoff_year)},
+    # apply selection
+    observeEvent(input$apply_DT_selection,{
+      req(d$m_sub,d$m_sub_sel)
+      d$m_sub_sel <- d$m_sub_sel[input$table_selected_closed_rows_selected,]
+    })
+    # reset selection
+    observeEvent(input$reset_DT_selection,{
+      req(d$m_sub)
+      d$m_sub_sel <- d$m_sub
+    })
+    # render table
+    p_t$selected_closed_table <- reactive({tryCatch({overall_closed_table(d$m_sub_sel,input$cutoff_year)},
                                                    error=function(e) DT::datatable())})
     output$table_selected_closed <- DT::renderDataTable({
+      req(d$m_sub_sel)
       p_t$selected_closed_table()
     })
     ### Zora closed table
     p_t$closed_in_zora_table <- reactive({closed_in_zora_table(d$zora)})
     output$table_closed_in_zora <- DT::renderDataTable({
+      req(d$zora)
         p_t$closed_in_zora_table()
     })
     ### OA percent time table
     p_t$oa_percent_time_table <- reactive({tryCatch({oa_percent_time_table(d$m,input$cutoff_year)},error=function(e) ggplot() + geom_blank())})
     output$table_oa_percent_time <- DT::renderDataTable({
+      req(d$m)
         p_t$oa_percent_time_table()
     })
 

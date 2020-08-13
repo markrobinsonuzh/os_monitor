@@ -20,13 +20,52 @@ oa_status_time_plot <- function(tbl_merge,cutoff_year,colname=year,title="ZORA O
   levels(tmp) <- c(levels(tmp),"unknown")
   tmp[is.na(tmp)] <- "unknown"
   tbl_merge <- tbl_merge %>% dplyr::mutate(!!q_oa_status_used := tmp)
-  ggplot(tbl_merge %>% dplyr::filter(!!q_colname >= cutoff_year, !!q_colname <= 2020), aes(x=!!q_colname, fill=!!q_oa_status_used)) + 
-    geom_bar() + 
-    theme(axis.text.x = element_text(angle = 90)) +
+  # tbl_merge_rel <- tbl_merge %>% 
+  #   dplyr::group_by(!!q_colname) %>% dplyr::mutate()
+  # ggplot(tbl_merge %>% dplyr::filter(!!q_colname >= cutoff_year, !!q_colname <= 2020), aes(x=!!q_colname, fill=!!q_oa_status_used)) + 
+  #   geom_bar() + 
+  #   theme(axis.text.x = element_text(angle = 90)) +
+  #   ggtitle(title) +
+  #   scale_fill_manual(values=open_cols_fn())
+  
+  tmptib_1 <- tbl_merge %>% 
+    dplyr::filter(!!q_colname >= cutoff_year, !!q_colname <= 2020)%>% 
+    group_by(!!q_colname,!!q_oa_status_used) %>% 
+    summarise(Count=n()) %>%
+    ungroup() %>% 
+    group_by(!!q_colname) %>% 
+    mutate(Proportion=Count/sum(Count)) %>% 
+    tidyr::pivot_longer(cols = c(Count,Proportion))
+  
+  ggplot(tmptib_1, aes(x=!!q_colname,y=value, fill=!!q_oa_status_used)) + 
+    geom_col() + facet_grid(rows = vars(name),scales = "free_y")+
+    # facet_wrap(~name,scales = "free_y") +
+    # theme(axis.text.x = element_text(angle = 90)) +
     ggtitle(title) +
+    labs(y="")+
     scale_fill_manual(values=open_cols_fn())
 }
 
+# tmptib_1 <- tmptib %>% 
+#   group_by(b,a) %>% 
+#   summarise(Count=n()) %>%
+#   ungroup() %>% 
+#   group_by(b) %>% 
+#   mutate(Proportion=Count/sum(Count)) %>% 
+#   tidyr::pivot_longer(cols = c(Count,Proportion))
+# 
+# ggplot(tmptib_1, aes(x=b,y=value, fill=a)) + 
+#   geom_col() + facet_wrap(~name,scales = "free_y") +
+#   # theme(axis.text.x = element_text(angle = 90)) +
+#   ggtitle("title") +
+#   scale_fill_manual(values=open_cols_fn())
+# 
+# ggplot(tmptib) + stat_count(aes(a))
+# ggplot(tmptib, aes(x=b, fill=a)) + 
+#   geom_bar() 
+  # theme(axis.text.x = element_text(angle = 90)) +
+  # ggtitle(title) +
+  # scale_fill_manual(values=open_cols_fn())
 
 #' Table of closed article in Zora
 #'
@@ -43,9 +82,9 @@ closed_in_zora_table <- function(zora){
     dplyr::select(doi, eprintid, type, refereed, title, oa_status, year) %>%
     dplyr::mutate(doi = ifelse(is.na(doi), "", 
                                paste0("<a href='https://www.doi.org/",
-                                      doi, "'>", doi, "</a>")),
+                                      doi, "' target='_blank'>", doi, "</a>")),
                   eprintid = paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
-                             eprintid, "'>", eprintid, "</a>")) %>%
+                             eprintid, "' target='_blank'>", eprintid, "</a>")) %>%
     dplyr::arrange(desc(year))
   DT::datatable(z, extensions = 'Buttons',
                 options = list(dom = 'Bfrtip',
@@ -113,18 +152,18 @@ oa_percent_time_table <- function(m,cutoff_year){
 #' @examples
 overall_closed_table <- function(tbl_merge,cutoff_year){
   z <- tbl_merge %>%
-    dplyr::filter(overall_oa == "closed", as.integer(year) >= cutoff_year) %>%
+    # dplyr::filter(overall_oa == "closed", as.integer(year) >= cutoff_year) %>%
     dplyr::select(doi, eprintid, overall_oa, oa_status.zora,oa_status.unpaywall, year, title) %>%
     dplyr::arrange(desc(year)) %>%
     dplyr::mutate(oa_status.unpaywall = ifelse(is.na(oa_status.unpaywall), "",
                                                paste0("<a href='https://api.unpaywall.org/v2/",
-                                               doi,"?email=YOUR_EMAIL'>",
+                                               doi,"?email=YOUR_EMAIL' target='_blank'>",
                                                oa_status.unpaywall, "</a>")),
-                  doi = ifelse(is.na(doi), "",
-                               paste0("<a href='https://www.doi.org/",doi, "'>", doi, "</a>")),
+                  doi = ifelse(is.na(doi), "", 
+                               paste0("<a href='https://www.doi.org/",doi, "' target='_blank'>", doi, "</a>")),
                   eprintid = ifelse(is.na(eprintid), "",
                                     paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
-                                           eprintid, "'>", eprintid, "</a>")))
+                                           eprintid, "' target='_blank'>", eprintid, "</a>")))
   DT::datatable(z, extensions = 'Buttons',
                 options = list(dom = 'Bfrtip',
                                pageLength = 200,
@@ -209,8 +248,8 @@ overall_closed_table <- function(tbl_merge,cutoff_year){
 upset_plot <- function(tbl_merge){
   tib_plt <- tbl_merge %>% 
     dplyr::select( dplyr::starts_with("in_")) %>% 
-    dplyr::mutate( dplyr::across( dplyr::starts_with("in_"),~as.integer(.x)))
-  UpSetR::upset(tib_plt)
+    dplyr::mutate( dplyr::across( dplyr::starts_with("in_"),~as.integer(.x))) 
+  UpSetR::upset(as.data.frame(tib_plt))
 }
 
 

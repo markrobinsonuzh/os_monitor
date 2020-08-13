@@ -29,9 +29,9 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
         progress_bar_len <- sum(not_null) + 3
         # author info
         tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,d$author_vec, d$fac_vec ,d$dep_vec)
+        print("zora")
         print(dim(tbl_author))
-        print(length(tbl_author$doi))
-        print(length(unique(tbl_author$doi)))
+        
         if (!is.null(progress)) progress$set( value = progress$getValue() + 1/progress_bar_len, message="create table from Zora")
         # zora data.frame
         d$zora <- create_zora(d$author_vec,tbl_author,tbl_subjects)
@@ -75,7 +75,7 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
         # combine table
         if (!is.null(progress)) progress$set(value = progress$getValue() + 1/progress_bar_len, message="Combine table")
         tbl_merge <- create_combined_data(d$df_orcid,d$df_pubmed,d$zora,d$df_publons,unpaywall)
-
+        
         # google scholar
         if (stringr::str_trim(d$scholar) != ""){
           if (!is.null(progress)) progress$set(value = progress$getValue() + 1/progress_bar_len, message="create table from Scholar")

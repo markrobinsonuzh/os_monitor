@@ -153,7 +153,7 @@ oa_percent_time_table <- function(m,cutoff_year){
 overall_closed_table <- function(tbl_merge,cutoff_year){
   z <- tbl_merge %>%
     # dplyr::filter(overall_oa == "closed", as.integer(year) >= cutoff_year) %>%
-    dplyr::select(doi, eprintid, overall_oa, oa_status.zora,oa_status.unpaywall, year, title) %>%
+    dplyr::select(doi, eprintid, overall_oa, oa_status.zora,oa_status.unpaywall, year, dplyr::starts_with("title")) %>%
     dplyr::arrange(desc(year)) %>%
     dplyr::mutate(oa_status.unpaywall = ifelse(is.na(oa_status.unpaywall), "",
                                                paste0("<a href='https://api.unpaywall.org/v2/",

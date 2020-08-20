@@ -22,7 +22,7 @@ oadoi_fetch_local <- function(dois,file=readRDS(here::here("output","dois_unpayw
   dois <- tolower(dois)
   # if is database connection to mongodb
   if (is(file,"mongo")){
-    lapply(dois,function(doi){
+    oaf <- lapply(dois,function(doi){
       single_query <- file$find(paste0('{"doi":"',doi,'"}'))
       if (length(single_query)<2){
         tibble::tibble(doi=NULL,oa_status=NULL)
@@ -34,11 +34,16 @@ oadoi_fetch_local <- function(dois,file=readRDS(here::here("output","dois_unpayw
     # if is filename, load first
   } else if (!is(file,"data.frame")){
     file <- readRDS(here::here("output","dois_unpaywall.rds"))
-    dplyr::filter(file,doi %in% dois)
+    oaf <- dplyr::filter(file,doi %in% dois)
     
     # if is data.frame
   } else {
-    dplyr::filter(file,doi %in% dois)
+    oaf <- dplyr::filter(file,doi %in% dois)
+  }
+  if(length(oaf)==0){
+    return(tibble::tibble(doi=character(),oa_status=character()))
+  } else {
+    return(oaf)
   }
 }
 
@@ -121,30 +126,7 @@ create_tbl_author <- function(tbl_authorkeys,tbl_eprints,author_vec, fac_vec=NUL
       unique() 
   }
 } 
-# author_vec <- c("robinson mark d")
-# fac_vec <- "04 Faculty of Medicine"
-# dep_vec <- c("Epidemiology, Biostatistics and Prevention Institute (EBPI)","Institute of Evolutionary Medicine")
-# tmpquo <- quo(FALSE | "04 Faculty of Medicine" %in% unlist(.data[["parent_name"]]) | (FALSE | "Institute of Medical Virology" %in% unlist(.data[["name"]]) |
-#                                                                                         "Institute of Medical Molecular Genetics" %in% unlist(.data[["name"]]) | "Institute of Biomedical Ethics and History of Medicine" %in% unlist(.data[[
-#                                                                                           "name"]]) | "Institute of Molecular Cancer Research" %in% unlist(.data[["name"]]) | "Swiss Research Institute for Public Health and Addiction" %in%
-#                                                                                         unlist(.data[["name"]]) | "Department of Biochemistry" %in% unlist(.data[["name"]]) | "Cancer Research Center (CRC)" %in% unlist(.data[["name"]]) |
-#                                                                                         "Institute of Medical Microbiology" %in% unlist(.data[["name"]]) | "Institute of Evolutionary Medicine" %in% unlist(.data[["name"]]) |
-#                                                                                         "Institute of Medical Genetics" %in% unlist(.data[["name"]]) | "Zurich Center for Imaging Science and Technology" %in% unlist(.data[["name"]]) |
-#                                                                                         "Institute of Experimental Immunology" %in% unlist(.data[["name"]]) | "Institute of Biomedical Engineering" %in% unlist(.data[["name"]]) |
-#                                                                                         "Center of Competence Multimorbidity" %in% unlist(.data[["name"]]) | "Center for Integrative Human Physiology" %in% unlist(.data[["name"]]) |
-#                                                                                         "Institute of Physiology" %in% unlist(.data[["name"]]) | "Institute of Legal Medicine" %in% unlist(.data[["name"]]) |
-#                                                                                         "Swiss Institute of Allergy and Asthma Research" %in% unlist(.data[["name"]]) | "Center for Microscopy and Image Analysis" %in% unlist(.data[["name"]]) |
-#                                                                                         "Neuroscience Center Zurich" %in% unlist(.data[["name"]]) | "Institute of Laboratory Animal Science" %in% unlist(.data[["name"]]) |
-#                                                                                         "Functional Genomics Center Zurich" %in% unlist(.data[["name"]]) | "Institute of Anatomy" %in% unlist(.data[["name"]]) | "Cardiocentro Ticino" %in%
-#                                                                                         unlist(.data[["name"]]) | "Balgrist University Hospital, Swiss Spinal Cord Injury Center" %in% unlist(.data[["name"]]) |
-#                                                                                         "Brain Research Institute" %in% unlist(.data[["name"]]) | "Epidemiology, Biostatistics and Prevention Institute (EBPI)" %in% unlist(.data[["name"]]) |
-#                                                                                         "Institute of Pharmacology and Toxicology" %in% unlist(.data[["name"]]) | "Institute of Response Genetics" %in% unlist(.data[["name"]]) |
-#                                                                                         "Institute for Regenerative Medicine (IREM)" %in% unlist(.data[["name"]]) | "Center of Competence Systems Physiology and Metabolic Diseases" %in%
-#                                                                                         unlist(.data[["name"]]) | "Center for Molecular Cardiology" %in% unlist(.data[["name"]]) | "The KEY Institute for Brain-Mind Research" %in% unlist(
-#                                                                                           .data[["name"]]) | "Zentrum für Interdisziplinäre Schlafforschung" %in% unlist(.data[["name"]])))
-# tmptbl <- create_tbl_author(tbl_authorkeys,tbl_eprints,c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)"))
-# dim(unique(tmptbl))
-# tmptbl[c(44,45),]
+
 
 #' create_zora
 #'
@@ -178,7 +160,7 @@ create_zora <- function(author_vec,tbl_author,tbl_subjects){
   zora <- dept_fac %>%
     dplyr::mutate(dept = name, faculty = parent_name, in_zora=TRUE) %>%
     dplyr::filter(authorkey_fullname %in% c(author_vec)) %>%
-    dplyr::select(-dept, -faculty, -name, -parent_name) %>% 
+    dplyr::select(-dept, -faculty, -name, -parent_name,-name.y,-parent_name.y,-subjects,-parent) %>% 
     unique()
   
   if (dim(zora)[1]!=0){
@@ -204,50 +186,72 @@ create_zora <- function(author_vec,tbl_author,tbl_subjects){
 #' @examples
 create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,unpaywall){
   # if df_orcid is given
-  if (!is.null(df_orcid)){
-    m <- dplyr::full_join(df_orcid %>% dplyr::mutate(doi=tolower(doi)), 
-                          zora %>% dplyr::mutate(doi=tolower(doi)), 
+  if (!(is.null(df_orcid) || dim(df_orcid)[1]==0)){
+    m <- dplyr::full_join(df_orcid %>% 
+                            dplyr::mutate(doi=tolower(doi)) %>% 
+                            dplyr::as_tibble(), 
+                          zora %>% 
+                            dplyr::mutate(doi=tolower(doi)) %>%
+                            dplyr::as_tibble(), 
                           by="doi", suffix=c(".orcid",".zora"),
-                          na_matches="never") %>%
-      dplyr::filter(doi != "logical(0)")
+                          na_matches="never") 
+    m$doi[m$doi=="logical(0)"] <- NA
+    # %>%
+    #   dplyr::filter(doi != "logical(0)")
     
   # rename some columns for consistency if df_orcid not given
   } else {
     m <- zora %>% 
       dplyr::mutate(doi=tolower(doi)) %>% 
       dplyr::rename(year.zora=year,
-             oa_status.zora = oa_status,
-             title.zora = title)
+             oa_status.zora = oa_status) %>% 
+      dplyr::mutate(title.zora=title) %>% 
+      dplyr::as_tibble()
   }
   # if df_pubmed is given, join
-  if (!is.null(df_pubmed)){
+  if (!(is.null(df_pubmed) || dim(df_pubmed)[1]==0)){
     m <- dplyr::full_join(m, 
-                          df_pubmed %>% dplyr::mutate(doi=tolower(doi)), 
+                          df_pubmed %>% 
+                            dplyr::mutate(doi=tolower(doi)) %>% 
+                            dplyr::as_tibble(), 
                           by="doi", suffix = c("", ".pubmed"),
                           na_matches="never")
     # rename for consistency
     if("oa_status" %in% names(m)){
       m <- m %>% dplyr::rename(oa_status.pubmed=oa_status)
     }
+    if("title" %in% names(m)){
+      m <- m %>% dplyr::rename(title.pubmed=title)
+    }
   }
   # if df_publons is present, join and rename
-  if (!is.null(df_publons)){
+  if (!(is.null(df_publons) || dim(df_publons)[1]==0)){
     m <- dplyr::full_join(m, 
-                          df_publons %>% dplyr::mutate(doi=tolower(doi)), 
+                          df_publons %>% 
+                            dplyr::mutate(doi=tolower(doi)) %>% 
+                            dplyr::as_tibble(), 
                           by="doi", suffix = c("", ".publons"),
                           na_matches="never")
     if("oa_status" %in% names(m)){
       m <- m %>% dplyr::rename(oa_status.publons=oa_status)
     }
+    if("title" %in% names(m)){
+      m <- m %>% dplyr::rename(title.publons=title)
+    }
   }
+  m <- m %>% dplyr::mutate(title=title.zora)
+  
   # get oa status from unpaywall
   oaf <- oadoi_fetch_local(unique(na.omit(m$doi)),unpaywall)
-  m <- m %>% dplyr::left_join(oaf %>% dplyr::select(doi, oa_status), 
+  m <- m %>% dplyr::full_join(oaf %>% dplyr::select(doi, oa_status), 
                        by = "doi", suffix=c("", ".unpaywall")) %>% 
     dplyr::rename(oa_status.unpaywall=oa_status)
   
   # set overall oa status
   m$overall_oa <- m$oa_status.unpaywall
+  m$overall_oa <- factor(m$overall_oa, levels = names(open_cols_fn()))
+  
+  # print(m$overall_oa %>% table(useNA = "ifany"))
   if (!is.null(df_orcid)){
     m$overall_oa[m$type.orcid=="other"] <- "preprint"
   }
@@ -258,8 +262,8 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,unpaywall){
   w <- m$oa_status.zora != "closed" & m$oa_status.unpaywall == "closed"
   w[is.na(w)] <- FALSE
   m$overall_oa[w] <- m$oa_status.zora[w]
-  m$overall_oa <- factor(m$overall_oa, levels = names(open_cols_fn()))
-  
+  w <- is.na(m$overall_oa)
+  m$overall_oa[w] <- "unknown"
   # set title
   w <- is.na(m$title)
   m$title[w] <- m$title.zora[w]
@@ -276,7 +280,8 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,unpaywall){
   }
   
   # set NA's in 'in_..' columns to FALSE
-  m <- m %>% dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
+  m <- m %>% 
+    dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
   return(tibble::as_tibble(m))
 }
 
@@ -468,14 +473,12 @@ pot_alias_and_affil <- function(authorname,tbl_unique_authorkeys_fullname,tbl_su
 #'
 #' @examples
 upset_selection <- function(tbl_merge,in_selection,not_in_selection){
-  bib_in_selection_quo <- rlang::enquos(in_selection)
-  bib_not_in_selection_quo <- rlang::enquos(not_in_selection)
   ind_1 <- tbl_merge %>%
-    dplyr::select(!!!bib_in_selection_quo) %>%
-    purrr::reduce(.f=function(x,y){x&y})
+    dplyr::select(!!!rlang::syms(in_selection)) %>%
+    purrr::reduce(.f=function(x,y){x&y}) 
   ind_2 <- tbl_merge %>%
-    dplyr::select(!!!bib_not_in_selection_quo) %>%
-    purrr::reduce(.f=function(x,y){x&!y}, .init = TRUE)
+    dplyr::select(!!!rlang::syms(not_in_selection)) %>%
+    purrr::reduce(.f=function(x,y){x&!y}, .init = TRUE) 
   return(ind_1 & ind_2)
 }
 

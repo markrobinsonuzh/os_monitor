@@ -1,7 +1,3 @@
-
-
-
-
 #' Summarised OA status for all departments
 #'
 #' @param tbl_eprints mongodb connection
@@ -14,7 +10,7 @@
 #' @examples
 all_org_unit_fac <- function(tbl_eprints){
   if (is(tbl_eprints,"mongo")){
-    tmpls <- tbl_eprints$aggregate('[ { "$group": {"_id":{"name": "$name","parent_name":"$parent_name","oa_status":"$oa_status","published_doc":"$published_doc" } , 
+    tmpls <- tbl_eprints$aggregate('[ { "$group": {"_id":{"name": "$name","parent_name":"$parent_name","oa_status":"$oa_status","published_doc":"$published_doc", "date":"$date" } , 
                                 "number":{"$sum":1}}} ]') 
     
     
@@ -22,17 +18,20 @@ all_org_unit_fac <- function(tbl_eprints){
                       dep=tmpls[["_id"]]$name,
                       oa_status=tmpls[["_id"]]$oa_status,
                       published_doc=tmpls[["_id"]]$published_doc,
+                      year=tmpls[["_id"]]$date,
                       count=unlist(tmpls["number"]))
     fac_dep <- fac_dep %>% 
       dplyr::mutate(oa_status = if_else(published_doc & oa_status=="closed","blue",oa_status),
              oa_status= factor(oa_status, levels = names(open_cols_fn()))) %>% 
       dplyr::select(-published_doc)
+    total_fac_dep_year <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep,year) %>% dplyr::summarise(fac_dep_year_sum=sum(count)))
     total_fac_dep <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep) %>% dplyr::summarise(fac_dep_sum=sum(count)))
     total_fac <-  suppressMessages(fac_dep %>% dplyr::group_by(fac) %>% dplyr::summarise(fac_sum=sum(count)))
     total_dep <-  suppressMessages(fac_dep %>% dplyr::group_by(dep) %>% dplyr::summarise(dep_sum=sum(count)))
     fac_dep <- suppressMessages(fac_dep %>% dplyr::inner_join(total_fac_dep) %>% 
                                   dplyr::inner_join(total_fac) %>% 
-                                  dplyr::inner_join(total_dep))
+                                  dplyr::inner_join(total_dep) %>% 
+                                  dplyr::inner_join(total_fac_dep_year))
     
     fac_dep_filt <- fac_dep %>% dplyr::filter(!(stringr::str_detect(fac_dep$fac,"[:digit:]{4}") | stringr::str_detect(fac_dep$dep,"[:digit:]{4}")))
   return(fac_dep_filt)
@@ -78,7 +77,7 @@ unique_fac_dep <- function(fac_dep_filt, type=c("fac","dep","fac_dep")){
 #' @import ggplot2
 #'
 #' @examples
-plot_fac_dep <- function(fac_dep_filt, fac_chosen = NULL, oa_status_filter = c("closed","hybrid","green","gold","blue")){
+plot_fac_dep <- function(fac_dep_filt, fac_chosen = NULL, oa_status_filter = c("closed","hybrid","green","gold","blue"),by_year=FALSE){
   if (is.null(fac_chosen)){
     col_to_plot <- "fac"
     fac_chosen <- unique_fac_dep(fac_dep_filt, "fac")
@@ -86,28 +85,47 @@ plot_fac_dep <- function(fac_dep_filt, fac_chosen = NULL, oa_status_filter = c("
     col_to_plot <- "dep"
     stopifnot(fac_chosen %in% unique_fac_dep(fac_dep_filt, "fac"))
   }
-  
-  
-  fac_filt <- fac_dep_filt %>%
-    dplyr::filter(fac %in% fac_chosen) %>%
-    dplyr::group_by(!!rlang::sym(col_to_plot),oa_status) %>%
-    dplyr::summarise(Count=sum(count)) %>%
-    dplyr::ungroup() %>%
-    dplyr:: group_by(!!rlang::sym(col_to_plot)) %>%
-    dplyr::mutate(Proportion=Count/sum(Count)) %>% 
-    dplyr::filter(oa_status %in% oa_status_filter) %>% 
-    dplyr::arrange(!!rlang::sym(col_to_plot))
+  fac_filt <- preprocess_fac_dep(fac_dep_filt,fac_chosen, col_to_plot, oa_status_filter, by_year)
   
   fac_filt_long <- fac_filt %>% 
-    tidyr::pivot_longer(cols = c("Count","Proportion"),names_to="type")
-  
-  ggplot(fac_filt_long) +
-    geom_col(aes(!!sym(col_to_plot),x=value,fill=oa_status),position = position_stack(reverse = TRUE))+
-    scale_fill_manual(values=open_cols_fn()) +
-    facet_wrap(~type,scales = "free_x") +
-    theme(axis.title.x = element_blank(), 
-          axis.title.y = element_blank()) + 
-    labs(fill="OA status")
+    tidyr::pivot_longer(cols = c("Count","Proportion"),names_to="type") %>% 
+    ungroup()
+  if (by_year){
+    ggplot(fac_filt_long %>% filter(type=="Proportion")) +
+      geom_col(aes(year,x=value,fill=oa_status),position = position_stack(reverse = TRUE)) +
+      scale_fill_manual(values=open_cols_fn()) +
+      facet_wrap(~fac)
+      # facet_grid(rows=vars(year)) #,cols = vars(year))
+      # facet_wrap(!!sym(col_to_plot)~type,scales = "free_x") +
+      # theme(axis.title.x = element_blank(), 
+      #       axis.title.y = element_blank()) + 
+      # labs(fill="OA status")
+  } else {
+    ggplot(fac_filt_long) +
+      geom_col(aes(!!sym(col_to_plot),x=value,fill=oa_status),position = position_stack(reverse = TRUE))+
+      scale_fill_manual(values=open_cols_fn()) +
+      facet_wrap(~type,scales = "free_x") +
+      theme(axis.title.x = element_blank(), 
+            axis.title.y = element_blank()) + 
+      labs(fill="OA status")
+  }
+}
+
+
+
+preprocess_fac_dep <- function(fac_dep_filt, fac_chosen, col_to_plot , oa_status_filter = c("closed","hybrid","green","gold","blue"), by_year=FALSE){
+  if (by_year){
+    col_to_plot <- c(col_to_plot,"year")
+  }
+  fac_dep_filt %>%
+    dplyr::filter(fac %in% fac_chosen) %>%
+    dplyr::group_by(!!!rlang::syms(col_to_plot),oa_status) %>%
+    dplyr::summarise(Count=sum(count)) %>%
+    dplyr::ungroup() %>%
+    dplyr:: group_by(!!!rlang::syms(col_to_plot)) %>%
+    dplyr::mutate(Proportion=Count/sum(Count)) %>% 
+    dplyr::filter(oa_status %in% oa_status_filter) %>% 
+    dplyr::arrange(!!!rlang::syms(col_to_plot))
 }
 
 

@@ -13,18 +13,21 @@ maindir <- getwd()
 devtools::load_all(file.path(maindir,"..","uzhOS"))
 outdir <- file.path(maindir,"..","output")
 Sys.setenv(ORCID_TOKEN="8268867c-bf2c-4841-ab9c-bfeddd582a9c")
-mongourl <- "mongodb://192.168.16.2/20"
-unpaywall <- tryCatch({mongo(collection="unpaywall", db="oa", url=mongourl)},
-                      error=function(e) readRDS(file.path(outdir,"dois_unpaywall_subset.rds")))
-tbl_eprints <- tryCatch({mongo(collection="eprints", db="oa", url=mongourl)},
-                        error=function(e) readRDS(file.path(outdir, "tbl_eprints.rds")))
-tbl_authorkeys <- tryCatch({mongo(collection="authorkeys", db="oa", url=mongourl)},
-                           error=function(e) readRDS(file.path(outdir, "tbl_authorkeys.rds")))
-tbl_subjects <- tryCatch({mongo(collection="subjects", db="oa", url=mongourl)},
-                         error=function(e) readRDS(file.path(outdir, "tbl_subjects.rds")))
+mongourl <- "mongodb://db"
+# mongourl <- "mongodb://172.18.0.2/16"
+mongourl_local <- "mongodb://192.168.16.2/20" # for locale development
 
+print("connect to mongodb")
+unpaywall <- tryCatch({mongo(collection="unpaywall", db="oa", url=mongourl)},
+                      error=function(e) {print("local"); return(mongo(collection="unpaywall", db="oa", url=mongourl_local))})
+tbl_eprints <- tryCatch({mongo(collection="eprints", db="oa", url=mongourl)},
+                        error=function(e) {print("local"); return(mongo(collection="eprints", db="oa", url=mongourl_local))})
+tbl_authorkeys <- tryCatch({mongo(collection="authorkeys", db="oa", url=mongourl)},
+                           error=function(e) {print("local"); return(mongo(collection="authorkeys", db="oa", url=mongourl_local))})
+tbl_subjects <- tryCatch({mongo(collection="subjects", db="oa", url=mongourl)},
+                         error=function(e) {print("local");return( mongo(collection="subjects", db="oa", url=mongourl_local))})
 tbl_unique_authorkeys_fullname <- tryCatch({mongo(collection="unique_authorkeys_fullname", db="oa", url=mongourl)},
-                                  error=function(e) readRDS(file.path(outdir, "tbl_unique_authorkeys_fullname.rds")))
+                                  error=function(e) {print("local"); return(mongo(collection="unique_authorkeys_fullname", db="oa", url=mongourl_local))})
 
 if (is(tbl_unique_authorkeys_fullname,"mongo")){
   unique_authorkeys_processed <- unique(tbl_unique_authorkeys_fullname$find('{}', fields='{"_id":0,"authorkey":0,"id":0,"authorkey_fullname":0}') %>% dplyr::pull(authorname))
@@ -51,9 +54,13 @@ ui <- navbarPage("Open science monitor UZH",
                               shinyhelper::helper(type="inline",
                                                   title = "Author search input help",
                                                   content = 'This is your full name as saved in ZORA. 
-                                                  The format is "(familiy name) (given name)". 
-                                                  It is possible that of your given name only the initials are saved in ZORA.
-                                                  Multiple selections are possible.'),
+                                                  The format is "(familiy name) (given name)". It is possible
+                                                  that multiple entries correspond to you, e.g. Muster M Max and Muster Max. Select
+                                                  therefore all matching entries.
+                                                  The Faculty and Department Filter allows you to more closely restrict
+                                                  the search which might be useful if multiple people with the same name exist.
+                                                  Afterward select the matching entries of the database
+                                                  by clicking on them.'),
                             selectizeInput("faculty_search","Faculty Filter",c("all",sort(unique_fac_dep(fac_dep_filt,"fac"))),selected="all",multiple=TRUE) %>% 
                               disabled(),
                             selectizeInput("department_search","Department Filter","all",selected="all",multiple=TRUE) %>% 
@@ -61,7 +68,11 @@ ui <- navbarPage("Open science monitor UZH",
                           # ),
                             alias_selected_UI("alias_selected"),
                             textInput("orcid",label = a("Orcid",href="https://orcid.org",target="_blank"), value=""),
-                            textInput("pubmed",label = a("Pubmed Query",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"), value=""),
+                            splitLayout(cellWidths = c("75%", "25%"),
+                                        textAreaInput("pubmed",label = a("Pubmed Query",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"), value="") %>% 
+                                          shinyjs::disabled(),
+                                        actionButton("activate_pubmed",HTML("Generate <br/> Pubmed <br/> Query")) %>% 
+                                          shinyjs::disabled()),
                             textInput("scholar",label = a("Google Scholar id",href="https://scholar.google.ch",target="_blank"), value=""),
                             textInput("publons",label = tags$div(tags$a("Publons id",href="https://publons.com",target="_blank"),
                                                                  tags$span(class="help-block","(or if linked: ORCID, ResearcherID or TRUID)")), value=""),
@@ -75,12 +86,12 @@ ui <- navbarPage("Open science monitor UZH",
                         
                     # ),
                     mainPanel(
-                        wellPanel(
-                          titlePanel("Bibtex export"),
-                          in_selection_UI("bib"),
-                          verbatimTextOutput("bibtex_summary"),
-                          disabled(downloadButton("bibtex", "Generate bibtex citation file"))
-                          ),
+                        # wellPanel(
+                        #   titlePanel("Bibtex export"),
+                        #   in_selection_UI("bib"),
+                        #   verbatimTextOutput("bibtex_summary"),
+                        #   disabled(downloadButton("bibtex", "Generate bibtex citation file"))
+                        #   ),
                         # in_selection_UI("plots_in_selection"),
                         wellPanel(
                           splitLayout(cellWidths = c("25%", "75%"),
@@ -99,10 +110,20 @@ ui <- navbarPage("Open science monitor UZH",
                         # Output: Tabset w/ plot, summary, and table ----
                         tabsetPanel(type = "tabs",
                                     tabPanel("Upset Plot", plotOutput("plot_upset"),height="600px"),
-                                    tabPanel("Selected", plotOutput("plot_selected")),
-                                    tabPanel("Selected closed", 
-                                             actionButton(inputId = "apply_DT_selection",label = "Apply selection"),  
-                                             actionButton(inputId = "reset_DT_selection",label = "Reset selection"),  
+                                    tabPanel("Histogram", plotOutput("plot_selected")),
+                                    tabPanel("Table", 
+                                             # data_table_selection_UI("DT_author_selection")),
+                                             flowLayout(#cellWidths = c("30%","30%","60%"),
+                                               actionButton(inputId = "apply_DT_selection",label = "Apply selection"),
+                                               actionButton(inputId = "reset_DT_selection",label = "Reset selection")
+                                               ) %>% 
+                                                 shinyhelper::helper(type="inline",
+                                                                   title = "Apply and Reset selection help",
+                                                                   content = 'To choose entries to keep, klick on the responding
+                                                                   rows in the table below. Afterwards press "Apply selection" 
+                                                                   to remove non-selected entries. 
+                                                                   To revert the selection and
+                                                                   show all entries press "Revert selection".'),
                                              DT::dataTableOutput("table_selected_closed")),
                                     tabPanel("Closed in Zora", DT::dataTableOutput("table_closed_in_zora")),
                                     tabPanel("Percent closed", DT::dataTableOutput("table_oa_percent_time"))
@@ -168,7 +189,7 @@ server = function(input, output,session) {
         deps <- unique_fac_dep(fac_dep_filt,type="fac_dep") %>% 
           dplyr::filter(fac %in% input$faculty_search) %>% 
           dplyr::pull(dep)
-        updateSelectizeInput(session,"department_search",choices=c("all",deps), selected = "all")
+        updateSelectizeInput(session,"department_search",choices=c("all",sort(deps)), selected = "all")
       }
     })
     
@@ -206,23 +227,30 @@ server = function(input, output,session) {
     # automated string operations, enable, disable report buttons
     observeEvent(d$author_vec,{
         updateTextInput(session,"orcid",value=d$orcid)
-        d$pubmed <- tryCatch({
-          pubmed_search_string_from_zora_id(d$author_vec[1],
-                                            tbl_unique_authorkeys_fullname, 
-                                            input$cutoff_year, 
-                                            orcid = unlist(ifelse(is.null(d$orcid),list(NULL),d$orcid)))
-          },error=function(e)"")
-        updateTextInput(session,"pubmed",value=d$pubmed)
         if (is.null(d$author_vec)){
             disable("show_report")
             disable("report")
             disable("cutoff_year")
+            disable("activate_pubmed")
         } else{
             enable("show_report")
             enable("report")
             enable("cutoff_year")
+            enable("activate_pubmed")
         }
     })
+    observeEvent(input$activate_pubmed,{
+      d$pubmed <- tryCatch({
+        pubmed_search_string_from_zora_id(d$author_vec[1],
+                                          tbl_unique_authorkeys_fullname, 
+                                          input$cutoff_year, 
+                                          orcid = unlist(ifelse(is.null(d$orcid),list(NULL),d$orcid)))
+      },error=function(e)"")
+      updateTextAreaInput(session,"pubmed",value=d$pubmed)
+      enable("pubmed")
+    })
+      
+    
     
     # for manual input from user
     observeEvent(input$orcid,{
@@ -244,11 +272,12 @@ server = function(input, output,session) {
       d <- show_report_reac()
       print("after ShowReportServer")
       print(dim(d$m))
+      print(head(d$m))
       shinyjs::show(id = "in_selection")
       shinyjs::show(id = "oa_status_filtered_table")
       shinyjs::show(id = "range_year")
       # update and show selections
-      in_selection_Server("bib",d$m)
+      # in_selection_Server("bib",d$m)
       # in_selection_Server("plots_in_selection",d$m)
       # update single selection for plots and tables
       updateCheckboxGroupInput(session,"in_selection",
@@ -271,6 +300,7 @@ server = function(input, output,session) {
         if ("inverse" %in% input$in_selection){
           ind <- !ind
         }
+        
         d$m_sub <- m_filt[ind,]
         d$m_sub_sel <- m_filt[ind,]
       }
@@ -313,7 +343,9 @@ server = function(input, output,session) {
     })
     # render table
     p_t$selected_closed_table <- reactive({tryCatch({overall_closed_table(d$m_sub_sel,input$cutoff_year)},
-                                                   error=function(e) DT::datatable())})
+                                                   error=function(e) DT::datatable(head(d$m,0)))})
+    # observe({data_table_selection_processing_Server("DT_author_selection",d)})
+    # p_t$selected_closed_table <- data_table_selection_table_Server("DT_author_selection",d$m, d$m_sub_sel)
     output$table_selected_closed <- DT::renderDataTable({
       req(d$m_sub_sel)
       p_t$selected_closed_table()
@@ -331,30 +363,30 @@ server = function(input, output,session) {
         p_t$oa_percent_time_table()
     })
 
-    # bibtex creation
-    bib_reac <- in_selection_bib_Server("bib",d$m)
-    observe({
-      d$to_update <- bib_reac()
-      output$bibtex_summary <- renderPrint({paste("Total number of entries to download:", length(d$to_update))})
-    })
+    # # bibtex creation
+    # bib_reac <- in_selection_bib_Server("bib",d$m)
+    # observe({
+    #   d$to_update <- bib_reac()
+    #   output$bibtex_summary <- renderPrint({paste("Total number of entries to download:", length(d$to_update))})
+    # })
     
-    output$bibtex <- downloadHandler(
-      filename = paste0("BIBTEX_FOR_ORCID_",d$orcid, ".bib"),
-      content = function(file){
-        if(length(d$to_update) > 0) {
-          bibtex_from_doi <- GetBibEntryWithDOI_no_temp(d$to_update)
-          writeLines( paste(bibtex_from_doi,collapse = "\n"),file)
-          # df_pubmed[df_pubmed$doi %in% to_update,] %>% select(-authors,-pmid)
-          # print("start")
-          # write missing entries to bibtex file
-          # bibtex_from_doi <- GetBibEntryWithDOI(d$to_update)
-          # print("all found")
-          # toBiblatex(bibtex_from_doi)
-          # writeLines(toBiblatex(bibtex_from_doi),file)
-          # print("all written")
-        }
-      }
-    )
+    # output$bibtex <- downloadHandler(
+    #   filename = paste0("BIBTEX_FOR_ORCID_",d$orcid, ".bib"),
+    #   content = function(file){
+    #     if(length(d$to_update) > 0) {
+    #       bibtex_from_doi <- GetBibEntryWithDOI_no_temp(d$to_update)
+    #       writeLines( paste(bibtex_from_doi,collapse = "\n"),file)
+    #       # df_pubmed[df_pubmed$doi %in% to_update,] %>% select(-authors,-pmid)
+    #       # print("start")
+    #       # write missing entries to bibtex file
+    #       # bibtex_from_doi <- GetBibEntryWithDOI(d$to_update)
+    #       # print("all found")
+    #       # toBiblatex(bibtex_from_doi)
+    #       # writeLines(toBiblatex(bibtex_from_doi),file)
+    #       # print("all written")
+    #     }
+    #   }
+    # )
         
     
     output$report <- downloadHandler(
@@ -410,7 +442,6 @@ server = function(input, output,session) {
       } else {
         fac_choice <- input$fac_choice
       }
-      print(input$oa_status_filtered)
       if (length(input$oa_status_filtered) == 0){
         ggplot() + geom_blank()
       } else {

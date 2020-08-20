@@ -25,5 +25,6 @@ Imports:
   RefManageR,
   scholar,
   rcrossref,
-  htmlTable
+  htmlTable,
+  shinytest
 RoxygenNote: 7.1.1

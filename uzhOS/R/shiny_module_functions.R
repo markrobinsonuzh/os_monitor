@@ -42,7 +42,7 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
           d$df_pubmed <- tryCatch({retrieve_from_pubmed(d$pubmed)},error=function(e) NULL)
         }
         # fetch oa status from unpaywall
-        if (!is.null(d$df_pubmed)){
+        if (!(is.null(d$df_pubmed) || dim(d$df_pubmed)[1]==0)){
           tmpoadoi <- oadoi_fetch_local(na.omit(d$df_pubmed$doi),unpaywall)
           d$df_pubmed <- dplyr::left_join(d$df_pubmed,tmpoadoi,by="doi")
         }
@@ -56,9 +56,14 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
                   dplyr::mutate(doi = tolower(doi))},
                   error=function(e) NULL)
         }
+        print("df_orcid")
+        print(dim(d$df_orcid))        
         # fetch oa status from unpaywall
-        if (!is.null(d$df_orcid)){
+        if (!(is.null(d$df_orcid) || dim(d$df_orcid)[1]==0)){
           tmpoadoi <- oadoi_fetch_local(na.omit(d$df_orcid$doi),unpaywall)
+          print(length(na.omit(d$df_orcid$doi)))
+          print(length(tmpoadoi$doi))
+          print(tmpoadoi %>% group_by(doi,oa_status) %>% tally())
           d$df_orcid <- dplyr::left_join(d$df_orcid,tmpoadoi,by="doi")
         }
         print("df_orcid")

@@ -1,0 +1,25 @@
+version: '3.3'
+services:
+        db:
+                build:
+                        context: .
+                        dockerfile: Dockerfile_db
+                volumes:
+                        - type: volume
+                          source: mongodb_data_os_monitor
+                          target: /data/db
+                          volume:
+                                  nocopy: true
+
+
+
+        shiny:
+                build: 
+                        context: .
+                        dockerfile: Dockerfile_shiny
+                ports:
+                        - "3839:3839"
+
+volumes:
+        mongodb_data_os_monitor:
+                external: true

@@ -1,0 +1,8 @@
+FROM mongo:bionic 
+
+# system libraries of general use
+RUN apt-get update && apt-get install -y \
+    wget \
+    vim
+
+COPY update_unpaywall.sh /home

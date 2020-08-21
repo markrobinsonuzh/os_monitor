@@ -114,8 +114,12 @@ ui <- navbarPage("Open science monitor UZH",
                                     tabPanel("Table", 
                                              # data_table_selection_UI("DT_author_selection")),
                                              flowLayout(#cellWidths = c("30%","30%","60%"),
-                                               actionButton(inputId = "apply_DT_selection",label = "Apply selection"),
-                                               actionButton(inputId = "reset_DT_selection",label = "Reset selection")
+                                               actionButton(inputId = "apply_DT_selection",label = "Apply selection") %>% 
+                                                          shinyjs::hidden(),
+                                               actionButton(inputId = "reset_DT_selection",label = "Reset selection") %>% 
+                                                 shinyjs::hidden(),
+                                               downloadButton("bibtex", "Bibtex citation") %>% 
+                                                 shinyjs::hidden()
                                                ) %>% 
                                                  shinyhelper::helper(type="inline",
                                                                    title = "Apply and Reset selection help",
@@ -123,7 +127,10 @@ ui <- navbarPage("Open science monitor UZH",
                                                                    rows in the table below. Afterwards press "Apply selection" 
                                                                    to remove non-selected entries. 
                                                                    To revert the selection and
-                                                                   show all entries press "Revert selection".'),
+                                                                   show all entries press "Revert selection". 
+                                                                   To download a bibtex citation file
+                                                                   of all entries shown in the table below,
+                                                                   click "Bibtex citation".'),
                                              DT::dataTableOutput("table_selected_closed")),
                                     tabPanel("Closed in Zora", DT::dataTableOutput("table_closed_in_zora")),
                                     tabPanel("Percent closed", DT::dataTableOutput("table_oa_percent_time"))
@@ -276,6 +283,9 @@ server = function(input, output,session) {
       shinyjs::show(id = "in_selection")
       shinyjs::show(id = "oa_status_filtered_table")
       shinyjs::show(id = "range_year")
+      shinyjs::show(id = "apply_DT_selection")
+      shinyjs::show(id = "reset_DT_selection")
+      shinyjs::show(id = "bibtex")
       # update and show selections
       # in_selection_Server("bib",d$m)
       # in_selection_Server("plots_in_selection",d$m)
@@ -370,23 +380,24 @@ server = function(input, output,session) {
     #   output$bibtex_summary <- renderPrint({paste("Total number of entries to download:", length(d$to_update))})
     # })
     
-    # output$bibtex <- downloadHandler(
-    #   filename = paste0("BIBTEX_FOR_ORCID_",d$orcid, ".bib"),
-    #   content = function(file){
-    #     if(length(d$to_update) > 0) {
-    #       bibtex_from_doi <- GetBibEntryWithDOI_no_temp(d$to_update)
-    #       writeLines( paste(bibtex_from_doi,collapse = "\n"),file)
-    #       # df_pubmed[df_pubmed$doi %in% to_update,] %>% select(-authors,-pmid)
-    #       # print("start")
-    #       # write missing entries to bibtex file
-    #       # bibtex_from_doi <- GetBibEntryWithDOI(d$to_update)
-    #       # print("all found")
-    #       # toBiblatex(bibtex_from_doi)
-    #       # writeLines(toBiblatex(bibtex_from_doi),file)
-    #       # print("all written")
-    #     }
-    #   }
-    # )
+    output$bibtex <- downloadHandler(
+      filename = paste0("BIBTEX_FOR_ORCID_",d$orcid, ".bib"),
+      content = function(file){
+        to_update <- d$m_sub_sel$doi
+        if(length(to_update) > 0) {
+          bibtex_from_doi <- GetBibEntryWithDOI_no_temp(to_update)
+          writeLines( paste(bibtex_from_doi,collapse = "\n"),file)
+          # df_pubmed[df_pubmed$doi %in% to_update,] %>% select(-authors,-pmid)
+          # print("start")
+          # write missing entries to bibtex file
+          # bibtex_from_doi <- GetBibEntryWithDOI(d$to_update)
+          # print("all found")
+          # toBiblatex(bibtex_from_doi)
+          # writeLines(toBiblatex(bibtex_from_doi),file)
+          # print("all written")
+        }
+      }
+    )
         
     
     output$report <- downloadHandler(

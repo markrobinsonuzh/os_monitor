@@ -77,7 +77,9 @@ unique_fac_dep <- function(fac_dep_filt, type=c("fac","dep","fac_dep")){
 #' @import ggplot2
 #'
 #' @examples
-plot_fac_dep <- function(fac_dep_filt, fac_chosen = NULL, oa_status_filter = c("closed","hybrid","green","gold","blue"),by_year=FALSE){
+plot_fac_dep <- function(fac_dep_filt, fac_chosen = NULL,
+                         oa_status_filter = c("closed","hybrid","green","gold","blue"),
+                         by_year=FALSE, arrange_by="closed"){
   if (is.null(fac_chosen)){
     col_to_plot <- "fac"
     fac_chosen <- unique_fac_dep(fac_dep_filt, "fac")
@@ -90,6 +92,14 @@ plot_fac_dep <- function(fac_dep_filt, fac_chosen = NULL, oa_status_filter = c("
   fac_filt_long <- fac_filt %>% 
     tidyr::pivot_longer(cols = c("Count","Proportion"),names_to="type") %>% 
     ungroup()
+  
+  # order
+  order_fac <- fac_filt %>% filter(oa_status==arrange_by) %>% arrange(desc(Proportion)) %>% 
+    pull(!!sym(col_to_plot))
+  all_fac <- fac_filt %>% pull(!!sym(col_to_plot)) %>% unique()
+  order_fac <- c(order_fac, all_fac[!(all_fac %in% order_fac)])
+  fac_filt_long <- fac_filt_long %>% mutate(!!sym(col_to_plot) := factor(!!sym(col_to_plot),order_fac)) 
+  
   if (by_year){
     ggplot(fac_filt_long %>% filter(type=="Proportion")) +
       geom_col(aes(year,x=value,fill=oa_status),position = position_stack(reverse = TRUE)) +
@@ -113,7 +123,9 @@ plot_fac_dep <- function(fac_dep_filt, fac_chosen = NULL, oa_status_filter = c("
 
 
 
-preprocess_fac_dep <- function(fac_dep_filt, fac_chosen, col_to_plot , oa_status_filter = c("closed","hybrid","green","gold","blue"), by_year=FALSE){
+preprocess_fac_dep <- function(fac_dep_filt, fac_chosen, col_to_plot , 
+                               oa_status_filter = c("closed","hybrid","green","gold","blue"), 
+                               by_year=FALSE){
   if (by_year){
     col_to_plot <- c(col_to_plot,"year")
   }
@@ -131,7 +143,7 @@ preprocess_fac_dep <- function(fac_dep_filt, fac_chosen, col_to_plot , oa_status
 
 # fac_dep_filt <- all_org_unit_fac(tbl_eprints)
 # dep_chosen <- unique_fac_dep(fac_dep_filt,"fac_dep")
-# plot_fac_dep(fac_dep_filt, fac_chosen = NULL)
+# plot_fac_dep(fac_dep_filt, fac_chosen = "07 Faculty of Science",arrange_by = "gold")
 
 
 

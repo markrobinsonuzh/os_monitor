@@ -149,7 +149,10 @@ ui <- navbarPage("Open science monitor UZH",
                                checkboxGroupInput("oa_status_filtered","OA status",
                                                   choices = names(open_cols_fn()),
                                                   selected = names(open_cols_fn()),
-                                                  inline = TRUE)
+                                                  inline = TRUE),
+                               selectInput("oa_status_filtered_sorting","Sort by",
+                                                  choices = names(open_cols_fn()),
+                                                  selected = "closed"),
                              ),
                              mainPanel(
                                plotOutput("plot_dep_fac",height = "800px",width = "100%")
@@ -457,7 +460,8 @@ server = function(input, output,session) {
       if (length(input$oa_status_filtered) == 0){
         ggplot() + geom_blank()
       } else {
-        plot_fac_dep(fac_dep_filt, fac_chosen = fac_choice, oa_status_filter = input$oa_status_filtered)
+        plot_fac_dep(fac_dep_filt, fac_chosen = fac_choice, oa_status_filter = input$oa_status_filtered, 
+                     arrange_by = input$oa_status_filtered_sorting)
       }
     },res=100)
     

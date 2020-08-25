@@ -25,7 +25,7 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
         on.exit(progress$close())
         # length for progress bar
         not_null <- sapply(c(d$zora,d$pubmed,d$orcid,d$publons,d$scholar),
-                           function(e) ifelse((stringr::str_trim(e) == "") | is.null(e),FALSE,TRUE))
+                           function(e) ifelse(is.null(e) || (stringr::str_trim(e) == "") ,FALSE,TRUE))
         progress_bar_len <- sum(not_null) + 3
         # author info
         tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,d$author_vec, d$fac_vec ,d$dep_vec)
@@ -36,9 +36,9 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
         # zora data.frame
         d$zora <- create_zora(d$author_vec,tbl_author,tbl_subjects)
 
-        if (!is.null(progress) & !is.null(d$pubmed)) progress$set(value = progress$getValue() + 1/progress_bar_len, message="create table from Pubmed")
+        if (!is.null(progress) && !(is.null(d$pubmed) || stringr::str_trim(d$pubmed) == "")) progress$set(value = progress$getValue() + 1/progress_bar_len, message="create table from Pubmed")
         # pubmed df if given
-        if (stringr::str_trim(d$pubmed) != ""){
+        if (!is.null(d$pubmed) && stringr::str_trim(d$pubmed) != ""){
           d$df_pubmed <- tryCatch({retrieve_from_pubmed(d$pubmed)},error=function(e) NULL)
         }
         # fetch oa status from unpaywall
@@ -49,9 +49,9 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
         print("df_pubmed")
         print(dim(d$df_pubmed))
         
-        if (!is.null(progress) & !is.null(d$orcid)) progress$set(value = progress$getValue() + 1/progress_bar_len, message="create table from Orcid")
+        if (!is.null(progress) && !(is.null(d$orcid) || (stringr::str_trim(d$orcid) == ""))) progress$set(value = progress$getValue() + 1/progress_bar_len, message="create table from Orcid")
         # orcid df
-        if (stringr::str_trim(d$orcid) != ""){
+        if (!is.null(d$orcid) && stringr::str_trim(d$orcid) != ""){
           d$df_orcid <- tryCatch({retrieve_from_orcid(d$orcid) %>%
                   dplyr::mutate(doi = tolower(doi))},
                   error=function(e) NULL)
@@ -70,7 +70,7 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
         print(dim(d$df_orcid))
         
         # publons df
-        if (stringr::str_trim(d$publons) != ""){
+        if (!is.null(d$publons) && stringr::str_trim(d$publons) != ""){
           if (!is.null(progress)) progress$set(value = progress$getValue() + 1/progress_bar_len, message="create table from Publons")
           d$df_publons <- tryCatch({retrieve_from_publons(d$publons)},error=function(e) {print(e);return(NULL)})
           print("df_publons")
@@ -82,7 +82,7 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
         tbl_merge <- create_combined_data(d$df_orcid,d$df_pubmed,d$zora,d$df_publons,unpaywall)
         
         # google scholar
-        if (stringr::str_trim(d$scholar) != ""){
+        if (!is.null(d$publons) && stringr::str_trim(d$scholar) != ""){
           if (!is.null(progress)) progress$set(value = progress$getValue() + 1/progress_bar_len, message="create table from Scholar")
           d$df_scholar <- retrieve_from_scholar(d$scholar)
           d$df_scholar <- df_scholar_matching(tbl_merge,d$df_scholar)

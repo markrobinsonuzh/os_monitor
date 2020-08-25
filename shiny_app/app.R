@@ -10,6 +10,7 @@ suppressPackageStartupMessages({
 tryCatch({setwd("/srv/shiny-server/os_monitor/shiny_app")},
          error=function(e) setwd("~/ownCloud/Projects/open_access/os_monitor/shiny_app/"))
 maindir <- getwd()
+# Sys.setenv(PATH=paste0("/root/bin:",Sys.getenv("PATH")))
 devtools::load_all(file.path(maindir,"..","uzhOS"))
 outdir <- file.path(maindir,"..","output")
 Sys.setenv(ORCID_TOKEN="8268867c-bf2c-4841-ab9c-bfeddd582a9c")
@@ -165,7 +166,7 @@ server = function(input, output,session) {
   ###########################################################################
   ### Author
   shinyhelper::observe_helpers(session = session)
-    d <- reactiveValues()
+    d <- reactiveValues(pubmed="",orcid="",publons="",scholar="")
     p_t <- reactiveValues()
     
     updateSelectizeInput(session, 'author_search', choices = unique_authorkeys_processed, server = TRUE)

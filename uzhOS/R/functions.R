@@ -385,7 +385,7 @@ org_unit_fac <- function(author_vec,tbl_subjects,tbl_authorkeys,tbl_eprints, fac
         dplyr::group_by(eprintid) %>% 
         dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
         unique()  %>%
-        dplyr::select(eprintid, name, parent_name),by="eprintid", suffix=c("",".y"))
+        dplyr::select(eprintid, name, parent_name),by="eprintid", suffix=c(".x",""))
   } else {
     dept_fac <- tbl_author %>% dplyr::left_join(tbl_subjects %>% 
                                                   dplyr::group_by(eprintid) %>% 
@@ -413,7 +413,16 @@ org_unit_fac <- function(author_vec,tbl_subjects,tbl_authorkeys,tbl_eprints, fac
                             dplyr::tally() %>% 
                             dplyr::arrange(dplyr::desc(n)) %>% 
                             dplyr::rename(fac=value,count=n))
-  return(list(org_unit=org_unit,fac=fac,author_name=author_vec))
+  type <- suppressMessages(dept_fac %>% dplyr::select(type) %>% 
+                             dplyr::group_by(type) %>% 
+                             dplyr::pull(type) %>% 
+                             unlist() %>% 
+                             tibble::as_tibble() %>% 
+                             dplyr::group_by(value) %>% 
+                             dplyr::tally() %>% 
+                             dplyr::arrange(dplyr::desc(n)) %>% 
+                             dplyr::rename(type=value,count=n))
+  return(list(org_unit=org_unit,fac=fac, type=type ,author_name=author_vec))
 }
 # author_vec <- c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)")
 # tmptbl <- org_unit_fac(c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)"),tbl_subjects,tbl_authorkeys,tbl_eprints)
@@ -457,8 +466,10 @@ pot_alias_and_affil <- function(authorname,tbl_unique_authorkeys_fullname,tbl_su
   names(pot_affil) <- pot_aliases
   return(list(pot_aliases=pot_aliases,pot_affil=pot_affil))
 }
-
-
+# authorname <- author_vec[1]
+# authorname <- "schaepman michael e"
+# authorname <- "schaepman michael e (orcid: 0000-0002-9627-9565)"
+# pot_alias_and_affil(authorname,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints)
 
 
 #' Upset selection indexes

@@ -56,14 +56,31 @@ alias_selected_Server <- function(id,author_search,tbl_unique_authorkeys_fullnam
         for(j in seq_along(pot_aliases_ls_ls[[i]][["pot_affil"]])){
           org_unit_tmp <- pot_aliases_ls_ls[[i]][["pot_affil"]][[j]][["org_unit"]]
           fac_tmp <- pot_aliases_ls_ls[[i]][["pot_affil"]][[j]][["fac"]]
+          type_tmp <- pot_aliases_ls_ls[[i]][["pot_affil"]][[j]][["type"]]
+          print(fac_tmp)
+          print(type_tmp)
           if (!(is.null(org_unit_tmp) | is.null(fac_tmp))){
-            fac_org_diff <- dim(org_unit_tmp)[1] - dim(fac_tmp)[1]
-            if(fac_org_diff>0){
-              fac_tmp <- rbind(fac_tmp,data.frame(fac=rep("",fac_org_diff),count=rep("",fac_org_diff)))
-            } else if (fac_org_diff<0){
-              org_unit_tmp <- rbind(org_unit_tmp,data.frame(fac=rep("",dim(fac_tmp)[1]-fac_org_diff),count=rep("",fac_org_diff)))
-            }
-            pot_aliases_ls[[k]] <- cbind(fac_tmp,org_unit_tmp)
+            # fac_org_diff <- dim(org_unit_tmp)[1] - dim(fac_tmp)[1]
+            # if(fac_org_diff>0){
+            #   fac_tmp <- rbind(fac_tmp,data.frame(fac=rep("",fac_org_diff),count=rep("",fac_org_diff)))
+            # } else if (fac_org_diff<0){
+            #   org_unit_tmp <- rbind(org_unit_tmp,data.frame(fac=rep("",dim(fac_tmp)[1]-fac_org_diff),count=rep("",fac_org_diff)))
+            # }
+            fac_org_type_max <- max(c(dim(org_unit_tmp)[1], dim(fac_tmp)[1], dim(type_tmp)[1]))
+            org_unit_tmp <- rbind(org_unit_tmp,data.frame(fac=rep("",fac_org_type_max-dim(org_unit_tmp)[1]),
+                                                count=rep("",fac_org_type_max-dim(org_unit_tmp)[1])))
+            fac_tmp <- rbind(fac_tmp,data.frame(fac=rep("",fac_org_type_max-dim(fac_tmp)[1]),
+                                                count=rep("",fac_org_type_max-dim(fac_tmp)[1])))
+            type_tmp <- rbind(type_tmp,data.frame(type=rep("",fac_org_type_max-dim(type_tmp)[1]),
+                                                count=rep("",fac_org_type_max-dim(type_tmp)[1])))
+            
+            # type_org_diff <- dim(type_tmp)[1] - dim(fac_tmp)[1]
+            # if(type_org_diff>0){
+            #   fac_tmp <- rbind(fac_tmp,data.frame(fac=rep("",type_org_diff),count=rep("",type_org_diff)))
+            # } else if (type_org_diff<0){
+            #   type_tmp <- rbind(org_unit_tmp,data.frame(fac=rep("",dim(fac_tmp)[1]-type_org_diff),count=rep("",type_org_diff)))
+            # }
+            pot_aliases_ls[[k]] <- cbind(fac_tmp,org_unit_tmp,type_tmp)
             pot_alias_names_ls[[k]] <- pot_aliases_ls_ls[[i]][["pot_aliases"]][j]
             k <- k+1
           }
@@ -71,10 +88,10 @@ alias_selected_Server <- function(id,author_search,tbl_unique_authorkeys_fullnam
       }
       pot_aliases_ls_text <- lapply(seq_along(pot_aliases_ls),function(i){
         tmp <- paste0(htmlTable::htmlTable(head(pot_aliases_ls[[i]],5), 
-                                           rnames=FALSE,header=c("Name","Count","Name","Count"), 
+                                           rnames=FALSE,header=c("Name","Count","Name","Count","Name","Count"), 
                                            # caption=paste("Author id:",pot_alias_names_ls[[i]]),
-                                           cgroup=rbind(c(paste("Author id:",pot_alias_names_ls[[i]]),NA),c("Faculty","Department")),
-                                           n.cgroup=rbind(c(4,NA),c(2,2))))
+                                           cgroup=rbind(c(paste("Author id:",pot_alias_names_ls[[i]]),NA,NA),c("Faculty","Department","Type")),
+                                           n.cgroup=rbind(c(6,NA,NA),c(2,2,2))))
         HTML(paste0(tmp,"<br>"))
         # HTML(paste(pot_aliases_ls[[i]][["author_name"]],"<br>",
         #            paste(pot_aliases_ls[[i]][["org_unit"]],collapse = " - "),"<br>",

@@ -70,12 +70,13 @@ ui <- navbarPage("Open science monitor UZH",
                         actionButton("activate_pubmed",HTML("Generate <br/> Pubmed <br/> Query")) %>% 
                           shinyjs::disabled()),
             # google scholar input
-            textInput("scholar",label = a("Google Scholar id",href="https://scholar.google.ch",target="_blank"), value=""),
+            textInput("scholar",label = a("Google Scholar id",href="https://scholar.google.ch",target="_blank"), value="") %>% 
+              shinyhelper::helper(type="markdown",
+                                  title = "Google scholar id help",
+                                  content = 'Google_scholar_help'),
             # publons input
             textInput("publons",label = tags$div(tags$a("Publons id",href="https://publons.com",target="_blank"),
                                                  tags$span(class="help-block","(or if linked: ORCID, ResearcherID or TRUID)")), value=""),
-            # cutoff year for pubmed query
-            disabled(sliderInput("cutoff_year",label = "Cutoff year",min=2001,max = 2020,value=2001)),
             # aggregate data
             disabled(actionButton(inputId = "show_report",label = "Show report"))
           ),
@@ -99,7 +100,6 @@ ui <- navbarPage("Open science monitor UZH",
         # output panel (tables, plots etc.)
         tabsetPanel(type = "tabs",
                     tabPanel("Upset Plot", plotOutput("plot_upset"),height="600px"),
-                    # tabPanel("Histogram", plotOutput("plot_selected", click = "histogram_click")),
                     tabPanel("Histogram", plotlyOutput("plot_selected") %>% 
                                shinyhelper::helper(type="markdown",
                                                    title = "Histogram selection help",
@@ -132,12 +132,16 @@ ui <- navbarPage("Open science monitor UZH",
                                  choices = c("all",sort(unique_fac_dep(fac_dep_filt,"fac")))),
                      # selectInput("dep_choice","Department",choices = NULL),
                      checkboxGroupInput("oa_status_filtered","OA status",
-                                        choices = names(open_cols_fn()),
-                                        selected = names(open_cols_fn()),
+                                        choices = unique(fac_dep_filt$oa_status),
+                                        selected = unique(fac_dep_filt$oa_status),
                                         inline = TRUE),
                      selectInput("oa_status_filtered_sorting","Sort by",
-                                        choices = names(open_cols_fn()),
+                                        choices = unique(fac_dep_filt$oa_status),
                                         selected = "closed"),
+                     checkboxGroupInput("publication_type_filtered",
+                                        "Publication types included",
+                                        choices=unique(fac_dep_filt$type),
+                                        selected = "article")
                    ),
                    mainPanel(
                      plotOutput("plot_dep_fac",height = "800px",width = "100%")
@@ -220,20 +224,23 @@ server = function(input, output,session) {
     if (is.null(d$author_vec)){
         disable("show_report")
         disable("report")
-        disable("cutoff_year")
         disable("activate_pubmed")
     } else{
         enable("show_report")
         enable("report")
-        enable("cutoff_year")
         enable("activate_pubmed")
     }
   })
   observeEvent(input$activate_pubmed,{
+    showModal(modalDialog("This is an automatically generated query and is 
+                          unlikely to find all correct entries. For more details see:",
+                          a("NCBI pubmedhelp",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"),
+                          title = "Pubmed query info", size="s",easyClose = TRUE))
+    
     d$pubmed <- tryCatch({
       pubmed_search_string_from_zora_id(d$author_vec[1],
                                         tbl_unique_authorkeys_fullname, 
-                                        input$cutoff_year, 
+                                        c(2000),
                                         orcid = unlist(ifelse(is.null(d$orcid),list(NULL),d$orcid)))
     },error=function(e)"")
     updateTextAreaInput(session,"pubmed",value=d$pubmed)
@@ -309,7 +316,6 @@ server = function(input, output,session) {
   
   ### selected plot  -----------------------------------------------------------
   p_t$selected_plot <- reactive({tryCatch({oa_status_time_plot(d$m_sub,
-                                                               input$cutoff_year, 
                                                                title = paste(paste0(d$in_selection,collapse = " + "), "OA Status"), 
                                                                oa_status_used=overall_oa,use_plotly=TRUE)},
                                           error=function(e) {print(e);ggplot() + geom_blank()})})
@@ -333,8 +339,7 @@ server = function(input, output,session) {
     tryCatch({overall_closed_table(
       dplyr::filter(d$m_sub,
                     year==d$plot_selected_ly_clicked[["year"]],
-                    overall_oa==d$plot_selected_ly_clicked[["oa_status"]]),
-      input$cutoff_year)
+                    overall_oa==d$plot_selected_ly_clicked[["oa_status"]]))
       },error=function(e) DT::datatable(head(d$m,0)))})
   observeEvent(event_data("plotly_click"),{
     showModal(modalDialog(DT::renderDataTable({
@@ -354,7 +359,7 @@ server = function(input, output,session) {
     d$m_sub_sel <- d$m_sub
   })
   # render table
-  p_t$selected_closed_table <- reactive({tryCatch({overall_closed_table(d$m_sub_sel,input$cutoff_year)},
+  p_t$selected_closed_table <- reactive({tryCatch({overall_closed_table(d$m_sub_sel)},
                                                  error=function(e) DT::datatable(head(d$m,0)))})
   # observe({data_table_selection_processing_Server("DT_author_selection",d)})
   # p_t$selected_closed_table <- data_table_selection_table_Server("DT_author_selection",d$m, d$m_sub_sel)
@@ -371,7 +376,7 @@ server = function(input, output,session) {
       p_t$closed_in_zora_table()
   })
   ### OA percent time table  ---------------------------------------------------
-  p_t$oa_percent_time_table <- reactive({tryCatch({oa_percent_time_table(d$m,input$cutoff_year)},error=function(e) ggplot() + geom_blank())})
+  p_t$oa_percent_time_table <- reactive({tryCatch({oa_percent_time_table(d$m,input$range_year)},error=function(e) ggplot() + geom_blank())})
   output$table_oa_percent_time <- DT::renderDataTable({
     req(d$m)
       p_t$oa_percent_time_table()
@@ -420,7 +425,7 @@ server = function(input, output,session) {
           params <- list(pri_author = d$pri_author,
                          sec_author = d$sec_author,
                          orcid = d$orcid,
-                         cutoff_year = input$cutoff_year,
+                         cutoff_year = input$range_year,
                          tbl_subjects=tbl_subjects,
                          tbl_authorkeys=tbl_authorkeys,
                          tbl_eprints=tbl_eprints,
@@ -456,11 +461,11 @@ server = function(input, output,session) {
     } else {
       fac_choice <- input$fac_choice
     }
-    if (length(input$oa_status_filtered) == 0){
+    if (length(input$oa_status_filtered) == 0 || length(input$publication_type_filtered) == 0){
       ggplot() + geom_blank()
     } else {
       plot_fac_dep(fac_dep_filt, fac_chosen = fac_choice, oa_status_filter = input$oa_status_filtered, 
-                   arrange_by = input$oa_status_filtered_sorting)
+                   arrange_by = input$oa_status_filtered_sorting, publication_filter = input$publication_type_filtered)
     }
   },res=100)
   

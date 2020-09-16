@@ -13,7 +13,7 @@ library(mongolite)
 # mongodb connection
 # mongourl <- "mongodb://172.18.0.2/16"
 mongourl <- "mongodb://db"
-mongourl <- "mongodb://192.168.16.2/20"
+# mongourl <- "mongodb://192.168.16.2/20"
 
 ## Read in ZORA JSON files
 setwd("/srv/shiny-server/os_monitor")

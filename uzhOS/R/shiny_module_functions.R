@@ -26,7 +26,7 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
         # length for progress bar
         not_null <- sapply(c(d$zora,d$pubmed,d$orcid,d$publons,d$scholar),
                            function(e) ifelse(is.null(e) || (stringr::str_trim(e) == "") ,FALSE,TRUE))
-        progress_bar_len <- sum(not_null) + 3
+        progress_bar_len <- sum(not_null) + 4
         # author info
         tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,d$author_vec, d$fac_vec ,d$dep_vec)
         print("zora")
@@ -83,8 +83,9 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
         
         # google scholar
         if (!is.null(d$publons) && stringr::str_trim(d$scholar) != ""){
-          if (!is.null(progress)) progress$set(value = progress$getValue() + 1/progress_bar_len, message="create table from Scholar")
+          if (!is.null(progress)) progress$set(value = progress$getValue() + 1/progress_bar_len, message="Retrieve from Google scholar")
           d$df_scholar <- retrieve_from_scholar(d$scholar)
+          if (!is.null(progress)) progress$set(value = progress$getValue() + 1/progress_bar_len, message="Match entries from Google scholar, this could take a few minutes.")
           d$df_scholar <- df_scholar_matching(tbl_merge,d$df_scholar)
           # add to combined table
           tbl_merge <- dplyr::full_join(tbl_merge,d$df_scholar,by="doi",suffix=c("",".scholar"))

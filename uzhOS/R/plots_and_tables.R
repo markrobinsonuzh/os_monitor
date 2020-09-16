@@ -13,7 +13,7 @@
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-oa_status_time_plot <- function(tbl_merge,cutoff_year,colname=year,title="ZORA OA Status",
+oa_status_time_plot <- function(tbl_merge,cutoff_year=2000,colname=year,title="ZORA OA Status",
                                 oa_status_used=oa_status, use_plotly=FALSE){
   q_colname <- enquo(colname)
   q_oa_status_used <- enquo(oa_status_used)
@@ -132,9 +132,8 @@ oa_percent_time_table <- function(m,cutoff_year){
 #' @importFrom magrittr %>%
 #'
 #' @examples
-overall_closed_table <- function(tbl_merge,cutoff_year){
+overall_closed_table <- function(tbl_merge){
   z <- tbl_merge %>%
-    # dplyr::filter(overall_oa == "closed", as.integer(year) >= cutoff_year) %>%
     dplyr::select(doi, eprintid, overall_oa, oa_status.zora,oa_status.unpaywall, year, dplyr::starts_with("title")) %>%
     dplyr::arrange(desc(year)) %>%
     dplyr::mutate(oa_status.unpaywall = ifelse(is.na(oa_status.unpaywall), "",

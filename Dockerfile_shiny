@@ -34,6 +34,7 @@ RUN install2.r	UpSetR
 RUN install2.r htmlTable
 RUN install2.r shinytest
 RUN install2.r rjson
+RUN install2.r plotly
 
 RUN mkdir -p /srv/shiny-server/os_monitor/shiny_app
 RUN mkdir -p /srv/shiny-server/os_monitor/uzhOS
@@ -50,6 +51,7 @@ COPY uzhOS /srv/shiny-server/os_monitor/uzhOS
 COPY analysis /srv/shiny-server/os_monitor/analysis
 COPY data /srv/shiny-server/os_monitor/data
 COPY shiny-server.conf /etc/shiny-server
+COPY update_zora.sh /home
 
 EXPOSE 3839
 # allow permission

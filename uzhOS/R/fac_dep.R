@@ -10,7 +10,7 @@
 #' @examples
 all_org_unit_fac <- function(tbl_eprints){
   if (is(tbl_eprints,"mongo")){
-    tmpls <- tbl_eprints$aggregate('[ { "$group": {"_id":{"name": "$name","parent_name":"$parent_name","oa_status":"$oa_status","published_doc":"$published_doc", "date":"$date" } , 
+    tmpls <- tbl_eprints$aggregate('[ { "$group": {"_id":{"name": "$name","parent_name":"$parent_name","oa_status":"$oa_status","published_doc":"$published_doc", "date":"$date", "type":"$type" } , 
                                 "number":{"$sum":1}}} ]') 
     
     
@@ -19,11 +19,13 @@ all_org_unit_fac <- function(tbl_eprints){
                       oa_status=tmpls[["_id"]]$oa_status,
                       published_doc=tmpls[["_id"]]$published_doc,
                       year=tmpls[["_id"]]$date,
+                      type=tmpls[["_id"]]$type,
                       count=unlist(tmpls["number"]))
     fac_dep <- fac_dep %>% 
       dplyr::mutate(oa_status = if_else(published_doc & oa_status=="closed","blue",oa_status),
              oa_status= factor(oa_status, levels = names(open_cols_fn()))) %>% 
       dplyr::select(-published_doc)
+    total_fac_dep_year_type <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep,year,type) %>% dplyr::summarise(fac_dep_year_type_sum=sum(count)))
     total_fac_dep_year <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep,year) %>% dplyr::summarise(fac_dep_year_sum=sum(count)))
     total_fac_dep <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep) %>% dplyr::summarise(fac_dep_sum=sum(count)))
     total_fac <-  suppressMessages(fac_dep %>% dplyr::group_by(fac) %>% dplyr::summarise(fac_sum=sum(count)))
@@ -31,7 +33,8 @@ all_org_unit_fac <- function(tbl_eprints){
     fac_dep <- suppressMessages(fac_dep %>% dplyr::inner_join(total_fac_dep) %>% 
                                   dplyr::inner_join(total_fac) %>% 
                                   dplyr::inner_join(total_dep) %>% 
-                                  dplyr::inner_join(total_fac_dep_year))
+                                  dplyr::inner_join(total_fac_dep_year) %>% 
+                                  dplyr::inner_join(total_fac_dep_year_type))
     
     fac_dep_filt <- fac_dep %>% dplyr::filter(!(stringr::str_detect(fac_dep$fac,"[:digit:]{4}") | stringr::str_detect(fac_dep$dep,"[:digit:]{4}")))
   return(fac_dep_filt)
@@ -79,7 +82,8 @@ unique_fac_dep <- function(fac_dep_filt, type=c("fac","dep","fac_dep")){
 #' @examples
 plot_fac_dep <- function(fac_dep_filt, fac_chosen = NULL,
                          oa_status_filter = c("closed","hybrid","green","gold","blue"),
-                         by_year=FALSE, arrange_by="closed"){
+                         by_year=FALSE, arrange_by="closed",
+                         publication_filter="all"){
   if (is.null(fac_chosen)){
     col_to_plot <- "fac"
     fac_chosen <- unique_fac_dep(fac_dep_filt, "fac")
@@ -87,7 +91,7 @@ plot_fac_dep <- function(fac_dep_filt, fac_chosen = NULL,
     col_to_plot <- "dep"
     stopifnot(fac_chosen %in% unique_fac_dep(fac_dep_filt, "fac"))
   }
-  fac_filt <- preprocess_fac_dep(fac_dep_filt,fac_chosen, col_to_plot, oa_status_filter, by_year)
+  fac_filt <- preprocess_fac_dep(fac_dep_filt,fac_chosen, col_to_plot, oa_status_filter, by_year, publication_filter)
   
   fac_filt_long <- fac_filt %>% 
     tidyr::pivot_longer(cols = c("Count","Proportion"),names_to="type") %>% 
@@ -125,12 +129,16 @@ plot_fac_dep <- function(fac_dep_filt, fac_chosen = NULL,
 
 preprocess_fac_dep <- function(fac_dep_filt, fac_chosen, col_to_plot , 
                                oa_status_filter = c("closed","hybrid","green","gold","blue"), 
-                               by_year=FALSE){
+                               by_year=FALSE,
+                               publication_filter="all"){
   if (by_year){
     col_to_plot <- c(col_to_plot,"year")
   }
+  if (publication_filter=="all"){
+    publication_filter <- unique(fac_dep_filt$type)
+  }
   fac_dep_filt %>%
-    dplyr::filter(fac %in% fac_chosen) %>%
+    dplyr::filter(fac %in% fac_chosen, type %in% publication_filter) %>%
     dplyr::group_by(!!!rlang::syms(col_to_plot),oa_status) %>%
     dplyr::summarise(Count=sum(count)) %>%
     dplyr::ungroup() %>%

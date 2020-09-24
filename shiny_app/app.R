@@ -2,44 +2,45 @@
 suppressPackageStartupMessages({
     library(shiny)
     library(dplyr)
-    library(rcrossref)
+    # library(rcrossref)
     library(ggplot2)
     library(stringr)
     library(shinyjs)
-    library(mongolite)
+    # library(mongolite)
   # library(shinyBS)
   library(plotly)
+  library(DBI)
 })
-tryCatch({setwd("/srv/shiny-server/os_monitor/shiny_app")},
-         error=function(e) setwd("~/ownCloud/Projects/open_access/os_monitor/shiny_app/"))
-maindir <- getwd()
+on_rstudio <- TRUE
+if(on_rstudio){
+  setwd("/srv/shiny-server/os_monitor/shiny_app")
+  maindir <- file.path(getwd(),"..")
+} else {
+  setwd("/srv/shiny-server/")
+  maindir <- getwd()
+}
 # functions for backend
-devtools::load_all(file.path(maindir,"..","uzhOS"))
-outdir <- file.path(maindir,"..","output")
+devtools::load_all(file.path(maindir,"uzhOS"))
+outdir <- file.path(maindir,"output")
 # token to get acces to orcid (currently Reto's token)
 Sys.setenv(ORCID_TOKEN="8268867c-bf2c-4841-ab9c-bfeddd582a9c")
-mongourl <- "mongodb://db"
-# mongourl <- "mongodb://172.18.0.2/16"
-mongourl_local <- "mongodb://192.168.16.2/20" # for local development
+use_sql <- TRUE
+if(use_sql){
+    con <- dbConnect(RPostgres::Postgres(),
+                     dbname = 'oa',
+                     host = 'db',
+                     port = 5432, 
+                     user = 'shiny',
+                     password = 'flora',
+                     options="-c search_path=oa")
+  unique_authorkeys_processed <- tbl(con, "authorkeys") %>% 
+    pull(authorname)
+  names(unique_authorkeys_processed) <- stringr::str_to_title(unique_authorkeys_processed)
+} 
 
-print("connect to mongodb")
-# create mongo objects (connections to mongodb for the specific collections)
-unpaywall <- tryCatch({mongo(collection="unpaywall", db="oa", url=mongourl)},
-                      error=function(e) {print("local"); return(mongo(collection="unpaywall", db="oa", url=mongourl_local))})
-tbl_eprints <- tryCatch({mongo(collection="eprints", db="oa", url=mongourl)},
-                        error=function(e) {print("local"); return(mongo(collection="eprints", db="oa", url=mongourl_local))})
-tbl_authorkeys <- tryCatch({mongo(collection="authorkeys", db="oa", url=mongourl)},
-                           error=function(e) {print("local"); return(mongo(collection="authorkeys", db="oa", url=mongourl_local))})
-tbl_subjects <- tryCatch({mongo(collection="subjects", db="oa", url=mongourl)},
-                         error=function(e) {print("local");return( mongo(collection="subjects", db="oa", url=mongourl_local))})
-tbl_unique_authorkeys_fullname <- tryCatch({mongo(collection="unique_authorkeys_fullname", db="oa", url=mongourl)},
-                                  error=function(e) {print("local"); return(mongo(collection="unique_authorkeys_fullname", db="oa", url=mongourl_local))})
-# author 'id' (unique author names, might still be multiple people)
-unique_authorkeys_processed <- unique(tbl_unique_authorkeys_fullname$find('{}', fields='{"_id":0,"authorkey":0,"id":0,"authorkey_fullname":0}') %>% dplyr::pull(authorname))
-names(unique_authorkeys_processed) <- stringr::str_to_title(unique_authorkeys_processed)
-
+print("all_org_unit_fac")
 # summary of faculty and department oa status
-fac_dep_filt <- all_org_unit_fac(tbl_eprints)
+fac_dep_filt <- all_org_unit_fac(con)
 
 ### UI #########################################################################
 ui <- navbarPage("Open science monitor UZH",
@@ -174,7 +175,7 @@ server = function(input, output,session) {
   observe({
     alias_selected_show_Server("alias_selected",input$author_search)
     # find and parse aliases of authors
-    alias_selected_Server("alias_selected",input$author_search,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints,d$fac_vec,d$dep_vec)
+    alias_selected_Server("alias_selected",input$author_search, con, fac_vec=d$fac_vec, dep_vec=d$dep_vec)
     if (is.null(input$author_search)){
       disable("faculty_search")
     } else{
@@ -206,9 +207,7 @@ server = function(input, output,session) {
   })
   # create author entries with metadata
   observeEvent(d$dep_vec,{
-    alias_selected_Server("alias_selected", input$author_search, 
-                          tbl_unique_authorkeys_fullname, tbl_subjects, 
-                          tbl_authorkeys, tbl_eprints, d$fac_vec, d$dep_vec)
+    alias_selected_Server("alias_selected",input$author_search, con, fac_vec=d$fac_vec, dep_vec=d$dep_vec)
   })
   # Orcid and author vector into reactive value
   orcid_auth_react <- alias_selected_orcid_auth_Server("alias_selected")
@@ -239,8 +238,8 @@ server = function(input, output,session) {
     
     d$pubmed <- tryCatch({
       pubmed_search_string_from_zora_id(d$author_vec[1],
-                                        tbl_unique_authorkeys_fullname, 
-                                        c(2000),
+                                        con, 
+                                        cutoff_year= c(2000),
                                         orcid = unlist(ifelse(is.null(d$orcid),list(NULL),d$orcid)))
     },error=function(e)"")
     updateTextAreaInput(session,"pubmed",value=d$pubmed)
@@ -261,7 +260,7 @@ server = function(input, output,session) {
   })
   
   # create combined table from given user inputs
-  show_report_reac <- ShowReportServer("show_report", d, tbl_authorkeys, tbl_subjects, tbl_eprints, unpaywall)
+  show_report_reac <- ShowReportServer("show_report", d, con)
   observeEvent(input$show_report,{
     d <- show_report_reac()
     shinyjs::show(id = "in_selection")

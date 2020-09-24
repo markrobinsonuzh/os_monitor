@@ -8,12 +8,22 @@ library(tibble)
 library(dplyr)
 library(rlang)
 library(tidyr)
-library(mongolite)
+# library(mongolite)
+library(DBI)
 
 # mongodb connection
 # mongourl <- "mongodb://172.18.0.2/16"
-mongourl <- "mongodb://db"
+# mongourl <- "mongodb://db"
 # mongourl <- "mongodb://192.168.16.2/20"
+
+con <- dbConnect(RPostgres::Postgres(),
+                 dbname = 'oa',
+                 host = 'db', # i.e. 'ec2-54-83-201-96.compute-1.amazonaws.com'
+                 port = 5432, # or any other port specified by your DBA
+                 user = 'shiny',
+                 password = 'flora',
+                 options="-c search_path=oa")
+
 
 ## Read in ZORA JSON files
 setwd("/srv/shiny-server/os_monitor")
@@ -123,6 +133,7 @@ rm(fs, first_na); gc()
 
 # saveRDS(tbl_orcid, file.path(outdir, "tbl_orcid.rds"))
 # saveRDS(tbl_authorkeys, file.path(outdir, "tbl_authorkeys.rds"))
+# tbl_authorkeys <- readRDS(file.path(outdir, "tbl_authorkeys.rds"))
 
 ## subjects
 sub_list <- xmlToList(paste0(outdir,"/../data","/subjects_combined_20200108.xml"))
@@ -134,9 +145,11 @@ subject_lookup <- setNames(sub_df$name, sub_df$subjects)
 sub_df$parent_name <- subject_lookup[sub_df$parent]
 
 tbl_subjects <- tbl_subjects %>% left_join(sub_df)
-tbl_eprints <- tbl_eprints %>% left_join(tbl_subjects)
+# tbl_eprints <- tbl_eprints %>% left_join(tbl_subjects)
 # saveRDS(tbl_subjects, file.path(outdir, "tbl_subjects.rds"))
+# tbl_subjects <- readRDS(file.path(outdir, "tbl_subjects.rds"))
 # saveRDS(tbl_eprints, file.path(outdir, "tbl_eprints.rds"))
+# tbl_eprints <- readRDS(file.path(outdir, "tbl_eprints.rds"))
 
 
 ## create unique authorkeys 
@@ -182,45 +195,87 @@ tbl_unique_authorkeys_fullname$authorname[unique_authorkeys_fullname_which] <- u
 # save
 # saveRDS(tbl_unique_authorkeys, file.path(outdir, "tbl_unique_authorkeys.rds"))
 # saveRDS(tbl_unique_authorkeys_fullname, file.path(outdir, "tbl_unique_authorkeys_fullname.rds"))
+# tbl_unique_authorkeys_fullname <- readRDS(file.path(outdir, "tbl_unique_authorkeys_fullname.rds"))
 
+tbl_eprints <- tbl_eprints %>% mutate(doi=tolower(doi))
+tbl_eprints <- tbl_eprints %>% select(-c("subjects","name","parent","parent_name")) %>% unique() 
+dbExecute(con, "DELETE FROM eprints;")
+dbWriteTable(con, "eprints", tbl_eprints,overwrite=FALSE, append=TRUE)
+dbExecute(con, "CREATE INDEX idx_doi ON eprints(doi);")
+dbExecute(con, "CREATE INDEX idx_eprintid ON eprints(eprintid);")
+# dbExecute(con, "CREATE INDEX idx_name ON eprints(name);")
+# dbExecute(con, "CREATE INDEX idx_parent_name ON eprints(parent_name);")
+
+
+dbExecute(con, "DELETE FROM subjects;")
+dbWriteTable(con, "subjects", tbl_subjects, overwrite=FALSE, append=TRUE)
+dbExecute(con, "CREATE INDEX idx_name ON subjects(name);")
+dbExecute(con, "CREATE INDEX idx_parent_name ON subjects(parent_name);")
 
 
 # e-prints collection
-db_eprints <- mongo(collection="eprints", db="oa", url=mongourl)
-db_eprints$drop()
-db_eprints$insert(tbl_eprints)
-db_eprints$index(add="doi")
-db_eprints$index(add="eprintid")
-db_eprints$index(add="name")
-db_eprints$index(add="parent_name")
+# db_eprints <- mongo(collection="eprints", db="oa", url=mongourl)
+# db_eprints$drop()
+# db_eprints$insert(tbl_eprints)
+# db_eprints$index(add="doi")
+# db_eprints$index(add="eprintid")
+# db_eprints$index(add="name")
+# db_eprints$index(add="parent_name")
+
+tbl_unique_authorkeys_fullname <- tbl_unique_authorkeys_fullname %>% select(-id)
+dbExecute(con, "DELETE FROM authorkeys;")
+dbWriteTable(con, "authorkeys", tbl_unique_authorkeys_fullname,overwrite=FALSE, append=TRUE)
+# dbExecute(con, "CREATE INDEX idx_authorkey_fullname_2 ON oa.authors(authorkey_fullname);")
+# dbExecute(con, "CREATE INDEX idx_id_2 ON oa.authors(id);")
+
+
+tbl_authorkeys <- tbl_authorkeys %>% select(eprintid,authorkey_fullname)
+dbExecute(con, "DELETE FROM authors;")
+dbWriteTable(con, "authors", tbl_authorkeys,overwrite=FALSE, append=TRUE)
+# dbExecute(con, "CREATE INDEX idx_authorkey ON oa.authorkeys(authorkey);")
+dbExecute(con, "CREATE INDEX idx_authorkey_fullname ON authors(authorkey_fullname);")
+# dbExecute(con, "CREATE INDEX idx_eprintid_2 ON oa.authorkeys(eprintid);")
+
+# rs <- dbSendQuery(con, "SELECT * FROM pg_indexes WHERE tablename = 'authorkeys';")
+# dbFetch(rs)
 
 # authorkeys collection
-db_authorkeys <- mongo(collection="authorkeys", db="oa", url=mongourl)
-db_authorkeys$drop()
-db_authorkeys$insert(tbl_authorkeys)
-db_authorkeys$index(add="authorkey")
-db_authorkeys$index(add="authorkey_fullname")
-db_authorkeys$index(add="eprintid")
+# db_authorkeys <- mongo(collection="authorkeys", db="oa", url=mongourl)
+# db_authorkeys$drop()
+# db_authorkeys$insert(tbl_authorkeys)
+# db_authorkeys$index(add="authorkey")
+# db_authorkeys$index(add="authorkey_fullname")
+# db_authorkeys$index(add="eprintid")
+
+# dbWriteTable(con, "subjects", tbl_subjects,overwrite=TRUE)
+# dbExecute(con, "CREATE INDEX idx_subjects ON subjects(subjects);")
+# dbExecute(con, "CREATE INDEX idx_eprintid_3 ON subjects(eprintid);")
 
 # subjects collection
-db_subjects <- mongo(collection="subjects", db="oa", url=mongourl)
-db_subjects$drop()
-db_subjects$insert(tbl_subjects)
-db_subjects$index(add="subjects")
-db_subjects$index(add="eprintid")
+# db_subjects <- mongo(collection="subjects", db="oa", url=mongourl)
+# db_subjects$drop()
+# db_subjects$insert(tbl_subjects)
+# db_subjects$index(add="subjects")
+# db_subjects$index(add="eprintid")
+
+# dbWriteTable(con, "unique_authorkeys", tbl_unique_authorkeys,overwrite=TRUE)
+# dbExecute(con, "CREATE INDEX idx_authorkey_2 ON unique_authorkeys(authorkey);")
+# dbExecute(con, "CREATE INDEX idx_id ON unique_authorkeys(id);")
 
 # unique authorkeys collection
-db_unique_authorkeys <- mongo(collection="unique_authorkeys", db="oa", url=mongourl)
-db_unique_authorkeys$drop()
-db_unique_authorkeys$insert(tbl_unique_authorkeys)
-db_unique_authorkeys$index(add="authorkey")
-db_unique_authorkeys$index(add="id")
+# db_unique_authorkeys <- mongo(collection="unique_authorkeys", db="oa", url=mongourl)
+# db_unique_authorkeys$drop()
+# db_unique_authorkeys$insert(tbl_unique_authorkeys)
+# db_unique_authorkeys$index(add="authorkey")
+# db_unique_authorkeys$index(add="id")
+
+
 
 # unique authorkey fullname collection
-db_unique_authorkeys <- mongo(collection="unique_authorkeys_fullname", db="oa", url=mongourl)
-db_unique_authorkeys$drop()
-db_unique_authorkeys$insert(tbl_unique_authorkeys_fullname)
-db_unique_authorkeys$index(add="authorkey_fullname")
-db_unique_authorkeys$index(add="id")
+# db_unique_authorkeys <- mongo(collection="unique_authorkeys_fullname", db="oa", url=mongourl)
+# db_unique_authorkeys$drop()
+# db_unique_authorkeys$insert(tbl_unique_authorkeys_fullname)
+# db_unique_authorkeys$index(add="authorkey_fullname")
+# db_unique_authorkeys$index(add="id")
 
 

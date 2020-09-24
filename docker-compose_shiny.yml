@@ -17,19 +17,12 @@ services:
 
 
 
-        rstudio:
+        shiny:
                 build: 
                         context: .
-                        dockerfile: Dockerfile_rstudio
-                environment:
-                        PASSWORD: flora
-                volumes:
-                        - type: bind
-                          source: /home/reto/ownCloud/Projects/open_access/os_monitor
-                          target: /srv/shiny-server/os_monitor
-
+                        dockerfile: Dockerfile_shiny
                 ports:
-                        - "8787:8787"
+                        - "3839:3839"
 
 volumes:
         sql_data_os_monitor:

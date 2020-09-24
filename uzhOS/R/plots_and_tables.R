@@ -163,10 +163,38 @@ overall_closed_table <- function(tbl_merge){
 #'
 #' @examples
 upset_plot <- function(tbl_merge){
-  tib_plt <- tbl_merge %>% 
-    dplyr::select( dplyr::starts_with("in_")) %>% 
-    dplyr::mutate( dplyr::across( dplyr::starts_with("in_"),~as.integer(.x))) 
-  UpSetR::upset(as.data.frame(tib_plt))
+  if(!requireNamespace("ComplexUpset", quietly = TRUE)){
+    tib_plt <- tbl_merge %>%
+      dplyr::select( dplyr::starts_with("in_")) %>%
+      dplyr::mutate( dplyr::across( dplyr::starts_with("in_"),~as.integer(.x)))
+    UpSetR::upset(as.data.frame(tib_plt))
+  } else {
+    tib_plt <- tbl_merge %>% 
+    dplyr::select( dplyr::starts_with("in_"), "overall_oa") %>% 
+    dplyr::rename_all(stringr::str_replace, pattern = "in_",replacement = "")
+    # dplyr::mutate( dplyr::across( dplyr::starts_with("in_"),~as.integer(.x))) 
+    colnam_used <- colnames(tib_plt)
+    ComplexUpset::upset(tib_plt, colnam_used[!stringr::str_detect(colnam_used,"overall_oa")],
+                        name = "",
+                        base_annotations=list(
+                          'Intersection size'=ComplexUpset::intersection_size(
+                            text=list(
+                              size=4
+                            )
+                          )
+                        ),
+                        annotations = list(
+                          'Proportion'=list(
+                            aes=aes(x=intersection, fill=overall_oa),
+                            geom=list(
+                              geom_bar(stat='count', position='fill'),
+                              scale_fill_manual(values=open_cols_fn())
+                            )
+                            )),
+                        themes=ComplexUpset::upset_modify_themes(
+                          list(
+                            'intersections_matrix'=theme(text=element_text(size=20))
+                          ))
+    )
+  }
 }
-
-

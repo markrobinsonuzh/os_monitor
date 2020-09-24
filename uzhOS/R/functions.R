@@ -1,45 +1,43 @@
-library(dplyr)
-library(rentrez)
-library(RefManageR)
-library(scholar)
+# library(dplyr)
+# library(rentrez)
+# library(RefManageR)
+# library(scholar)
 
 
+sql_con_cont <- function(con){
+  if (!(is(con,"PqConnection"))){
+    stop("'con' is no valid connection of type 'RPostgres::`PqConnection-class`.", .call=FALSE)
+  }
+}
 
 #' fetch doi entries from local unpaywall
 #'
 #' @param dois dois to get open access status from
-#' @param file filename or data.frame of unpaywall data 
+#' @param con postgresql connection
+#' @param unpaywalltablename table name
 #'
 #' @return open access status for each doi
 #' @export
 #' @importFrom tibble tibble
 #' @importFrom magrittr %>% 
-#' @import mongolite
+#' @import DBI
 #'
 #' @examples 
-#' oadoi_fetch_local("10.1177/000271625529700159",unpaywall)
-oadoi_fetch_local <- function(dois,file=readRDS(here::here("output","dois_unpaywall.rds"))){
+#' con <- dbConnect(RPostgres::Postgres(),
+#'     dbname = 'oa',
+#'     host = 'db', 
+#'     port = 5432,
+#'     user = 'shiny',
+#'     password = 'flora',
+#'     options="-c search_path=oa")
+#' oadoi_fetch_local("10.1177/000271625529700159",con)
+oadoi_fetch_local <- function(dois, con, unpaywalltablename = "unpaywall"){
+  sql_con_cont(con)
   dois <- tolower(dois)
   # if is database connection to mongodb
-  if (is(file,"mongo")){
-    oaf <- lapply(dois,function(doi){
-      single_query <- file$find(paste0('{"doi":"',doi,'"}'))
-      if (length(single_query)<2){
-        tibble::tibble(doi=NULL,oa_status=NULL)
-      } else {
-        tibble::tibble(doi=single_query[[1]],oa_status=single_query[[2]])
-      }
-    }) %>% purrr::reduce(rbind)
-    
+  oaf <- tbl(con, unpaywalltablename) %>% filter(doi %in% dois) %>% collect() %>% 
+    mutate(oa_status = stringr::str_trim(oa_status))
     # if is filename, load first
-  } else if (!is(file,"data.frame")){
-    file <- readRDS(here::here("output","dois_unpaywall.rds"))
-    oaf <- dplyr::filter(file,doi %in% dois)
-    
-    # if is data.frame
-  } else {
-    oaf <- dplyr::filter(file,doi %in% dois)
-  }
   if(length(oaf)==0){
     return(tibble::tibble(doi=character(),oa_status=character()))
   } else {
@@ -69,98 +67,118 @@ oa_status_order <- function(){
 
 
 #' create_tbl_author
-#'
-#' @param tbl_authorkeys mongodb connection of authorkeys or 
-#'   tibble created in '01_zora_preprocessing.Rmd' 
-#' @param tbl_eprints mongodb connection of eprints or 
-#'   tibble created in '01_zora_preprocessing.Rmd'
-#' @param author_vec vector of author ids 
+#' 
+#' @param author_vec author name
+#' @param con postgresql connection
+#' @param authorstablename table name
+#' @param authorkeystablename table name
+#' @param eprintstablename table name
+#' @param subjectstablename table name
 #'
 #' @return tbl_author
 #' 
 #' @importFrom magrittr %>%
-#' @import mongolite
+#' @import DBI
 #' @export
 #'
 #' @examples
-create_tbl_author <- function(tbl_authorkeys,tbl_eprints,author_vec, fac_vec=NULL, dep_vec=NULL){
-  if (is(tbl_authorkeys,"mongo") & is(tbl_eprints,"mongo")){
-    tbl_author <- tbl_authorkeys$find(paste0('{"authorkey_fullname": {"$in": ["',paste0(author_vec,collapse = '","'),'"] }   }'))
-    tbl_eprints <- tbl_eprints$find(paste0('{"eprintid": { "$in": [',paste0(tbl_author$eprintid,collapse = ','),'] } }'))
-    if(!("doi" %in% names(tbl_eprints))){
-      tbl_eprints <- tbl_eprints %>% dplyr::mutate(doi=NA)
-    }
-    tbl_author <- tbl_author%>%
-      dplyr::left_join(tbl_eprints,by="eprintid") %>%
-      dplyr::mutate(year = date, doi = tolower(doi)) %>% 
-        dplyr::group_by(doi) %>% 
-        dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
-        unique()
-    # filter by department if 'dep_vec' is given
-    if (!is.null(fac_vec) | !is.null(dep_vec)){
-      if(!is.null(fac_vec) & is.null(dep_vec)){
-        tmpquo_ls_fac <- lapply(fac_vec, function(fac) expr(!!fac %in% unlist(.data[["parent_name"]])))
-        tmpquo_fac <- purrr::reduce(tmpquo_ls_fac,function(x,y) expr(!!x|!!y), .init = FALSE)
-      }
-      if(!is.null(dep_vec)){
-        tmpquo_ls_dep <- lapply(dep_vec, function(dep) expr(!!dep %in% unlist(.data[["name"]])))
-        tmpquo_dep <- purrr::reduce(tmpquo_ls_dep,function(x,y) expr(!!x|!!y), .init = FALSE)
-      }
-      if (exists("tmpquo_fac") & exists("tmpquo_dep")){
-        tmpquo <- quo(!!tmpquo_fac | !!tmpquo_dep)
-      } else if (exists("tmpquo_fac")){
-        tmpquo <- tmpquo_fac
-      } else if (exists("tmpquo_dep")){
-        tmpquo <- tmpquo_dep
-      }
-      tbl_author <- tbl_author %>% filter(!!tmpquo)
-    }
-    return(tbl_author)
-  } else {
-    tbl_authorkeys %>% 
-      dplyr::filter(authorkey %in% c(author_vec)) %>%
-      dplyr::left_join(tbl_eprints,by="eprintid") %>%
-      dplyr::mutate(year = date, doi = tolower(doi)) %>% 
+# author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
+# con <- dbConnect(RPostgres::Postgres(),
+#     dbname = 'oa',
+#     host = 'db',
+#     port = 5432,
+#     user = 'shiny',
+#     password = 'flora',
+#     options="-c search_path=oa")
+# create_tbl_author(author_vec,con)
+# create_tbl_author(author_vec,con, fac_vec = "07 Faculty of Science")
+# create_tbl_author(author_vec,con, dep_vec = "Evolution in Action: From Genomes to Ecosystems" )
+create_tbl_author <- function(author_vec, con, authorstablename = "authors", authorkeystablename = "authorkeys", 
+                              eprintstablename = "eprints", subjectstablename = "subjects", fac_vec=NULL, dep_vec=NULL){
+  sql_con_cont(con)
+  tbl_author <- tbl(con, authorstablename) %>% 
+    filter(authorkey_fullname %in% author_vec) %>% 
+    select(eprintid,authorkey_fullname) %>% 
+    collect()
+  
+  if(dim(tbl_author)[1] != 0){
+    tbl_eprints <- tbl(con, eprintstablename) %>% filter(eprintid %in% !!tbl_author$eprintid) %>% collect()
+  } else{
+    tbl_eprints <- tbl(con, eprintstablename) %>% head(0) %>% collect()
+  }
+  # tbl_authorkeys <- tbl(con, authorkeystablename) %>% filter(authorkey_fullname %in% author_vec) %>% collect()
+  tbl_author <-
+    tbl_author %>%
+    dplyr::left_join(tbl_eprints,by="eprintid") %>% 
+    inner_join(tbl(con, authorkeystablename) %>% filter(authorkey_fullname %in% author_vec) %>% collect(),
+               by="authorkey_fullname")
+  tbl_author <-
+    tbl_author %>% 
+    inner_join(tbl(con, subjectstablename) %>% filter(eprintid %in% !!tbl_author$eprintid) %>% collect(),
+               by="eprintid") %>%
+    # dplyr::left_join(tbl_authorkeys) %>% 
+    dplyr::mutate(year = date, doi = tolower(doi)) %>% 
       dplyr::group_by(doi) %>% 
       dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
-      unique() 
+      unique()
+  
+  # filter by department if 'dep_vec' is given
+  if (!is.null(fac_vec) | !is.null(dep_vec)){
+    if(!is.null(fac_vec) & is.null(dep_vec)){
+      tmpquo_ls_fac <- lapply(fac_vec, function(fac) expr(!!fac %in% unlist(.data[["parent_name"]])))
+      tmpquo_fac <- purrr::reduce(tmpquo_ls_fac,function(x,y) expr(!!x|!!y), .init = FALSE)
+    }
+    if(!is.null(dep_vec)){
+      tmpquo_ls_dep <- lapply(dep_vec, function(dep) expr(!!dep %in% unlist(.data[["name"]])))
+      tmpquo_dep <- purrr::reduce(tmpquo_ls_dep,function(x,y) expr(!!x|!!y), .init = FALSE)
+    }
+    if (exists("tmpquo_fac") & exists("tmpquo_dep")){
+      tmpquo <- quo(!!tmpquo_fac | !!tmpquo_dep)
+    } else if (exists("tmpquo_fac")){
+      tmpquo <- tmpquo_fac
+    } else if (exists("tmpquo_dep")){
+      tmpquo <- tmpquo_dep
+    }
+    tbl_author <- tbl_author %>% filter(!!tmpquo)
   }
+  return(tbl_author)
 } 
 
 
 #' create_zora
 #'
-#' @param author_vec vector of author ids 
-#' @param tbl_author tibble, created from \code{\link{create_tbl_author}}
-#' @param tbl_subjects mongodb connection of subjects or 
-#'  tibble created in '01_zora_preprocessing.Rmd'
-#'
+#' @param author_vec author name
+#' @param con postgresql connection
+#' @param authorstablename table name
+#' @param authorkeystablename table name
+#' @param eprintstablename table name
+#' @param subjectstablename table name
+#' 
 #' @return
 #' 
 #' @export
 #' @importFrom magrittr %>%
-#' @import mongolite
+#' @import DBI
 #' 
 #' @examples
-#' pri_author <- "robinson m 0000 0002 3048 5518"
-#' sec_author <- "robinson m d"
-#' create_zora(pri_author,sec_author,tbl_author,tbl_subjects)
-create_zora <- function(author_vec,tbl_author,tbl_subjects){
-  if (is(tbl_subjects,"mongo")){
-    tbl_subjects <- tbl_subjects$find(paste0('{"eprintid": { "$in": [',paste0(tbl_author$eprintid,collapse = ','),'] } }'))%>% 
-      dplyr::group_by(eprintid) %>% 
-      dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
-      unique() %>% 
-      dplyr::select(eprintid, name, parent_name)
-  }
-  dept_fac <- tbl_author %>% 
-    dplyr::left_join(tbl_subjects %>%
-                       dplyr::select(eprintid, name, parent_name),
-                     by="eprintid",suffix=c("",".y"))
+# author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
+# con <- dbConnect(RPostgres::Postgres(),
+#     dbname = 'oa',
+#     host = 'db',
+#     port = 5432,
+#     user = 'shiny',
+#     password = 'flora',
+#     options="-c search_path=oa")
+# create_zora(author_vec,con)
+create_zora <- function(author_vec, con, authorstablename = "authors", authorkeystablename = "authorkeys", 
+                        eprintstablename = "eprints", subjectstablename = "subjects"){
+  sql_con_cont(con)
+  dept_fac <- create_tbl_author(author_vec, con, authorstablename, authorkeystablename, 
+                                eprintstablename, subjectstablename, fac_vec=NULL, dep_vec=NULL)
   zora <- dept_fac %>%
-    dplyr::mutate(dept = name, faculty = parent_name, in_zora=TRUE) %>%
-    dplyr::filter(authorkey_fullname %in% c(author_vec)) %>%
-    dplyr::select(-dept, -faculty, -name, -parent_name,-name.y,-parent_name.y,-subjects,-parent) %>% 
+    dplyr::mutate(in_zora=TRUE) %>%
+    # dplyr::filter(authorkey_fullname %in% c(author_vec)) %>%
+    dplyr::select(-name, -parent_name,-subjects,-parent) %>% 
     unique()
   
   if (dim(zora)[1]!=0){
@@ -184,7 +202,7 @@ create_zora <- function(author_vec,tbl_author,tbl_subjects){
 #' @importFrom magrittr %>%
 #'
 #' @examples
-create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,unpaywall){
+create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywalltablename= "unpaywall"){
   # if df_orcid is given
   if (!(is.null(df_orcid) || dim(df_orcid)[1]==0)){
     m <- dplyr::full_join(df_orcid %>% 
@@ -242,15 +260,18 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,unpaywall){
   m <- m %>% dplyr::mutate(title=title.zora)
   
   # get oa status from unpaywall
-  oaf <- oadoi_fetch_local(unique(na.omit(m$doi)),unpaywall)
+  oaf <- oadoi_fetch_local(unique(na.omit(m$doi)), con, unpaywalltablename)
   m <- m %>% dplyr::full_join(oaf %>% dplyr::select(doi, oa_status), 
                        by = "doi", suffix=c("", ".unpaywall")) %>% 
     dplyr::rename(oa_status.unpaywall=oa_status)
   
   # set overall oa status
   m$overall_oa <- m$oa_status.unpaywall
+  print(m %>% select(starts_with("oa"), overall_oa))
   m$overall_oa <- factor(m$overall_oa, levels = names(open_cols_fn()))
   
+  print(dim(m))
+  print(m %>% select(starts_with("oa"), overall_oa))
   # print(m$overall_oa %>% table(useNA = "ifany"))
   if (!is.null(df_orcid)){
     m$overall_oa[m$type.orcid=="other"] <- "preprint"
@@ -282,119 +303,48 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,unpaywall){
   # set NA's in 'in_..' columns to FALSE
   m <- m %>% 
     dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
+  
   return(tibble::as_tibble(m))
 }
 
 
 
-#' #' create_combined_data_wrapper
-#' #'
-#' #' @param tbl_authorkeys tibble created in '01_zora_preprocessing.Rmd'
-#' #' @param tbl_eprints tibble created in '01_zora_preprocessing.Rmd'
-#' #' @param tbl_subjects tibble created in '01_zora_preprocessing.Rmd'
-#' #' @param pri_author author id (with attached orcid)
-#' #' @param sec_author author id 
-#' #' @param orcid orcid
-#' #' @param unpaywall data.frame of reduced unpaywall database
-#' #'
-#' #' @return
-#' #' 
-#' #' @export
-#' #' @importFrom magrittr %>%
-#' #'
-#' #' @examples
-#' create_combined_data_wrapper <- function(tbl_authorkeys,tbl_unique_authorkeys,tbl_eprints,tbl_subjects,pri_author,sec_author,orcid,pubmed,unpaywall,progress=NULL){
-#'   tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,pri_author,sec_author)
-#'   if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
-#'   dept_fac <- tbl_author %>% dplyr::left_join(tbl_subjects %>% 
-#'                                                 dplyr::select(eprintid, name, parent_name),by="eprintid")
-#'   if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
-#'   org_unit <- suppressMessages(dept_fac %>% dplyr::select(name) %>% dplyr::group_by(name) %>% 
-#'     tally %>% dplyr::top_n(1) %>% dplyr::pull(name))
-#'   if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
-#'   df_orcid <- tryCatch({retrieve_from_orcid(orcid) %>%
-#'       dplyr::mutate(doi = tolower(doi))},
-#'       error=function(e) NULL)
-#'   if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
-#'   # ws <- retrieve_from_orcid(orcid) %>%
-#'   #     dplyr::mutate(doi = tolower(doi))
-#'   zora <- create_zora(c(pri_author,sec_author),tbl_author,tbl_subjects)
-#'   if (!is.null(progress)) progress$set(value = progress$getValue() + 1/8)
-#'   df_pubmed <- retrieve_from_pubmed(pubmed)
-#'   # df_pubmed <- retrieve_from_pubmed_from_zora_id(pri_author,tbl_unique_authorkeys)
-#'   create_combined_data(df_orcid,df_pubmed,zora,NULL,unpaywall)
-#' }
-
-
-
-
-#' #' get family and given name of authorkey
-#' #'
-#' #' @param pri_author key
-#' #' @param tbl_authorkeys data frame or mongodb connection of authorkeys
-#' #'
-#' #' @return list of two elements: family and given
-#' #' @export
-#' #' @import mongolite
-#' #' @importFrom magrittr %>% 
-#' #' @examples
-#' #' pri_author <- "robinson mark d"
-#' #' full_author_name(pri_author,tbl_authorkeys)
-#' full_author_name <- function(pri_author,tbl_authorkeys){
-#'   if (is(tbl_authorkeys,"mongo")){
-#'     tbl_authorkeys_filt <- tbl_authorkeys$find(paste0('{"authorkey": "',pri_author,'"}'))
-#'   } else {
-#'     tbl_authorkeys_filt <- tbl_authorkeys %>% 
-#'       dplyr::filter(authorkey == pri_author)
-#'   }
-#'   if (length(names(tbl_authorkeys_filt))!=0){
-#'     return(tbl_authorkeys_filt %>% 
-#'              dplyr::select(author_name_family, author_name_given) %>% unique() %>% 
-#'              dplyr::rename(family=author_name_family,given=author_name_given) %>% 
-#'              as.list())
-#'   } else {
-#'     return(list())
-#'   }
-#' 
-#' }
-
 
 
 #' department, faculty and full name of author
 #'
-#' @param author_vec vector of author ids 
-#' @param tbl_subjects mongodb connection of subjects
-#' @param tbl_authorkeys mongodb connection of authorkeys
-#' @param tbl_eprints mongodb connection of eprints
+#' @param author_vec author name
+#' @param con postgresql connection
+#' @param authorstablename table name
+#' @param authorkeystablename table name
+#' @param eprintstablename table name
+#' @param subjectstablename table name
 #'
 #' @return list of elements "org_unit", "fac" and "author_name",
 #' with author_name a list with elements "family" and "given"
 #' @export
-#' @import mongolite
+#' @import DBI
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-org_unit_fac <- function(author_vec,tbl_subjects,tbl_authorkeys,tbl_eprints, fac_vec=NULL, dep_vec=NULL){
-  tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,author_vec,fac_vec,dep_vec)
+# author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
+# con <- dbConnect(RPostgres::Postgres(),
+#     dbname = 'oa',
+#     host = 'db',
+#     port = 5432,
+#     user = 'shiny',
+#     password = 'flora',
+#     options="-c search_path=oa")
+# org_unit_fac(author_vec,con)
+org_unit_fac <- function(author_vec, con, authorstablename = "authors", 
+                         authorkeystablename = "authorkeys", eprintstablename = "eprints", 
+                         subjectstablename = "subjects", fac_vec=NULL, dep_vec=NULL){
+  sql_con_cont(con)
+  tbl_author <- create_tbl_author(author_vec, con, authorstablename, authorkeystablename, eprintstablename,subjectstablename, fac_vec, dep_vec)
   if (dim(tbl_author)[1] == 0){
     return(list(org_unit=NULL,fac=NULL,author_name=NULL))
   }
-  if (is(tbl_subjects,"mongo")){
-    dept_fac <- tbl_author %>% dplyr::left_join(
-      tbl_subjects$find(paste0('{"eprintid": { "$in": [',paste0(tbl_author$eprintid,collapse = ','),'] } }')) %>% 
-        dplyr::group_by(eprintid) %>% 
-        dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
-        unique()  %>%
-        dplyr::select(eprintid, name, parent_name),by="eprintid", suffix=c(".x",""))
-  } else {
-    dept_fac <- tbl_author %>% dplyr::left_join(tbl_subjects %>% 
-                                                  dplyr::group_by(eprintid) %>% 
-                                                  dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
-                                                  unique() %>%
-                                                  dplyr::select(eprintid, name, parent_name),
-                                                by="eprintid", suffix=c("",".y"))
-  }
-  org_unit <- suppressMessages(dept_fac %>% dplyr::select(name) %>% 
+  org_unit <- suppressMessages(tbl_author %>% dplyr::select(name) %>% 
                                  dplyr::group_by(name) %>% 
                                  # dplyr::top_n(1) %>% 
                                  dplyr::pull(name) %>% 
@@ -404,7 +354,7 @@ org_unit_fac <- function(author_vec,tbl_subjects,tbl_authorkeys,tbl_eprints, fac
                                  dplyr::tally() %>% 
                                  dplyr::arrange(dplyr::desc(n)) %>% 
                                  dplyr::rename(dept=value,count=n)) 
-  fac <- suppressMessages(dept_fac %>% dplyr::select(parent_name) %>% 
+  fac <- suppressMessages(tbl_author %>% dplyr::select(parent_name) %>% 
                             dplyr::group_by(parent_name) %>% 
                             dplyr::pull(parent_name) %>% 
                             unlist() %>% 
@@ -413,7 +363,7 @@ org_unit_fac <- function(author_vec,tbl_subjects,tbl_authorkeys,tbl_eprints, fac
                             dplyr::tally() %>% 
                             dplyr::arrange(dplyr::desc(n)) %>% 
                             dplyr::rename(fac=value,count=n))
-  type <- suppressMessages(dept_fac %>% dplyr::select(type) %>% 
+  type <- suppressMessages(tbl_author %>% dplyr::select(type) %>% 
                              dplyr::group_by(type) %>% 
                              dplyr::pull(type) %>% 
                              unlist() %>% 
@@ -424,44 +374,39 @@ org_unit_fac <- function(author_vec,tbl_subjects,tbl_authorkeys,tbl_eprints, fac
                              dplyr::rename(type=value,count=n))
   return(list(org_unit=org_unit,fac=fac, type=type ,author_name=author_vec))
 }
-# author_vec <- c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)")
-# tmptbl <- org_unit_fac(c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)"),tbl_subjects,tbl_authorkeys,tbl_eprints)
-# org_unit_fac(author_vec,tbl_subjects,tbl_authorkeys,tbl_eprints)
-  
 
 #' affiliation of aliases from author search
 #'
 #' @param authorname author id
-#' @param tbl_unique_authorkeys mongodb connection of unique authorkeys
-#' @param tbl_subjects mongodb connection of subjects
-#' @param tbl_authorkeys mongodb connection of authorkeys
-#' @param tbl_eprints mongodb connection of eprints
+#' @param con postgresql connection
+#' @param authorstablename table name
+#' @param authorkeystablename table name
+#' @param eprintstablename table name
+#' @param subjectstablename table name
 #'
 #' @return
 #' @export
-#' @import mongolite
+#' @import DBI
+#' @importFrom magrittr %>% 
 #'
 #' @examples
-pot_alias_and_affil <- function(authorname,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints,fac_vec=NULL, dep_vec=NULL){
-  # if data in mongodb 
-  # if (is(tbl_unique_authorkeys_fullname,"mongo")){
-  ind_auth <- tbl_unique_authorkeys_fullname$find(paste0('{"authorname":"',authorname,'"}'))[["id"]]
-  pot_aliases <- tbl_unique_authorkeys_fullname$find(paste0('{"id": { "$in": [',paste0(ind_auth,collapse = ','),'] } }'))[["authorkey_fullname"]]
-  # } 
-  # else {
-  #   ind_auth <- which(tbl_unique_authorkeys$authorkey_processed==authorname)
-  #   ind_pot <- lapply(possible_alias_author(authorname), function(auth){
-  #     which(tbl_unique_authorkeys$authorkey_processed==auth)
-  #   })
-  #   tpmind <- ind_pot[lapply(ind_pot,length)>0]
-  #   if (length(tpmind)==0){
-  #     pot_aliases <- tbl_unique_authorkeys$authorkey[ind_auth]
-  #   } else {
-  #     pot_aliases <- c(tbl_unique_authorkeys$authorkey[ind_auth],tbl_unique_authorkeys$authorkey[tpmind[[1]]])
-  #   }
-  # }
+# authorname <- "robinson mark d"
+# con <- dbConnect(RPostgres::Postgres(),
+#     dbname = 'oa',
+#     host = 'db',
+#     port = 5432,
+#     user = 'shiny',
+#     password = 'flora',
+#     options="-c search_path=oa")
+# pot_alias_and_affil(authorname,con)
+pot_alias_and_affil <- function(authorname, con, authorstablename = "authors", 
+                                authorkeystablename = "authorkeys", eprintstablename = "eprints", 
+                                subjectstablename="subjects",fac_vec=NULL, dep_vec=NULL){
+  sql_con_cont(con)
+  tmp_author <- authorname
+  pot_aliases <- tbl(con, authorkeystablename) %>% filter(authorname %in% tmp_author) %>% collect() %>% pull(authorkey_fullname)
   pot_affil <- lapply(pot_aliases, function(pot_alias){
-    org_unit_fac(pot_alias,tbl_subjects,tbl_authorkeys,tbl_eprints,fac_vec,dep_vec)
+    org_unit_fac(pot_alias, con, authorstablename, authorkeystablename, eprintstablename, subjectstablename,fac_vec,dep_vec)
   })
   names(pot_affil) <- pot_aliases
   return(list(pot_aliases=pot_aliases,pot_affil=pot_affil))

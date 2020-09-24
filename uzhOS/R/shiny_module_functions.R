@@ -10,7 +10,7 @@
 #' 
 #'
 #' @examples
-ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, unpaywall) {
+ShowReportServer <- function(id, d, con, authorstablename = "authors", authorkeystablename = "authorkeys", eprintstablename = "eprints", subjectstablename = "subjects") {
   moduleServer(
     id,
     ## Below is the module function
@@ -28,13 +28,13 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
                            function(e) ifelse(is.null(e) || (stringr::str_trim(e) == "") ,FALSE,TRUE))
         progress_bar_len <- sum(not_null) + 4
         # author info
-        tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,d$author_vec, d$fac_vec ,d$dep_vec)
+        tbl_author <- create_tbl_author(d$author_vec, con, authorstablename, authorkeystablename,  eprintstablename, subjectstablename, d$fac_vec ,d$dep_vec)
         print("zora")
         print(dim(tbl_author))
         
         if (!is.null(progress)) progress$set( value = progress$getValue() + 1/progress_bar_len, message="create table from Zora")
         # zora data.frame
-        d$zora <- create_zora(d$author_vec,tbl_author,tbl_subjects)
+        d$zora <- create_zora(d$author_vec, con, authorstablename, authorkeystablename, eprintstablename, subjectstablename)
 
         if (!is.null(progress) && !(is.null(d$pubmed) || stringr::str_trim(d$pubmed) == "")) progress$set(value = progress$getValue() + 1/progress_bar_len, message="create table from Pubmed")
         # pubmed df if given
@@ -43,7 +43,7 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
         }
         # fetch oa status from unpaywall
         if (!(is.null(d$df_pubmed) || dim(d$df_pubmed)[1]==0)){
-          tmpoadoi <- oadoi_fetch_local(na.omit(d$df_pubmed$doi),unpaywall)
+          tmpoadoi <- oadoi_fetch_local(na.omit(d$df_pubmed$doi), con)
           d$df_pubmed <- dplyr::left_join(d$df_pubmed,tmpoadoi,by="doi")
         }
         print("df_pubmed")
@@ -56,14 +56,9 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
                   dplyr::mutate(doi = tolower(doi))},
                   error=function(e) NULL)
         }
-        print("df_orcid")
-        print(dim(d$df_orcid))        
         # fetch oa status from unpaywall
         if (!(is.null(d$df_orcid) || dim(d$df_orcid)[1]==0)){
-          tmpoadoi <- oadoi_fetch_local(na.omit(d$df_orcid$doi),unpaywall)
-          print(length(na.omit(d$df_orcid$doi)))
-          print(length(tmpoadoi$doi))
-          print(tmpoadoi %>% group_by(doi,oa_status) %>% tally())
+          tmpoadoi <- oadoi_fetch_local(na.omit(d$df_orcid$doi), con)
           d$df_orcid <- dplyr::left_join(d$df_orcid,tmpoadoi,by="doi")
         }
         print("df_orcid")
@@ -79,7 +74,7 @@ ShowReportServer <- function(id, d, tbl_authorkeys, tbl_subjects, tbl_eprints, u
         
         # combine table
         if (!is.null(progress)) progress$set(value = progress$getValue() + 1/progress_bar_len, message="Combine table")
-        tbl_merge <- create_combined_data(d$df_orcid,d$df_pubmed,d$zora,d$df_publons,unpaywall)
+        tbl_merge <- create_combined_data(d$df_orcid,d$df_pubmed,d$zora,d$df_publons,con)
         
         # google scholar
         if (!is.null(d$publons) && stringr::str_trim(d$scholar) != ""){

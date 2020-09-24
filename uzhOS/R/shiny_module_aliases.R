@@ -38,12 +38,15 @@ alias_selected_UI <- function(id) {
 #' @import shiny
 #'
 #' @examples
-alias_selected_Server <- function(id,author_search,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints, fac_vec=NULL,dep_vec=NULL) {
+alias_selected_Server <- function(id, author_search, con,authorstablename = "authors",
+                                  authorkeystablename = "authorkeys", eprintstablename = "eprints",
+                                  subjectstablename = "subjects",
+                                  fac_vec=NULL,dep_vec=NULL) {
   moduleServer(
     id,
     function(input, output, session) {
       pot_aliases_ls_ls <- lapply(author_search, function(e) {
-        pot_alias_and_affil(e,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints,fac_vec, dep_vec)
+        pot_alias_and_affil(e, con, authorstablename, authorkeystablename, eprintstablename, subjectstablename ,fac_vec, dep_vec)
       })
       pot_aliases <- unlist(lapply(pot_aliases_ls_ls, function(p) p[[1]]))
       pot_aliases_ls <- lapply(seq_along(pot_aliases_ls_ls), 

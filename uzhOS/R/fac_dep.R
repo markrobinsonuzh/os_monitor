@@ -8,37 +8,36 @@
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-all_org_unit_fac <- function(tbl_eprints){
-  if (is(tbl_eprints,"mongo")){
-    tmpls <- tbl_eprints$aggregate('[ { "$group": {"_id":{"name": "$name","parent_name":"$parent_name","oa_status":"$oa_status","published_doc":"$published_doc", "date":"$date", "type":"$type" } , 
-                                "number":{"$sum":1}}} ]') 
-    
-    
-    fac_dep <- tibble::tibble(fac=tmpls[["_id"]]$parent_name,
-                      dep=tmpls[["_id"]]$name,
-                      oa_status=tmpls[["_id"]]$oa_status,
-                      published_doc=tmpls[["_id"]]$published_doc,
-                      year=tmpls[["_id"]]$date,
-                      type=tmpls[["_id"]]$type,
-                      count=unlist(tmpls["number"]))
-    fac_dep <- fac_dep %>% 
-      dplyr::mutate(oa_status = if_else(published_doc & oa_status=="closed","blue",oa_status),
-             oa_status= factor(oa_status, levels = names(open_cols_fn()))) %>% 
-      dplyr::select(-published_doc)
-    total_fac_dep_year_type <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep,year,type) %>% dplyr::summarise(fac_dep_year_type_sum=sum(count)))
-    total_fac_dep_year <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep,year) %>% dplyr::summarise(fac_dep_year_sum=sum(count)))
-    total_fac_dep <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep) %>% dplyr::summarise(fac_dep_sum=sum(count)))
-    total_fac <-  suppressMessages(fac_dep %>% dplyr::group_by(fac) %>% dplyr::summarise(fac_sum=sum(count)))
-    total_dep <-  suppressMessages(fac_dep %>% dplyr::group_by(dep) %>% dplyr::summarise(dep_sum=sum(count)))
-    fac_dep <- suppressMessages(fac_dep %>% dplyr::inner_join(total_fac_dep) %>% 
-                                  dplyr::inner_join(total_fac) %>% 
-                                  dplyr::inner_join(total_dep) %>% 
-                                  dplyr::inner_join(total_fac_dep_year) %>% 
-                                  dplyr::inner_join(total_fac_dep_year_type))
-    
-    fac_dep_filt <- fac_dep %>% dplyr::filter(!(stringr::str_detect(fac_dep$fac,"[:digit:]{4}") | stringr::str_detect(fac_dep$dep,"[:digit:]{4}")))
+#' 
+#' 
+all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablename = "subjects"){
+  fac_dep <- tbl(con, eprintstablename) %>% 
+    collect()  %>% 
+    inner_join(tbl(con, subjectstablename) %>% collect(),
+               by="eprintid") %>% 
+    group_by(name,parent_name,oa_status,published_doc,date,type) %>% 
+    summarise(count=n())%>% 
+    rename(year=date, fac=parent_name,dep=name) %>% 
+    ungroup() %>% 
+    mutate(count=as.double(count))
+  
+  fac_dep <- fac_dep %>% 
+    dplyr::mutate(oa_status = if_else(published_doc & oa_status=="closed","blue",oa_status),
+           oa_status= factor(oa_status, levels = names(open_cols_fn()))) %>% 
+    dplyr::select(-published_doc)
+  total_fac_dep_year_type <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep,year,type) %>% dplyr::summarise(fac_dep_year_type_sum=sum(count)))
+  total_fac_dep_year <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep,year) %>% dplyr::summarise(fac_dep_year_sum=sum(count)))
+  total_fac_dep <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep) %>% dplyr::summarise(fac_dep_sum=sum(count)))
+  total_fac <-  suppressMessages(fac_dep %>% dplyr::group_by(fac) %>% dplyr::summarise(fac_sum=sum(count)))
+  total_dep <-  suppressMessages(fac_dep %>% dplyr::group_by(dep) %>% dplyr::summarise(dep_sum=sum(count)))
+  fac_dep <- suppressMessages(fac_dep %>% dplyr::inner_join(total_fac_dep) %>% 
+                                dplyr::inner_join(total_fac) %>% 
+                                dplyr::inner_join(total_dep) %>% 
+                                dplyr::inner_join(total_fac_dep_year) %>% 
+                                dplyr::inner_join(total_fac_dep_year_type))
+  
+  fac_dep_filt <- fac_dep %>% dplyr::filter(!(stringr::str_detect(fac_dep$fac,"[:digit:]{4}") | stringr::str_detect(fac_dep$dep,"[:digit:]{4}")))
   return(fac_dep_filt)
-  }
 }
   
   

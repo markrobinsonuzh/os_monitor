@@ -1,4 +1,4 @@
-FROM rocker/shiny-verse
+FROM rocker/rstudio
 
 # system libraries of general use
 RUN apt-get update && apt-get install -y \
@@ -77,20 +77,6 @@ RUN install2.r dbplyr
 RUN install2.r shiny
 RUN install2.r plotly
 
-RUN mkdir -p /srv/shiny-server/os_monitor/shiny_app
-RUN mkdir -p /srv/shiny-server/os_monitor/uzhOS
-
-RUN rm -rf /srv/shiny-server/*
-
-COPY shiny_app/* /srv/shiny-server/
-COPY uzhOS /srv/shiny-server/uzhOS
-COPY analysis /srv/shiny-server/analysis
-COPY data /srv/shiny-server/data
-COPY shiny-server.conf /etc/shiny-server
-COPY update_zora.sh /home
-
-EXPOSE 3839
-# allow permission
-RUN sudo chown -R shiny:shiny /srv/shiny-server
+EXPOSE 8787	
 
 # run app

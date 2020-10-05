@@ -10,8 +10,9 @@ suppressPackageStartupMessages({
   # library(shinyBS)
   library(plotly)
   library(DBI)
+  library(shinyTree)
 })
-on_rstudio <- TRUE
+on_rstudio <- FALSE
 if(on_rstudio){
   setwd("/srv/shiny-server/os_monitor/shiny_app")
   maindir <- file.path(getwd(),"..")
@@ -22,25 +23,22 @@ if(on_rstudio){
 # functions for backend
 devtools::load_all(file.path(maindir,"uzhOS"))
 outdir <- file.path(maindir,"output")
+datadir <- file.path(maindir,"data")
 # token to get acces to orcid (currently Reto's token)
 Sys.setenv(ORCID_TOKEN="8268867c-bf2c-4841-ab9c-bfeddd582a9c")
 use_sql <- TRUE
 if(use_sql){
-    con <- dbConnect(RPostgres::Postgres(),
-                     dbname = 'oa',
-                     host = 'db',
-                     port = 5432, 
-                     user = 'shiny',
-                     password = 'flora',
-                     options="-c search_path=oa")
+    con <- dbConnect(odbc::odbc(), "PostgreSQL")
   unique_authorkeys_processed <- tbl(con, "authorkeys") %>% 
     pull(authorname)
   names(unique_authorkeys_processed) <- stringr::str_to_title(unique_authorkeys_processed)
 } 
-
+options(shinyTree.defaultParser="tree")
 print("all_org_unit_fac")
 # summary of faculty and department oa status
 fac_dep_filt <- all_org_unit_fac(con)
+print("read tree")
+orgtree <- readRDS(file.path(datadir, "orgtree.rds"))
 
 ### UI #########################################################################
 ui <- navbarPage("Open science monitor UZH",
@@ -129,8 +127,9 @@ ui <- navbarPage("Open science monitor UZH",
                fluidPage(
                  sidebarLayout(
                    sidebarPanel(
-                     selectInput("fac_choice","Faculty",
-                                 choices = c("all",sort(unique_fac_dep(fac_dep_filt,"fac")))),
+                     shinyTree("tree", checkbox = TRUE, search=TRUE),
+                     # selectInput("fac_choice","Faculty",
+                     #             choices = c("all",sort(unique_fac_dep(fac_dep_filt,"fac")))),
                      # selectInput("dep_choice","Department",choices = NULL),
                      checkboxGroupInput("oa_status_filtered","OA status",
                                         choices = unique(fac_dep_filt$oa_status),
@@ -454,16 +453,22 @@ server = function(input, output,session) {
   #   }
   # })
   
+  get_json <- reactive({
+    treeToJSON(orgtree, pretty = TRUE)
+  })
+  
+  output$tree <- renderTree({
+    get_json()
+  })
+  
   output$plot_dep_fac <- renderPlot({
-    if(input$fac_choice == "all"){
-      fac_choice <- NULL
-    } else {
-      fac_choice <- input$fac_choice
-    }
+    req(input$tree)
+    chosen_orgs_bool <- lapply(input$tree$Get("state"), function(i) i[3][[1]]) %>% unlist()
+    chosen_orgs <- names(chosen_orgs_bool)[chosen_orgs_bool][-1]
     if (length(input$oa_status_filtered) == 0 || length(input$publication_type_filtered) == 0){
       ggplot() + geom_blank()
     } else {
-      plot_fac_dep(fac_dep_filt, fac_chosen = fac_choice, oa_status_filter = input$oa_status_filtered, 
+      plot_fac_dep(fac_dep_filt, fac_chosen = chosen_orgs, oa_status_filter = input$oa_status_filtered, 
                    arrange_by = input$oa_status_filtered_sorting, publication_filter = input$publication_type_filtered)
     }
   },res=100)

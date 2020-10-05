@@ -43,3 +43,20 @@ retrieve_from_orcid <- function(orcid, exclude = "data-set") {
   df$in_orcid <- TRUE
   return(df)
 }
+
+
+
+
+# author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
+# con <- dbConnect(odbc::odbc(), "PostgreSQL")
+# create_tbl_author(author_vec,con)
+# 
+# family_given_names <- tbl(con, "authorkeys") %>% filter(authorkey_fullname==author_vec) %>% 
+#   pull(authorname) %>% stringr::str_split(" ", n=2) %>% unlist()
+# 
+# 
+# rorcid::orcid_search(given_name = family_given_names[2],family_name = family_given_names[1], affiliation_org = "zurich")
+
+
+
+

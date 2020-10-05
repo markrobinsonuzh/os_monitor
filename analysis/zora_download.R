@@ -1,5 +1,5 @@
 ## Generating ZORA JSON files from API
-setwd("/srv/shiny-server/os_monitor")
+setwd("/srv/shiny-server")
 stub <- "wget -O data/zora_YEAR.js --no-check-certificate https://www.zora.uzh.ch/cgi/exportview/yearnew/YEAR/JSON/YEAR.js"
 
 z <- 2020:2000

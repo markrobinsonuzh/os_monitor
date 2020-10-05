@@ -19,8 +19,8 @@ all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablenam
     summarise(count=n())%>% 
     rename(year=date, fac=parent_name,dep=name) %>% 
     ungroup() %>% 
-    mutate(count=as.double(count))
-  
+    mutate(count=as.double(count),
+           published_doc = as.logical(published_doc))
   fac_dep <- fac_dep %>% 
     dplyr::mutate(oa_status = if_else(published_doc & oa_status=="closed","blue",oa_status),
            oa_status= factor(oa_status, levels = names(open_cols_fn()))) %>% 
@@ -79,17 +79,23 @@ unique_fac_dep <- function(fac_dep_filt, type=c("fac","dep","fac_dep")){
 #' @import ggplot2
 #'
 #' @examples
-plot_fac_dep <- function(fac_dep_filt, fac_chosen = NULL,
+plot_fac_dep <- function(fac_dep_filt, fac_chosen = "University of Zurich",
                          oa_status_filter = c("closed","hybrid","green","gold","blue"),
                          by_year=FALSE, arrange_by="closed",
                          publication_filter="all"){
-  if (is.null(fac_chosen)){
-    col_to_plot <- "fac"
-    fac_chosen <- unique_fac_dep(fac_dep_filt, "fac")
-  } else {
-    col_to_plot <- "dep"
-    stopifnot(fac_chosen %in% unique_fac_dep(fac_dep_filt, "fac"))
+  
+  if (all(is.na(fac_chosen))){
+    return(ggplot() + geom_blank())
   }
+  # if (is.null(fac_chosen)){
+  #   col_to_plot <- "fac"
+  #   fac_chosen <- unique_fac_dep(fac_dep_filt, "fac")
+  # } else {
+  #   col_to_plot <- "dep"
+  #   stopifnot(fac_chosen %in% unique_fac_dep(fac_dep_filt, "fac"))
+  # }
+  col_to_plot <- "dep"
+  
   fac_filt <- preprocess_fac_dep(fac_dep_filt,fac_chosen, col_to_plot, oa_status_filter, by_year, publication_filter)
   
   fac_filt_long <- fac_filt %>% 
@@ -137,7 +143,7 @@ preprocess_fac_dep <- function(fac_dep_filt, fac_chosen, col_to_plot ,
     publication_filter <- unique(fac_dep_filt$type)
   }
   fac_dep_filt %>%
-    dplyr::filter(fac %in% fac_chosen, type %in% publication_filter) %>%
+    dplyr::filter(dep %in% fac_chosen, type %in% publication_filter) %>%
     dplyr::group_by(!!!rlang::syms(col_to_plot),oa_status) %>%
     dplyr::summarise(Count=sum(count)) %>%
     dplyr::ungroup() %>%

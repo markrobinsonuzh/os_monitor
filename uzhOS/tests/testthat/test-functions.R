@@ -1,13 +1,8 @@
 setwd("../uzhOS/tests/testthat/")
 Sys.setenv(ORCID_TOKEN="8268867c-bf2c-4841-ab9c-bfeddd582a9c")
 
-con <- DBI::dbConnect(RPostgres::Postgres(),
-                 dbname = 'oa',
-                 host = 'db',
-                 port = 5432, 
-                 user = 'shiny',
-                 password = 'flora',
-                 options="-c search_path=oa")
+con <- dbConnect(odbc::odbc(), "PostgreSQL")
+
 
 
 author_vec <- c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)")

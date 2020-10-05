@@ -76,7 +76,14 @@ RUN install2.r RPostgres
 RUN install2.r dbplyr
 RUN install2.r shiny
 RUN install2.r plotly
+RUN apt-get install odbc-postgresql
+RUN R -e "devtools::install_github('krassowski/complex-upset')"
+RUN install2.r odbc
+RUN R -e "devtools::install_github('shinyTree/shinyTree')"
+RUN install2.r data.tree
 
+
+COPY odbc.ini /etc
 EXPOSE 8787	
 
 # run app

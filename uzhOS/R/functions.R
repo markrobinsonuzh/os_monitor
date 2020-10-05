@@ -5,8 +5,8 @@
 
 
 sql_con_cont <- function(con){
-  if (!(is(con,"PqConnection"))){
-    stop("'con' is no valid connection of type 'RPostgres::`PqConnection-class`.", .call=FALSE)
+  if (!(is(con,"PqConnection") | is(con,"PostgreSQL"))){
+    stop("'con' is no valid connection of type 'RPostgres::`PqConnection-class` or 'OdbcConnection PostgreSQL'.", .call=FALSE)
   }
 }
 
@@ -23,13 +23,7 @@ sql_con_cont <- function(con){
 #' @import DBI
 #'
 #' @examples 
-#' con <- dbConnect(RPostgres::Postgres(),
-#'     dbname = 'oa',
-#'     host = 'db', 
-#'     port = 5432,
-#'     user = 'shiny',
-#'     password = 'flora',
-#'     options="-c search_path=oa")
+#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
 #' oadoi_fetch_local("10.1177/000271625529700159",con)
 oadoi_fetch_local <- function(dois, con, unpaywalltablename = "unpaywall"){
   sql_con_cont(con)
@@ -83,13 +77,7 @@ oa_status_order <- function(){
 #'
 #' @examples
 # author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
-# con <- dbConnect(RPostgres::Postgres(),
-#     dbname = 'oa',
-#     host = 'db',
-#     port = 5432,
-#     user = 'shiny',
-#     password = 'flora',
-#     options="-c search_path=oa")
+# con <- dbConnect(odbc::odbc(), "PostgreSQL")
 # create_tbl_author(author_vec,con)
 # create_tbl_author(author_vec,con, fac_vec = "07 Faculty of Science")
 # create_tbl_author(author_vec,con, dep_vec = "Evolution in Action: From Genomes to Ecosystems" )
@@ -162,13 +150,7 @@ create_tbl_author <- function(author_vec, con, authorstablename = "authors", aut
 #' 
 #' @examples
 # author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
-# con <- dbConnect(RPostgres::Postgres(),
-#     dbname = 'oa',
-#     host = 'db',
-#     port = 5432,
-#     user = 'shiny',
-#     password = 'flora',
-#     options="-c search_path=oa")
+# con <- dbConnect(odbc::odbc(), "PostgreSQL")
 # create_zora(author_vec,con)
 create_zora <- function(author_vec, con, authorstablename = "authors", authorkeystablename = "authorkeys", 
                         eprintstablename = "eprints", subjectstablename = "subjects"){
@@ -328,13 +310,7 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywa
 #'
 #' @examples
 # author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
-# con <- dbConnect(RPostgres::Postgres(),
-#     dbname = 'oa',
-#     host = 'db',
-#     port = 5432,
-#     user = 'shiny',
-#     password = 'flora',
-#     options="-c search_path=oa")
+# con <- dbConnect(odbc::odbc(), "PostgreSQL")
 # org_unit_fac(author_vec,con)
 org_unit_fac <- function(author_vec, con, authorstablename = "authors", 
                          authorkeystablename = "authorkeys", eprintstablename = "eprints", 
@@ -391,13 +367,7 @@ org_unit_fac <- function(author_vec, con, authorstablename = "authors",
 #'
 #' @examples
 # authorname <- "robinson mark d"
-# con <- dbConnect(RPostgres::Postgres(),
-#     dbname = 'oa',
-#     host = 'db',
-#     port = 5432,
-#     user = 'shiny',
-#     password = 'flora',
-#     options="-c search_path=oa")
+# con <- dbConnect(odbc::odbc(), "PostgreSQL")
 # pot_alias_and_affil(authorname,con)
 pot_alias_and_affil <- function(authorname, con, authorstablename = "authors", 
                                 authorkeystablename = "authorkeys", eprintstablename = "eprints", 

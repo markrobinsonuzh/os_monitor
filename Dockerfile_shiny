@@ -76,9 +76,12 @@ RUN install2.r RPostgres
 RUN install2.r dbplyr
 RUN install2.r shiny
 RUN install2.r plotly
+RUN apt-get install odbc-postgresql
+RUN R -e "devtools::install_github('krassowski/complex-upset')"
+RUN install2.r odbc
+RUN R -e "devtools::install_github('shinyTree/shinyTree')"
+RUN install2.r data.tree
 
-RUN mkdir -p /srv/shiny-server/os_monitor/shiny_app
-RUN mkdir -p /srv/shiny-server/os_monitor/uzhOS
 
 RUN rm -rf /srv/shiny-server/*
 
@@ -88,7 +91,7 @@ COPY analysis /srv/shiny-server/analysis
 COPY data /srv/shiny-server/data
 COPY shiny-server.conf /etc/shiny-server
 COPY update_zora.sh /home
-
+COPY odbc.ini /etc
 EXPOSE 3839
 # allow permission
 RUN sudo chown -R shiny:shiny /srv/shiny-server

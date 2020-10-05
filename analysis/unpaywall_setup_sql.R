@@ -3,13 +3,8 @@ library(DBI)
 library(magrittr)
 library(tibble)
 
-con <- dbConnect(RPostgres::Postgres(),
-                 dbname = 'oa',
-                 host = 'db',
-                 port = 5432, 
-                 user = 'shiny',
-                 password = 'flora',
-                 options="-c search_path=oa")
+con <- dbConnect(odbc::odbc(), "PostgreSQL")
+
 
 tbl_unpaywall <- read.csv("dois_unpaywall.csv",header = FALSE,col.names = c("doi","oa_status"))
 tbl_unpaywall <- tbl_unpaywall %>% as.tibble() %>% mutate(doi=tolower(doi))

@@ -92,6 +92,9 @@ COPY data /srv/shiny-server/data
 COPY shiny-server.conf /etc/shiny-server
 COPY update_zora.sh /home
 COPY odbc.ini /etc
+COPY data/orgtree.rds /srv/shiny-server/data/
+COPY data/fac_dep_filt.rds /srv/shiny-server/data/
+
 EXPOSE 3839
 # allow permission
 RUN sudo chown -R shiny:shiny /srv/shiny-server

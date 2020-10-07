@@ -36,7 +36,8 @@ if(use_sql){
 options(shinyTree.defaultParser="tree")
 print("all_org_unit_fac")
 # summary of faculty and department oa status
-fac_dep_filt <- all_org_unit_fac(con)
+fac_dep_filt <- tryCatch(readRDS(file.path(datadir, "fac_dep_filt.rds")), 
+                         error = function(e){ all_org_unit_fac(con)})
 print("read tree")
 orgtree <- readRDS(file.path(datadir, "orgtree.rds"))
 

@@ -1,0 +1,200 @@
+#' Barplot zora data
+#'
+#' @param tbl_merge data.frame from \code{\link{create_combined_data}} 
+#' @param cutoff_year year of cutoff for plotting
+#' @param colname column name of year
+#' @param title title of plot
+#' @param oa_status_used column name of oa status 
+#'
+#' @return ggplot
+#' @export
+#' @import rlang
+#' @import ggplot2
+#' @importFrom magrittr %>% 
+#'
+#' @examples
+oa_status_time_plot <- function(tbl_merge,cutoff_year=2000,colname=year,title="ZORA OA Status",
+                                oa_status_used=oa_status, use_plotly=FALSE){
+  q_colname <- enquo(colname)
+  q_oa_status_used <- enquo(oa_status_used)
+  tmp <- tbl_merge %>% dplyr::pull(!!q_oa_status_used) 
+  levels(tmp) <- c(levels(tmp),"unknown")
+  tmp[is.na(tmp)] <- "unknown"
+  tbl_merge <- tbl_merge %>% dplyr::mutate(!!q_oa_status_used := tmp)
+  
+  tmptib_1 <- tbl_merge %>% 
+    dplyr::filter(!!q_colname >= cutoff_year, !!q_colname <= 2020)%>% 
+    group_by(!!q_colname,!!q_oa_status_used) %>% 
+    summarise(Count=n()) %>%
+    ungroup() %>% 
+    group_by(!!q_colname) %>% 
+    mutate(Proportion=Count/sum(Count)) %>% 
+    tidyr::pivot_longer(cols = c(Count,Proportion))
+  
+  # plotly
+  if (use_plotly){
+    plt_ls <- lapply(c("Count","Proportion"), function(facetting){
+    rlang::eval_tidy(
+      rlang::quo_squash(
+        rlang::quo({
+          tmptib_1 %>% filter(name==facetting) %>% 
+            plot_ly(x = ~ !!q_colname, y = ~value, 
+                    color = ~ !!q_oa_status_used, 
+                    colors = open_cols_fn()[names(open_cols_fn()) %in% unique(tmptib_1 %>% pull(!!q_oa_status_used))],
+                    hoverinfo="y",
+                    legendgroup= ~ !!q_oa_status_used) %>%
+            add_bars() %>%
+            layout(barmode = "stack",
+                   title = title,
+                   yaxis=list(title="Counts"),
+                   xaxis=list(title=""))
+        })
+      )
+    )})
+    subplot(plt_ls[[1]], style(plt_ls[[2]],showlegend=FALSE),
+    nrows=2,
+    shareX = TRUE)
+    
+    # ggplot
+  } else {
+    ggplot(tmptib_1, aes(x=!!q_colname,y=value, fill=!!q_oa_status_used)) + 
+      geom_col() + facet_grid(rows = vars(name),scales = "free_y")+
+      # facet_wrap(~name,scales = "free_y") +
+      # theme(axis.text.x = element_text(angle = 90)) +
+      ggtitle(title) +
+      labs(y="")+
+      scale_fill_manual(values=open_cols_fn())
+      
+  }
+}
+
+#' Table of closed article in Zora
+#'
+#' @param zora data.frame, created from \code{\link{create_zora}}
+#'
+#' @return \code{\link[DT]{datatable}}
+#' @export
+#' @importFrom magrittr %>% 
+#'
+#' @examples
+closed_in_zora_table <- function(zora){
+  z <- zora %>% 
+    dplyr::filter(oa_status == "closed") %>%
+    dplyr::select(doi, eprintid, type, refereed, title, oa_status, year) %>%
+    dplyr::mutate(doi = ifelse(is.na(doi), "", 
+                               paste0("<a href='https://www.doi.org/",
+                                      doi, "' target='_blank'>", doi, "</a>")),
+                  eprintid = paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
+                             eprintid, "' target='_blank'>", eprintid, "</a>")) %>%
+    dplyr::arrange(desc(year))
+  DT::datatable(z, extensions = 'Buttons',
+                options = list(dom = 'Bfrtip',
+                               pageLength = 200,
+                               buttons = list('copy', 'csv', 'excel')),
+                escape = FALSE, rownames = FALSE)
+}
+
+
+#' Table of percentage open access over time
+#'
+#' @param m data.frame, created from \code{\link{create_combined_data}}
+#' @param cutoff_year year of cutoff for plotting
+#'
+#' @return \code{\link[DT]{datatable}}
+#' @export
+#' @importFrom magrittr %>% 
+#'
+#' @examples
+oa_percent_time_table <- function(m,cutoff_year){
+  z <- m %>% 
+    dplyr::filter(year >= cutoff_year) %>%
+    dplyr::group_by(year) %>%
+    dplyr::summarize(oa_pct_blue = round(100*mean(overall_oa != "closed"),2),
+                     oa_pct = round(100*mean(!(overall_oa %in% c("blue","closed")))),
+                     closed = sum(overall_oa == "closed")) %>%
+    data.frame()
+  DT::datatable(z, extensions = 'Buttons',
+                options = list(dom = 'Bfrtip',
+                               pageLength = 200,
+                               buttons = list('copy', 'csv', 'excel')),
+                escape = FALSE, rownames = FALSE)
+}
+
+
+
+#' table of closed publications
+#'
+#' @param tbl_merge data.frame from \code{\link{create_combined_data}}
+#' @param cutoff_year year of cutoff for plotting
+#'
+#' @return \code{\link[DT]{datatable}}
+#' @export
+#' @importFrom magrittr %>%
+#'
+#' @examples
+overall_closed_table <- function(tbl_merge){
+  z <- tbl_merge %>%
+    dplyr::select(doi, eprintid, overall_oa, oa_status.zora,oa_status.unpaywall, year, dplyr::starts_with("title")) %>%
+    dplyr::arrange(desc(year)) %>%
+    dplyr::mutate(oa_status.unpaywall = ifelse(is.na(oa_status.unpaywall), "",
+                                               paste0("<a href='https://api.unpaywall.org/v2/",
+                                               doi,"?email=YOUR_EMAIL' target='_blank'>",
+                                               oa_status.unpaywall, "</a>")),
+                  doi = ifelse(is.na(doi), "", 
+                               paste0("<a href='https://www.doi.org/",doi, "' target='_blank'>", doi, "</a>")),
+                  eprintid = ifelse(is.na(eprintid), "",
+                                    paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
+                                           eprintid, "' target='_blank'>", eprintid, "</a>")))
+  DT::datatable(z, extensions = 'Buttons',
+                options = list(dom = 'Bfrtip',
+                               pageLength = 200,
+                               buttons = list('copy', 'csv', 'excel')),
+                escape = FALSE, rownames = FALSE)
+}
+
+
+#' Upset plot
+#'
+#' @param tbl_merge data.frame from \code{\link{create_combined_data}} 
+#'
+#' @return \code{\link[UpSetR]{upset}} 
+#' @export
+#' @importFrom magrittr %>% 
+#'
+#' @examples
+upset_plot <- function(tbl_merge){
+  if(!requireNamespace("ComplexUpset", quietly = TRUE)){
+    tib_plt <- tbl_merge %>%
+      dplyr::select( dplyr::starts_with("in_")) %>%
+      dplyr::mutate( dplyr::across( dplyr::starts_with("in_"),~as.integer(.x)))
+    UpSetR::upset(as.data.frame(tib_plt))
+  } else {
+    tib_plt <- tbl_merge %>% 
+    dplyr::select( dplyr::starts_with("in_"), "overall_oa") %>% 
+    dplyr::rename_all(stringr::str_replace, pattern = "in_",replacement = "")
+    # dplyr::mutate( dplyr::across( dplyr::starts_with("in_"),~as.integer(.x))) 
+    colnam_used <- colnames(tib_plt)
+    ComplexUpset::upset(tib_plt, colnam_used[!stringr::str_detect(colnam_used,"overall_oa")],
+                        name = "",
+                        base_annotations=list(
+                          'Intersection size'=ComplexUpset::intersection_size(
+                            text=list(
+                              size=4
+                            )
+                          )
+                        ),
+                        annotations = list(
+                          'Proportion'=list(
+                            aes=aes(x=intersection, fill=overall_oa),
+                            geom=list(
+                              geom_bar(stat='count', position='fill'),
+                              scale_fill_manual(values=open_cols_fn())
+                            )
+                            )),
+                        themes=ComplexUpset::upset_modify_themes(
+                          list(
+                            'intersections_matrix'=theme(text=element_text(size=20))
+                          ))
+    )
+  }
+}

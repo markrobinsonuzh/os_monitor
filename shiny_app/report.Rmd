@@ -1,0 +1,122 @@
+---
+title: "Report"
+output:
+  html_document:
+    toc: true
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+params:
+  pri_author: NA
+  sec_author: NA
+  orcid: NA
+  cutoff_year: NA
+  tbl_subjects: NA
+  tbl_authorkeys: NA
+  tbl_eprints: NA
+  unpaywall: NA
+  zora: NA
+  m: NA
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load packages/data and set parameters
+
+```{r packages_params_load, message=FALSE}
+# outdir <- here::here("output")
+# tbl_eprints <- readRDS(file.path(outdir, "tbl_eprints.rds"))
+# tbl_authorkeys <- readRDS(file.path(outdir, "tbl_authorkeys.rds"))
+# tbl_subjects <- readRDS(file.path(outdir, "tbl_subjects.rds"))
+
+# pri_author <- c("robinson m 0000 0002 3048 5518")
+# sec_author <- c("robinson m d")
+# orcid <- "0000-0002-3048-5518"
+# cutoff_year <- 2011
+
+pri_author <- params$pri_author
+sec_author <- params$sec_author
+orcid <- params$orcid
+cutoff_year <- params$cutoff_year
+tbl_authorkeys <-  params$tbl_authorkeys
+tbl_eprints <-  params$tbl_eprints
+tbl_subjects <- params$tbl_subjects
+unpaywall <-  params$unpaywall
+zora <- params$zora
+m <- params$m
+
+
+open_cols <- c("closed" = "gray48", "hybrid" = "darkorange1",
+               "green" = "chartreuse4", "gold" = "gold",
+               "preprint" = "red", "bronze" = "darkgoldenrod4",
+               "blue" = "blue")
+my_scale <- scale_fill_manual(values=open_cols)
+```
+
+
+# Cross-tabulation of ZORA and Unpaywall entries
+
+```{r crosstab, message=FALSE}
+with(m, table(oa_status.zora, oa_status.unpaywall, useNA="ifany"))
+```
+
+
+# Plot of OA over time: only ZORA records
+
+```{r plot_oa_zora, message=FALSE, fig.width=14}
+zora_only_plot(zora,cutoff_year)
+```
+
+# Articles listed as 'closed' in ZORA
+
+```{r}
+closed_in_zora_table(zora)
+```
+
+
+# Plot of OA over time: ZORA + ORCIDs
+
+```{r plot_oa_combined, message=FALSE, fig.width=14}
+zora_orcid_plot(m,cutoff_year)
+```
+
+
+# OA percent over time (w/ or w/o blue as OA)
+
+```{r blue}
+oa_percent_time_table(m,cutoff_year)
+```
+
+# Articles listed as 'closed' overall
+
+```{r}
+overall_closed_table(m,cutoff_year)
+```
+
+
+# Records in ZORA but not in ORCID (using DOI as key)
+
+```{r}
+zora_without_orcid_table(m,cutoff_year)
+```
+
+# Records in ORCID but not in ZORA (using DOI as key; excludes type.orcid='other', which is usually a preprint)
+
+```{r}
+orcid_without_zora_table(m,cutoff_year)
+```
+
+# Where ZORA and Unpaywall differ in OA Status (assuming they match on DOI)
+
+```{r}
+oa_status_diff_zora_unpaywall_table(m,cutoff_year)
+```
+
+# sessionInfo
+
+```{r pressure, echo=FALSE}
+sessionInfo()
+```

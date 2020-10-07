@@ -1,0 +1,36 @@
+version: '3.3'
+services:
+        db:
+                build:
+                        context: .
+                        dockerfile: Dockerfile_db
+                environment:
+                        POSTGRES_PASSWORD: flora
+                        POSTGRES_USER: shiny
+                        POSTGRES_DB: oa
+                volumes:
+                        - type: volume
+                          source: sql_data_os_monitor
+                          target: /var/lib/postgresql/data
+                          volume:
+                                  nocopy: true
+
+
+
+        rstudio:
+                build: 
+                        context: .
+                        dockerfile: Dockerfile_rstudio
+                environment:
+                        PASSWORD: flora
+                volumes:
+                        - type: bind
+                          source: /home/reto/ownCloud/Projects/open_access/os_monitor
+                          target: /srv/shiny-server/os_monitor
+
+                ports:
+                        - "8787:8787"
+
+volumes:
+        sql_data_os_monitor:
+                external: true

@@ -1,0 +1,29 @@
+version: '3.3'
+services:
+        db:
+                build:
+                        context: .
+                        dockerfile: Dockerfile_db
+                environment:
+                        POSTGRES_PASSWORD: flora
+                        POSTGRES_USER: shiny
+                        POSTGRES_DB: oa
+                volumes:
+                        - type: volume
+                          source: sql_data_os_monitor
+                          target: /var/lib/postgresql/data
+                          volume:
+                                  nocopy: true
+
+
+
+        shiny:
+                build: 
+                        context: .
+                        dockerfile: Dockerfile_shiny
+                ports:
+                        - "3839:3839"
+
+volumes:
+        sql_data_os_monitor:
+                external: true

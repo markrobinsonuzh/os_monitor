@@ -1,0 +1,9 @@
+FROM postgres:13
+
+# system libraries of general use
+RUN apt-get update && apt-get install -y \
+    wget \
+    vim \
+    jq
+
+COPY update_unpaywall_sql.sh upsert_unpaywall.sql /home/

@@ -186,7 +186,7 @@ create_zora <- function(author_vec, con, authorstablename = "authors", authorkey
 #' @examples
 create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywalltablename= "unpaywall"){
   # if df_orcid is given
-  if (!(is.null(df_orcid) || dim(df_orcid)[1]==0)){
+  if (!(is.null(df_orcid) || dim(df_orcid)[1]==0) && !(is.null(zora) || dim(zora)[1]==0)){
     m <- dplyr::full_join(df_orcid %>% 
                             dplyr::mutate(doi=tolower(doi)) %>% 
                             dplyr::as_tibble(), 
@@ -198,7 +198,19 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywa
     m$doi[m$doi=="logical(0)"] <- NA
     # %>%
     #   dplyr::filter(doi != "logical(0)")
-    
+  } else if(!(is.null(df_orcid) || dim(df_orcid)[1]==0)) {
+    m <- df_orcid %>% 
+      dplyr::mutate(doi=tolower(doi)) %>% 
+      dplyr::as_tibble()
+    if("oa_status" %in% names(m)){
+      m <- m %>% dplyr::rename(oa_status.orcid=oa_status)
+    }
+    if("title" %in% names(m)){
+      m <- m %>% dplyr::rename(title.orcid=title)
+    }
+    if("type" %in% names(m)){
+      m <- m %>% dplyr::rename(type.orcid=type)
+    }
   # rename some columns for consistency if df_orcid not given
   } else {
     m <- zora %>% 
@@ -239,7 +251,12 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywa
       m <- m %>% dplyr::rename(title.publons=title)
     }
   }
-  m <- m %>% dplyr::mutate(title=title.zora)
+  if("title.zora" %in% names(m)){
+    m <- m %>% dplyr::mutate(title=title.zora)
+  } else {
+    tmptitle <- m %>% dplyr::select(!!dplyr::starts_with("title")[1]) %>% dplyr::pull()
+    m <- m %>% dplyr::mutate(title=tmptitle)
+  }
   
   # get oa status from unpaywall
   oaf <- oadoi_fetch_local(unique(na.omit(m$doi)), con, unpaywalltablename)
@@ -259,7 +276,9 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywa
     m$overall_oa[m$type.orcid=="other"] <- "preprint"
   }
   w <- is.na(m$overall_oa)
-  m$overall_oa[w] <- m$oa_status.zora[w]
+  if("oa_status.zora" %in% names(m)){
+    m$overall_oa[w] <- m$oa_status.zora[w]
+  }
   w <- m$overall_oa == "closed" & m$oa_status.zora=="blue"
   m$overall_oa[w] <- "blue"
   w <- m$oa_status.zora != "closed" & m$oa_status.unpaywall == "closed"
@@ -269,10 +288,18 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywa
   m$overall_oa[w] <- "unknown"
   # set title
   w <- is.na(m$title)
-  m$title[w] <- m$title.zora[w]
-  
+  if("title.zora" %in% names(m)){
+    m$title[w] <- m$title.zora[w]
+  } else {
+    m$title[w] <- m %>% dplyr::select(dplyr::starts_with("title.")[1]) %>% filter(w) %>% pull()
+  }
   # set overall year
-  m <- m %>% dplyr::mutate(year=year.zora)
+  if("year.zora" %in% names(m)){
+    m <- m %>% dplyr::mutate(year=year.zora)
+  } else {
+    tmpyear <- m %>% dplyr::select(!!dplyr::starts_with("year")[1]) %>% dplyr::pull()
+    m <- m %>% dplyr::mutate(year=tmpyear)
+  }
   if (!is.null(df_orcid)){
     w <- is.na(m$year) & !is.na(m$year.orcid)
     m$year[w] <- m$year.orcid[w]

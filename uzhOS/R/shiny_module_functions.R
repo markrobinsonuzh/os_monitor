@@ -28,14 +28,15 @@ ShowReportServer <- function(id, d, con, authorstablename = "authors", authorkey
                            function(e) ifelse(is.null(e) || (stringr::str_trim(e) == "") ,FALSE,TRUE))
         progress_bar_len <- sum(not_null) + 4
         # author info
-        tbl_author <- create_tbl_author(d$author_vec, con, authorstablename, authorkeystablename,  eprintstablename, subjectstablename, d$fac_vec ,d$dep_vec)
-        print("zora")
-        print(dim(tbl_author))
+        # tbl_author <- create_tbl_author(d$author_vec, con, authorstablename, authorkeystablename,  eprintstablename, subjectstablename, d$fac_vec ,d$dep_vec)
+
         
         if (!is.null(progress)) progress$set( value = progress$getValue() + 1/progress_bar_len, message="create table from Zora")
         # zora data.frame
         d$zora <- create_zora(d$author_vec, con, authorstablename, authorkeystablename, eprintstablename, subjectstablename)
-
+        print("zora")
+        print(dim(d$zora))
+        
         if (!is.null(progress) && !(is.null(d$pubmed) || stringr::str_trim(d$pubmed) == "")) progress$set(value = progress$getValue() + 1/progress_bar_len, message="create table from Pubmed")
         # pubmed df if given
         if (!is.null(d$pubmed) && stringr::str_trim(d$pubmed) != ""){

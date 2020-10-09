@@ -132,19 +132,29 @@ oa_percent_time_table <- function(m,cutoff_year){
 #' @importFrom magrittr %>%
 #'
 #' @examples
-overall_closed_table <- function(tbl_merge){
-  z <- tbl_merge %>%
-    dplyr::select(doi, eprintid, overall_oa, oa_status.zora,oa_status.unpaywall, year, dplyr::starts_with("title")) %>%
+overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
+  
+  if(oa_status_zora){
+    z <- tbl_merge %>%
+      dplyr::select(doi, eprintid, overall_oa, oa_status.zora,oa_status.unpaywall, year, dplyr::starts_with("title"))
+  } else {
+    z <- tbl_merge %>%
+      dplyr::select(doi,oa_status.unpaywall, year, dplyr::starts_with("title"))
+  }
+  
+  z <- z %>%
     dplyr::arrange(desc(year)) %>%
     dplyr::mutate(oa_status.unpaywall = ifelse(is.na(oa_status.unpaywall), "",
                                                paste0("<a href='https://api.unpaywall.org/v2/",
                                                doi,"?email=YOUR_EMAIL' target='_blank'>",
                                                oa_status.unpaywall, "</a>")),
                   doi = ifelse(is.na(doi), "", 
-                               paste0("<a href='https://www.doi.org/",doi, "' target='_blank'>", doi, "</a>")),
-                  eprintid = ifelse(is.na(eprintid), "",
+                               paste0("<a href='https://www.doi.org/",doi, "' target='_blank'>", doi, "</a>")))
+  if(oa_status_zora){
+    z <- z %>% dplyr::mutate(eprintid = ifelse(is.na(eprintid), "",
                                     paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
                                            eprintid, "' target='_blank'>", eprintid, "</a>")))
+  }
   DT::datatable(z, extensions = 'Buttons',
                 options = list(dom = 'Bfrtip',
                                pageLength = 200,

@@ -133,20 +133,40 @@ rm(fs, first_na); gc()
 
 ## subjects
 sub_list <- xmlToList(paste0(outdir,"/subjects_combined_20200108.xml"))
+
+
 sub_df <- data.frame(subjects=sapply(sub_list, .subset2, "subjectid"),
                      name=sapply(sub_list, function(u) u$name[[1]]$name),
-                     parent=sapply(sub_list, function(u) u$parents$item),
+                     parent=sapply(sub_list, function(u) u$parents[[1]]),
                      stringsAsFactors = FALSE)
 
-sub_df %>% filter(name=="University of Zurich")
-sub_df %>% filter(parent %in% c("divisions","subjects"))
+n_parents <- map(sub_list, ~length(.x$parents)) %>% unlist()
+ind_double <- which(n_parents==2)
+sub_df_double <- data.frame(subjects=sapply(sub_list[ind_double], .subset2, "subjectid"),
+                            name=sapply(sub_list[ind_double], function(u) u$name[[1]]$name),
+                            parent=sapply(sub_list[ind_double], function(u) u$parents[[2]]),
+                            stringsAsFactors = FALSE)
+sub_df <- rbind(sub_df,
+                sub_df_double
+                )
 
 subject_lookup <- setNames(sub_df$name, sub_df$subjects)
 
+# table for counter for double occurrences
+sub_df_double_counter <- sub_df_double %>% mutate(count=1)
 
+# recursive lookup function
 rec_lookup <- function(first_parent){
   parent <- unname(subject_lookup[first_parent])
-  parent_subject <- sub_df %>% filter(subjects %in% first_parent) %>% pull(parent)
+  if(parent %in% sub_df_double_counter$name){
+    parent_subject <- sub_df %>% filter(subjects %in% first_parent) %>% 
+      arrange(subjects) %>% 
+      slice(!!sub_df_double_counter$count[sub_df_double_counter$name==parent]) %>%
+      pull(parent)
+    sub_df_double_counter[sub_df_double_counter$name==parent, "count"] <<- 2
+  } else {
+    parent_subject <- sub_df %>% filter(subjects %in% first_parent) %>% pull(parent)
+  }
   if(parent[1] == "ROOT" || is.na(parent)){
     return("rt")
   } else{

@@ -13,7 +13,7 @@ if(on_rstudio){
 }
 # functions for backend
 devtools::load_all(file.path(maindir,"uzhOS"))
-outdir <- file.path(maindir,"output")
+outdir <- file.path(maindir,"data")
 con <- dbConnect(odbc::odbc(), "PostgreSQL")
 
 # summary of faculty and department oa status

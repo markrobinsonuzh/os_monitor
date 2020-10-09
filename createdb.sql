@@ -11,9 +11,9 @@ ALTER TABLE oa.unpaywall DROP CONSTRAINT unpaywall_pkey,
 	ADD CONSTRAINT unpaywall_pkey PRIMARY KEY USING INDEX doi_con_idx;
 
 CREATE INDEX doi_unp_idx ON oa.unpaywall USING HASH (doi);
-ALTER TABLE oa.unpaywall
-ADD unpaywall_pkey PRIMARY KEY USING INDEX doi_unp_idx;
 
+ALTER TABLE oa.unpaywall
+ADD CONSTRAINT doi_unique UNIQUE (doi);
 
 
 CREATE TABLE oa.authorkeys(

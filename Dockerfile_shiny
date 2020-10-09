@@ -81,11 +81,12 @@ RUN R -e "devtools::install_github('krassowski/complex-upset')"
 RUN install2.r odbc
 RUN R -e "devtools::install_github('shinyTree/shinyTree')"
 RUN install2.r data.tree
-
+RUN install2.r shinyFeedback
 
 RUN rm -rf /srv/shiny-server/*
-
-COPY shiny_app/* /srv/shiny-server/
+RUN mkdir /srv/shiny-server/apps
+COPY shiny_app /srv/shiny-server/apps/zora_oa_app
+COPY general_oa_app /srv/shiny-server/apps/general_oa_app
 COPY uzhOS /srv/shiny-server/uzhOS
 COPY analysis /srv/shiny-server/analysis
 COPY data /srv/shiny-server/data
@@ -99,4 +100,6 @@ EXPOSE 3839
 # allow permission
 RUN sudo chown -R shiny:shiny /srv/shiny-server
 
+RUN mkdir -p /var/log/shiny-server/zora_oa_app
+RUN mkdir -p /var/log/shiny-server/general_oa_app
 # run app

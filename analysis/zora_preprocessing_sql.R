@@ -245,28 +245,106 @@ tbl_unique_authorkeys_fullname$authorname[unique_authorkeys_fullname_which] <- u
 tbl_eprints <- tbl_eprints %>% mutate(doi=tolower(doi))
 #tbl_eprints <- tbl_eprints %>% select(-c("subjects","name","parent","parent_name")) %>% unique() 
 
-dbExecute(con, "DELETE FROM subjects;")
-dbExecute(con, "DELETE FROM authors;")
-dbExecute(con, "DELETE FROM authorkeys;")
-dbExecute(con, "DELETE FROM eprints;")
+# dbExecute(con, "DELETE FROM subjects;")
+# dbExecute(con, "DELETE FROM authors;")
+# dbExecute(con, "DELETE FROM authorkeys;")
+# dbExecute(con, "DELETE FROM eprints;")
 
-
-dbWriteTable(con, "eprints", tbl_eprints,overwrite=FALSE, append=TRUE)
-#dbExecute(con, "CREATE INDEX idx_doi ON eprints(doi);")
-#dbExecute(con, "CREATE INDEX idx_eprintid ON eprints(eprintid);")
-
-
-dbWriteTable(con, "subjects", tbl_subjects, overwrite=FALSE, append=TRUE)
-#dbExecute(con, "CREATE INDEX idx_name ON subjects(name);")
-#dbExecute(con, "CREATE INDEX idx_parent_name ON subjects(parent_name);")
-
-tbl_unique_authorkeys_fullname <- tbl_unique_authorkeys_fullname %>% select(-id)
-
-dbWriteTable(con, "authorkeys", tbl_unique_authorkeys_fullname,overwrite=FALSE, append=TRUE)
-
-
-tbl_authorkeys <- tbl_authorkeys %>% select(eprintid,authorkey_fullname)
-
-dbWriteTable(con, "authors", tbl_authorkeys,overwrite=FALSE, append=TRUE)
-#dbExecute(con, "CREATE INDEX idx_authorkey_fullname ON authors(authorkey_fullname);")
-
+# eprints_names <- c("eprintid","doi","date","title","type","refereed","institution","oa_status","published_doc")
+# dbWriteTable(con, "eprints_tmp", tbl_eprints,)
+# dbExecute(con,
+#           "INSERT INTO eprints(eprintid,doi, date, title, type, refereed, institution, oa_status, published_doc) 
+#           SELECT eprintid,doi, date, title, type, refereed, institution, oa_status, published_doc FROM eprints_tmp")
+dbExecute(con,
+          "CREATE TABLE IF NOT EXISTS oa.zora_update_date(
+          is_updated BOOLEAN,
+          date DATE NOT NULL DEFAULT CURRENT_DATE
+          )")
+tryCatch({
+  dbExecute(con,
+  "
+  DROP TABLE authors;
+  DROP TABLE subjects;
+  DROP TABLE authorkeys;
+  DROP TABLE eprints;
+  
+  CREATE TABLE authorkeys(
+    authorkey_fullname TEXT,
+    authorkey TEXT,
+    authorname TEXT
+  );
+  
+  CREATE TABLE eprints(
+    eprintid INT,
+    doi TEXT,
+    date CHAR(4),
+    title TEXT,
+    type VARCHAR(255),
+    refereed VARCHAR(12),
+    institution TEXT,
+    oa_status VARCHAR(16),
+    published_doc BOOLEAN
+    
+  );
+  
+  CREATE TABLE subjects(
+    eprintid INT,
+    subjects VARCHAR(16),
+    name TEXT,
+    parent VARCHAR(16),
+    parent_name TEXT
+  );
+  
+  CREATE TABLE authors(
+    eprintid INT NOT NULL,
+    authorkey_fullname TEXT
+  );
+  ")
+  
+  dbWriteTable(con, "eprints", tbl_eprints, overwrite=FALSE, append=TRUE)
+  # dbAppendTable(con, "eprints", tbl_eprints)
+  #dbExecute(con, "CREATE INDEX idx_doi ON eprints(doi);")
+  #dbExecute(con, "CREATE INDEX idx_eprintid ON eprints(eprintid);")
+  
+  
+  dbWriteTable(con, "subjects", tbl_subjects, overwrite=FALSE, append=TRUE)
+  # dbAppendTable(con, "subjects", tbl_subjects)
+  #dbExecute(con, "CREATE INDEX idx_name ON subjects(name);")
+  #dbExecute(con, "CREATE INDEX idx_parent_name ON subjects(parent_name);")
+  
+  tbl_unique_authorkeys_fullname <- tbl_unique_authorkeys_fullname %>% select(-id)
+  
+  dbWriteTable(con, "authorkeys", tbl_unique_authorkeys_fullname,overwrite=FALSE, append=TRUE)
+  # dbAppendTable(con, "authorkeys", tbl_unique_authorkeys_fullname)
+  
+  
+  tbl_authorkeys <- tbl_authorkeys %>% select(eprintid,authorkey_fullname)
+  
+  dbWriteTable(con, "authors", tbl_authorkeys,overwrite=FALSE, append=TRUE)
+  # dbAppendTable(con, "authors", tbl_authorkeys)
+  
+  dbExecute(con,"
+            ALTER TABLE authorkeys ADD PRIMARY KEY (authorkey_fullname);
+            
+            ALTER TABLE eprints ADD PRIMARY KEY (eprintid);
+            
+            ALTER TABLE subjects 
+              ADD CONSTRAINT subj_eprints_fkey 
+              FOREIGN KEY (eprintid) 
+              REFERENCES eprints (eprintid);
+  
+            ALTER TABLE authors 
+              ADD CONSTRAINT auth_authorkeys_fkey 
+              FOREIGN KEY (authorkey_fullname) 
+              REFERENCES authorkeys (authorkey_fullname);
+              
+            ALTER TABLE authors 
+              ADD CONSTRAINT auth_eprints_fkey 
+              FOREIGN KEY (eprintid) 
+              REFERENCES eprints (eprintid);
+            ")
+  dbExecute(con, "INSERT INTO zora_update_date(is_updated,date) VALUES (TRUE,CURRENT_DATE)")
+  
+}, error= function(e){
+  dbExecute(con, "INSERT INTO zora_update_date(is_updated,date) VALUES (FALSE,CURRENT_DATE)")
+})

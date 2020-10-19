@@ -96,66 +96,80 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                          plot_type=c("anim_year","dep_year","year_val_line","year_val_bar")){
   plot_type <- match.arg(plot_type)
   dep_choosen <- fac_filt_wide_hk$data() %>% dplyr::pull(dep) %>% unique()
+  fac_filt_wide_aggr <- fac_filt_wide_hk$data() %>% 
+    group_by(oa_status,dep) %>% summarise(Count=sum(Count), TotalCount=sum(TotalCount)) %>% 
+    mutate(Proportion=Count/TotalCount) %>% 
+    arrange(dep)
+  oa_status_in_df <- as.character(unique(fac_filt_wide_aggr$oa_status))
+  orderings_oa <- lapply(oa_status_in_df, function(oa_tmp){
+    fac_filt_wide_aggr %>% dplyr::filter(oa_status==oa_tmp) %>% dplyr::arrange(Proportion) %>% dplyr::pull(dep)
+  })
+  names(orderings_oa) <- oa_status_in_df
   switch(plot_type,
          # animated over years
          anim_year = {
            
-           prop_plt <- plot_ly(fac_filt_wide_hk$data(),
-                   x = ~Proportion, 
-                   y = ~dep, 
-                   hoverinfo="x",
-                   name= ~ oa_status,
-                   legendgroup= ~ oa_status,
-                   source = "bar_plot"
-           ) %>% 
-           add_bars(frame = ~year, 
-                       ids = ~dep,
-                       # type = "bar",
-                       color = ~ oa_status, 
-                       colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))]
-                       ) %>%
-           layout(barmode = "stack",
-                  title = title,
-                  yaxis=list(title=""),
-                  xaxis=list(title="Proportion",range = c(0, 1)),
-                  margin = list(l = 300,r = 50,b = 100,t = 100,pad = 20))  
-           count_plt <- plot_ly(fac_filt_wide_hk$data(),
-                               x = ~Count,
-                               y = ~dep,
-                               hoverinfo="x",
-                               name= ~ oa_status,
-                               legendgroup= ~ oa_status,
-                               source = "bar_plot",
-                               showlegend=FALSE
-           ) %>%
-             add_bars(frame = ~year,
-                      ids = ~dep,
-                      # type = "bar",
-                      color = ~ oa_status,
-                      colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))]
-             ) %>%
-             layout(barmode = "stack",
-                    title = title,
-                    yaxis=list(title=""),
-                    xaxis=list(title="Count",range = c(0, max(fac_filt_wide_hk$data()$TotalCount))),
-                    margin = list(l = 200,r = 50,b = 100,t = 100,pad = 20))
-           
-           suppressWarnings(subplot(count_plt,prop_plt,nrows=1,titleX = TRUE,shareY = TRUE) %>%
-           animation_opts(1000, transition = 0, redraw = TRUE) )
+           base_plt <- plot_ly(source = "bar_plot") 
+           steps <- list()
+           all_years <- unique(fac_filt_wide_hk$data()$year)
+           all_oa_status <- as.character(unique(fac_filt_wide_hk$data()$oa_status))
+           for(i in seq_along(all_years)){
+               step <- list(args = list('visible', rep(FALSE, length(all_years))),
+                            label=all_years[i],
+                            method = 'restyle')
+               step$args[[2]][i] <-  TRUE  
+               steps[[i]] <-  step 
+           }
+           plt_ls <- lapply(c("Count","Proportion"), function(facetting){
+             rlang::eval_tidy(
+               rlang::quo_squash(
+                 rlang::quo({
+                   tmp_base_plt <- base_plt
+                   for(i in seq_along(all_years)){
+                     is_visible <- ifelse(all_years[i]==2020,TRUE,FALSE)
+                     tmp_base_plt <- tmp_base_plt %>% 
+                       add_bars(data=fac_filt_wide_hk$data() %>% filter(year==all_years[i]) %>% dplyr::arrange(dep),
+                                x = ~!!sym(facetting), 
+                                y = ~dep, 
+                                name= ~oa_status,
+                                legendgroup= ~ oa_status,
+                                showlegend=FALSE,
+                                hoverinfo="x+name",
+                                visible=is_visible,
+                                ids = ~dep,
+                                color = ~ oa_status, 
+                                colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))]
+                       ) 
+                   }
+                   tmp_base_plt%>%
+                            layout(barmode = "stack",
+                                   title = title,
+                                   yaxis=list(title="",categoryorder = "array",categoryarray=all_oa_status),
+                                   xaxis=list(title=!!facetting,range = c(0, ifelse(facetting=="Proportion",1,
+                                                                                    max(fac_filt_wide_hk$data() %>% dplyr::pull(TotalCount))))),
+                                   margin = list(l = 300,r = 50,b = 100,t = 100,pad = 20))
+                   })))})
+           subplot(plt_ls,nrows=1,titleX = TRUE,shareY = TRUE) %>%
+                              layout(sliders = list(list(active = 20,
+                                                         currentvalue = list(prefix = "Year: "),
+                                                         steps = steps,
+                                                         pad=list(t=40))),
+                                     updatemenus = list(
+                                       list(
+                                         x = 0.3,
+                                         y = 1.2,
+                                         buttons=lapply(oa_status_in_df, function(order_name){
+                                           list(
+                                             label = order_name,
+                                             method = "relayout",
+                                             args = list(list(yaxis=list(categoryarray=(orderings_oa[[order_name]]),
+                                                                         automargin=TRUE))))
+                                         }))
+                                     ))
              
          },
          # aggreaggated over years
          dep_year = {
-           fac_filt_wide_aggr <- fac_filt_wide_hk$data() %>% 
-             group_by(oa_status,dep) %>% summarise(Count=sum(Count), TotalCount=sum(TotalCount)) %>% 
-             mutate(Proportion=Count/TotalCount) %>% 
-             arrange(dep)
-           oa_status_in_df <- as.character(unique(fac_filt_wide_aggr$oa_status))
-           orderings_oa <- lapply(oa_status_in_df, function(oa_tmp){
-             fac_filt_wide_aggr %>% dplyr::filter(oa_status==oa_tmp) %>% dplyr::arrange(Proportion) %>% dplyr::pull(dep)
-           })
-           names(orderings_oa) <- oa_status_in_df
-           
            prop_plt <- fac_filt_wide_aggr %>% 
              plot_ly(x = ~Proportion, 
                      y = ~dep, 

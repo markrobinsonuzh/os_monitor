@@ -11,6 +11,7 @@ library(tidyr)
 # library(mongolite)
 library(DBI)
 library(data.tree)
+library(shinyTree)
 
 # mongodb connection
 # mongourl <- "mongodb://172.18.0.2/16"

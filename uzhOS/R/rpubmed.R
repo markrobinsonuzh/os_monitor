@@ -108,3 +108,80 @@ retrieve_from_pubmed <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, j
   summ$in_pubmed <- TRUE
   return(summ)
 }
+
+
+
+
+#' get PMID from doi
+#'
+#' @param doi doi
+#'
+#' @return tibble with columns PMID, doi
+#' @export
+#'
+#' @examples
+#' doi <- c("10.1186/1471-2105-3-35")
+#' rec_req_id_converter(c(doi,"error_doi"))
+rec_req_id_converter <- function(doi){
+  id <- paste(doi,collapse = ",")
+  # retrieve PMID from doi using converter api
+  pubmed_doi_convert_get <- httr::GET(url=paste0("https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/?tool=my_tool&email=my_email@example.com&ids=",id,"&format=csv"))
+  # if error but more than one doi, split dataset into two and try again
+  if(httr::http_error(pubmed_doi_convert_get) && length(doi)!=1){
+    doi_ls <- split(doi, round(seq(0,1,length.out=length(doi))))
+    return(lapply(doi_ls, function(doi_sub){
+      rec_req_id_converter(doi_sub)
+    }) %>% purrr::reduce(rbind))
+  # if error and only one doi, return empty tibble
+  } else if(httr::http_error(pubmed_doi_convert_get) && length(doi)==1){
+    return(tibble::tibble(PMID=character(),DOI=character()))
+  # if no error return tibble
+  }else {
+    # read request
+    return(suppressMessages(httr::content(pubmed_doi_convert_get, encoding = "UTF-8")) %>% 
+      tibble::as_tibble() %>% 
+      dplyr::select(PMID,DOI))
+  }
+}
+
+
+
+#' retrieve articles from pubmed using dois
+#'
+#' @param doi doi
+#'
+#' @return tibble with colums doi, relative_citation_ratio, nih_percentile, citation_count, in_pubmed
+#' @export
+#'
+#' @examples
+# doi <- c("10.1186/1471-2105-3-35")
+# retrieve_from_pubmed_with_doi(doi)
+retrieve_from_pubmed_with_doi <- function(doi){
+  pubmed_doi_convert_cont <- rec_req_id_converter(doi) %>% 
+    dplyr::rename(doi=DOI)
+  if (!is.null(pubmed_doi_convert_cont) && dim(pubmed_doi_convert_cont)[1] != 0){
+    # get pubmed metrics
+    pubmed_metrics <- iCiteR::get_metrics(pubmed_doi_convert_cont$PMID)
+    
+    pubmed_metrics %>% 
+      dplyr::select(doi, relative_citation_ratio, nih_percentile, citation_count) %>% 
+      dplyr::mutate(in_pubmed = ifelse(is.na(doi),NA,TRUE)) %>% 
+      dplyr::filter(!is.na(doi))
+  } else {
+    return(data.frame(doi=character(),relative_citation_ratio=numeric(), nih_percentile=numeric(),citation_count=integer(),in_pubmed=logical()))
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

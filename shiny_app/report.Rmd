@@ -17,7 +17,6 @@ params:
   unpaywall: NA
   zora: NA
   m: NA
-
 ---
 
 ```{r setup, include=FALSE}

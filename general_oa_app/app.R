@@ -24,6 +24,8 @@ if(on_rstudio){
   maindir <- getwd()
 }
 # functions for backend
+# devtools::install("/srv/shiny-server/os_monitor/uzhOS",build = TRUE)
+# library(uzhOS)
 devtools::load_all(file.path(maindir,"uzhOS"))
 outdir <- file.path(maindir,"output")
 datadir <- file.path(maindir,"data")

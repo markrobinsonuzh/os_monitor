@@ -184,7 +184,8 @@ tmptree$pathString <- apply(tmptree, 1, function(x) paste(trimws(na.omit(x)), co
 print(head(tmptree))
 orgtree <- data.tree::as.Node(tmptree)
 Sort(orgtree,"name")
-saveRDS(orgtree, file.path(outdir, "orgtree.rds"))
+jsonorgtree <- treeToJSON(orgtree, pretty = TRUE)
+saveRDS(jsonorgtree, file.path(outdir, "orgtree.rds"))
 
 
 sub_df$parent_name <- subject_lookup[sub_df$parent]

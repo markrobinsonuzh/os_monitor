@@ -20,10 +20,23 @@ all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablenam
     rename(year=date, fac=parent_name,dep=name) %>% 
     ungroup() %>% 
     mutate(count=as.double(count),
-           published_doc = as.logical(published_doc))
+           published_doc = as.logical(published_doc),
+           year=as.integer(year))
+  all_expected <- expand.grid(
+    dep=unique(fac_dep$dep),
+    oa_status=factor(unique(fac_dep$oa_status)),
+    year=unique(fac_dep$year),
+    type=unique(fac_dep$type),
+    count=0,stringsAsFactors = FALSE) %>% 
+    as_tibble()
+  
+  fac_dep <- left_join(all_expected,fac_dep, by=c("dep","oa_status","year","type"), suffix=c(".all","")) %>% 
+    mutate(count=ifelse(is.na(count),count.all,count)) %>% dplyr::select(-count.all)
+  
   fac_dep <- fac_dep %>% 
-    dplyr::mutate(oa_status = if_else(published_doc & oa_status=="closed","blue",oa_status),
-           oa_status= factor(oa_status, levels = names(open_cols_fn()))) %>% 
+    dplyr::mutate(published_doc=ifelse(is.na(published_doc),FALSE,published_doc),
+                  oa_status = if_else(published_doc & oa_status=="closed","blue",oa_status),
+                  oa_status= factor(oa_status, levels = names(open_cols_fn()))) %>% 
     dplyr::select(-published_doc)
   total_fac_dep_year_type <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep,year,type) %>% dplyr::summarise(fac_dep_year_type_sum=sum(count)))
   total_fac_dep_year <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep,year) %>% dplyr::summarise(fac_dep_year_sum=sum(count)))
@@ -36,8 +49,8 @@ all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablenam
                                 dplyr::inner_join(total_fac_dep_year) %>% 
                                 dplyr::inner_join(total_fac_dep_year_type))
   
-  fac_dep_filt <- fac_dep %>% dplyr::filter(!(stringr::str_detect(fac_dep$fac,"[:digit:]{4}") | stringr::str_detect(fac_dep$dep,"[:digit:]{4}")))
-  return(fac_dep_filt)
+  # fac_dep_filt <- fac_dep %>% dplyr::filter(!(stringr::str_detect(fac_dep$fac,"[:digit:]{4}") | stringr::str_detect(fac_dep$dep,"[:digit:]{4}")))
+  return(fac_dep)
 }
   
   
@@ -79,56 +92,231 @@ unique_fac_dep <- function(fac_dep_filt, type=c("fac","dep","fac_dep")){
 #' @import ggplot2
 #'
 #' @examples
-plot_fac_dep <- function(fac_dep_filt, fac_chosen = "University of Zurich",
-                         oa_status_filter = c("closed","hybrid","green","gold","blue"),
-                         by_year=FALSE, arrange_by="closed",
-                         publication_filter="all"){
-  
-  if (all(is.na(fac_chosen))){
-    return(ggplot() + geom_blank())
-  }
-  # if (is.null(fac_chosen)){
-  #   col_to_plot <- "fac"
-  #   fac_chosen <- unique_fac_dep(fac_dep_filt, "fac")
-  # } else {
-  #   col_to_plot <- "dep"
-  #   stopifnot(fac_chosen %in% unique_fac_dep(fac_dep_filt, "fac"))
-  # }
-  col_to_plot <- "dep"
-  
-  fac_filt <- preprocess_fac_dep(fac_dep_filt,fac_chosen, col_to_plot, oa_status_filter, by_year, publication_filter)
-  
-  fac_filt_long <- fac_filt %>% 
-    tidyr::pivot_longer(cols = c("Count","Proportion"),names_to="type") %>% 
-    ungroup()
-  
-  # order
-  order_fac <- fac_filt %>% filter(oa_status==arrange_by) %>% arrange(desc(Proportion)) %>% 
-    pull(!!sym(col_to_plot))
-  all_fac <- fac_filt %>% pull(!!sym(col_to_plot)) %>% unique()
-  order_fac <- c(order_fac, all_fac[!(all_fac %in% order_fac)])
-  fac_filt_long <- fac_filt_long %>% mutate(!!sym(col_to_plot) := factor(!!sym(col_to_plot),order_fac)) 
-  
-  if (by_year){
-    ggplot(fac_filt_long %>% filter(type=="Proportion")) +
-      geom_col(aes(year,x=value,fill=oa_status),position = position_stack(reverse = TRUE)) +
-      scale_fill_manual(values=open_cols_fn()) +
-      facet_wrap(~fac)
-      # facet_grid(rows=vars(year)) #,cols = vars(year))
-      # facet_wrap(!!sym(col_to_plot)~type,scales = "free_x") +
-      # theme(axis.title.x = element_blank(), 
-      #       axis.title.y = element_blank()) + 
-      # labs(fill="OA status")
-  } else {
-    ggplot(fac_filt_long) +
-      geom_col(aes(!!sym(col_to_plot),x=value,fill=oa_status),position = position_stack(reverse = TRUE))+
-      scale_fill_manual(values=open_cols_fn()) +
-      facet_wrap(~type,scales = "free_x") +
-      theme(axis.title.x = element_blank(), 
-            axis.title.y = element_blank()) + 
-      labs(fill="OA status")
-  }
+plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt, 
+                         plot_type=c("anim_year","dep_year","year_val_line","year_val_bar")){
+  plot_type <- match.arg(plot_type)
+  dep_choosen <- fac_filt_wide_hk$data() %>% dplyr::pull(dep) %>% unique()
+  switch(plot_type,
+         # animated over years
+         anim_year = {
+           
+           prop_plt <- plot_ly(fac_filt_wide_hk$data(),
+                   x = ~Proportion, 
+                   y = ~dep, 
+                   hoverinfo="x",
+                   name= ~ oa_status,
+                   legendgroup= ~ oa_status,
+                   source = "bar_plot"
+           ) %>% 
+           add_bars(frame = ~year, 
+                       ids = ~dep,
+                       # type = "bar",
+                       color = ~ oa_status, 
+                       colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))]
+                       ) %>%
+           layout(barmode = "stack",
+                  title = title,
+                  yaxis=list(title=""),
+                  xaxis=list(title="Proportion",range = c(0, 1)),
+                  margin = list(l = 300,r = 50,b = 100,t = 100,pad = 20))  
+           count_plt <- plot_ly(fac_filt_wide_hk$data(),
+                               x = ~Count,
+                               y = ~dep,
+                               hoverinfo="x",
+                               name= ~ oa_status,
+                               legendgroup= ~ oa_status,
+                               source = "bar_plot",
+                               showlegend=FALSE
+           ) %>%
+             add_bars(frame = ~year,
+                      ids = ~dep,
+                      # type = "bar",
+                      color = ~ oa_status,
+                      colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))]
+             ) %>%
+             layout(barmode = "stack",
+                    title = title,
+                    yaxis=list(title=""),
+                    xaxis=list(title="Count",range = c(0, max(fac_filt_wide_hk$data()$TotalCount))),
+                    margin = list(l = 200,r = 50,b = 100,t = 100,pad = 20))
+           
+           suppressWarnings(subplot(count_plt,prop_plt,nrows=1,titleX = TRUE,shareY = TRUE) %>%
+           animation_opts(1000, transition = 0, redraw = TRUE) )
+             
+         },
+         # aggreaggated over years
+         dep_year = {
+           fac_filt_wide_aggr <- fac_filt_wide_hk$data() %>% 
+             group_by(oa_status,dep) %>% summarise(Count=sum(Count), TotalCount=sum(TotalCount)) %>% 
+             mutate(Proportion=Count/TotalCount) %>% 
+             arrange(dep)
+           oa_status_in_df <- as.character(unique(fac_filt_wide_aggr$oa_status))
+           orderings_oa <- lapply(oa_status_in_df, function(oa_tmp){
+             fac_filt_wide_aggr %>% dplyr::filter(oa_status==oa_tmp) %>% dplyr::arrange(Proportion) %>% dplyr::pull(dep)
+           })
+           names(orderings_oa) <- oa_status_in_df
+           
+           prop_plt <- fac_filt_wide_aggr %>% 
+             plot_ly(x = ~Proportion, 
+                     y = ~dep, 
+                     color = ~ oa_status, 
+                     # frame = ~ year,
+                     colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))],
+                     hoverinfo="x",
+                     legendgroup= ~ oa_status,
+                     type = "bar",
+                     source = "bar_plot"
+             ) %>%
+             layout(barmode = "stack",
+                    title = title,
+                    yaxis=list(title=""),
+                    xaxis=list(title="Proportion",range = c(0, 1)),
+                    margin = list(l = 200, r = 50, b = 100, t = 100, pad = 20)
+                    )
+           count_plt  <- fac_filt_wide_aggr %>% 
+             plot_ly(x = ~Count, 
+                     y = ~dep, 
+                     color = ~ oa_status, 
+                     # frame = ~ year,
+                     colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))],
+                     hoverinfo="x",
+                     legendgroup= ~ oa_status,
+                     type = "bar",
+                     source = "bar_plot",
+                     showlegend=FALSE
+             ) %>%
+             layout(barmode = "stack",
+                    title = title,
+                    yaxis=list(title=""),
+                    xaxis=list(title="Count"),
+                    margin = list(l = 200, r = 50, b = 100, t = 100, pad = 20))
+           
+           subplot(count_plt,prop_plt,nrows=1,titleX = TRUE,shareY = TRUE)  %>% 
+             layout(updatemenus = list(
+               list(
+                 x = 0.3,
+                 y = 1.2,
+                 # buttons = list(
+                 # list(method = "react",
+                 #      args = list(list(x=list((fac_filt_wide_aggr$Proportion[order][4:6]),
+                 #                              (fac_filt_wide_aggr$Proportion[order][1:3])),
+                 #                       y=list((fac_filt_wide_aggr$dep[order][4:6]),
+                 #                              (fac_filt_wide_aggr$dep[order][1:3])))),
+                 #      label = "Scatter"),
+                 buttons=lapply(oa_status_in_df, function(order_name){
+                   list(
+                     label = order_name,
+                     method = "relayout",
+                     args = list(list(yaxis=list(categoryarray=(orderings_oa[[order_name]]),
+                                                 automargin=TRUE))))
+                 }))
+               ),
+               annotations=list(list(text = "Sort<br>by", x=-0.1, y=1.2, xref='paper', yref='paper', showarrow=FALSE)))
+                    
+         },
+         # lineplot over year
+         year_val_line = {
+           tmp <- fac_filt_wide_hk$data() %>% highlight_key(~oa_status)
+           plt_ls <- lapply(c("Count","Proportion"), function(facetting){
+             rlang::eval_tidy(
+               rlang::quo_squash(
+                 rlang::quo({
+                  plot_ly(tmp,
+                         x = ~year, 
+                         y = ~!!sym(facetting), 
+                         text = ~oa_status,
+                         hoverinfo="x+y+text",
+                         name= ~ oa_status,
+                         legendgroup= ~ oa_status,
+                         source = "bar_plot"
+           )})))})
+           colplts <- lapply(1:2, function(i){
+             pc_ls <- lapply(dep_choosen, function(dep_c){
+               plt_ls[[i]] %>% filter(dep==dep_c) %>% 
+                  add_lines(
+                    # ids = ~dep,
+                    color = ~ oa_status, 
+                    colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))]
+                  ) %>% 
+                 layout(
+                   barmode = "stack",
+                   yaxis=list(title=""),
+                   annotations=list(
+                     list(
+                       x = -0.07, 
+                       y = 0.5, 
+                       showarrow = FALSE, 
+                       text = ifelse(i==1,dep_c,""), 
+                       xref = "paper", 
+                       yref = "paper",
+                       xanchor="right",
+                       align="right")),
+                   margin=list(l=400)
+                 )
+             })
+             subplot(pc_ls,nrows = length(dep_choosen),titleY = TRUE) %>% 
+               layout(showlegend=FALSE)
+           })
+           subplot(colplts,margin=0.05) 
+         },
+         # barplot over year
+         year_val_bar = {
+           tmp <- fac_filt_wide_hk$data() #%>% highlight_key(~oa_status)
+           plt_ls <- lapply(c("Count","Proportion"), function(facetting){
+             rlang::eval_tidy(
+               rlang::quo_squash(
+                 rlang::quo({
+                   plot_ly(tmp,
+                           x = ~year, 
+                           y = ~!!sym(facetting), 
+                           text = ~oa_status,
+                           hoverinfo="x+y+text",
+                           name= ~ oa_status,
+                           legendgroup= ~ oa_status,
+                           source = "bar_plot"
+                   )})))})
+           colplts <- lapply(1:2, function(i){
+             pc_ls <- lapply(dep_choosen, function(dep_c){
+               plt_ls[[i]] %>% filter(dep==dep_c) %>% 
+                 add_bars(
+                   # ids = ~dep,
+                   color = ~ oa_status, 
+                   colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))]
+                 ) %>% 
+                 layout(
+                   barmode = "stack",
+                   yaxis=list(title=""),
+                   annotations=list(
+                     list(
+                       x = -0.07, 
+                       y = 0.5, 
+                       showarrow = FALSE, 
+                       text = ifelse(i==1,dep_c,""), 
+                       xref = "paper", 
+                       yref = "paper",
+                       xanchor="right",
+                       align="right")),
+                   margin=list(l=400)
+                 )
+             })
+             subplot(pc_ls,nrows = length(dep_choosen),titleY = TRUE) %>% 
+               layout(showlegend=FALSE)
+           })
+           subplot(colplts,margin=0.05) 
+         }
+         )
+
 }
+# vdep <- c("Institute of Medical Genetics","Institute of History","Institute of Mathematics")
+# 
+# plot_fac_dep(fac_dep_filt, fac_chosen = vdep,arrange_by = "gold", use_plotly = TRUE)
+# preprocess_fac_dep(fac_dep_filt, fac_chosen = "Department of Biochemistry","dep",arrange_by = "gold")
+# 
+# tmptib_1 <- preprocess_fac_dep(fac_dep_filt,vdep,"dep")
+# q_oa_status_used <- quo(oa_status)
+
+
+
 
 
 
@@ -148,15 +336,90 @@ preprocess_fac_dep <- function(fac_dep_filt, fac_chosen, col_to_plot ,
     dplyr::summarise(Count=sum(count)) %>%
     dplyr::ungroup() %>%
     dplyr:: group_by(!!!rlang::syms(col_to_plot)) %>%
-    dplyr::mutate(Proportion=Count/sum(Count)) %>% 
+    dplyr::summarise(TotalCount=sum(Count),oa_status=oa_status, Count=Count) %>% 
+    dplyr::mutate(Proportion=ifelse(TotalCount==0,0,Count/TotalCount)) %>% 
     dplyr::filter(oa_status %in% oa_status_filter) %>% 
-    dplyr::arrange(!!!rlang::syms(col_to_plot))
+    dplyr::arrange(!!!rlang::syms(col_to_plot)) %>% 
+    tidyr::pivot_longer(cols = c("Count","Proportion"),names_to="type") %>% 
+    ungroup()
 }
 
 
-# fac_dep_filt <- all_org_unit_fac(tbl_eprints)
+arrange_fac_dep <- function(fac_filt_long, arrange_by="closed",
+                            type_arr=c("Count","Proportion"), col_to_plot="dep", by_year=FALSE){
+  type_arr <- match.arg(type_arr)
+  
+  # order
+  if(by_year){
+    order_fac <- fac_filt_long %>% 
+      group_by(!!sym(col_to_plot), oa_status, type) %>% 
+      summarise(value=sum(value)) %>% 
+      filter(oa_status==arrange_by, type==type_arr) %>% 
+      dplyr::arrange(desc(value)) %>% 
+      pull(!!sym(col_to_plot))
+  } else {
+    order_fac <- fac_filt_long %>% 
+      filter(oa_status==arrange_by, type==type_arr) %>% 
+      dplyr::arrange(desc(value)) %>% 
+      pull(!!sym(col_to_plot))
+  }
+
+  all_fac <- fac_filt_long %>% pull(!!sym(col_to_plot)) %>% unique()
+  order_fac <- c(order_fac, all_fac[!(all_fac %in% order_fac)])
+  
+  mat_oa <- order(match(fac_filt_long$dep,order_fac))
+  fac_filt_long <- fac_filt_long[mat_oa,]
+  
+  
+  fac_filt_long %>% mutate(!!sym(col_to_plot) := factor(!!sym(col_to_plot),order_fac)) %>% 
+    dplyr::mutate(dep=as.character(dep))
+}
+
+
+
+# fac_dep_filt <- all_org_unit_fac(con)
 # dep_chosen <- unique_fac_dep(fac_dep_filt,"fac_dep")
-# plot_fac_dep(fac_dep_filt, fac_chosen = "07 Faculty of Science",arrange_by = "gold")
-
-
+# plot_fac_dep(fac_dep_filt, fac_chosen = "Department of Biochemistry",arrange_by = "gold")
+# # 
+# vdep <- c("07 Faculty of Science","Department of Anthropology","Department of Biochemistry",
+#           "Department of Chemistry","Department of Molecular Mechanisms of Disease",
+#           "Department of Plant and Microbial Biology","Department of Quantitative Biomedicine",
+#           "Department of Systematic and Evolutionary Botany","Grid Computing Competence Center",
+#           "Institute for Computational Science", "Institute of Evolutionary Biology and Environmental Studies",
+#           "Institute of Geography", "Institute of Mathematics", "Institute of Molecular Cancer Research",
+#           "Institute of Molecular Life Sciences", "Institute of Neuroinformatics",
+#           "Institute of Pharmacology and Toxicology", "Institute of Physiology", "Institute of Zoology (former)",
+#           "Paleontological Institute and Museum", "Physics Institute", "Zurich-Basel Plant Science Center" )
+# fac_filt_long <- preprocess_fac_dep(fac_dep_filt,vdep[1:5],"dep",by_year = TRUE)
+# fac_filt_wide_hk <- fac_filt_long %>%
+#   tidyr::pivot_wider(names_from=type,values_from=value) %>% 
+  # group_by(dep,oa_status) %>% 
+  # summarise(TotalCount=sum(TotalCount),Count=sum(Count)) %>% 
+  # mutate(Proportion=Count/TotalCount,
+  #        dep=factor(dep)) %>% 
+  # highlight_key()
+# fac_filt_long %>% group_by(dep, oa_status) %>% filter(oa_status=="gold",type=="Count") %>% arrange(desc(value))
+# arrange_fac_dep(fac_filt_long,"gold", by_year = TRUE)
+# 
+# vdep <- c("Institute of Medical Genetics","Institute of History","Institute of Mathematics")
+# p <- plot_fac_dep(fac_dep_filt, fac_chosen = "",arrange_by = "gold")
+# df <- preprocess_fac_dep(fac_dep_filt,vdep,"dep")
+# df
+# p %+% df
+# 
+# microbenchmark::microbenchmark(
+#   plot_fac_dep(fac_dep_filt, fac_chosen = vdep,arrange_by = "gold"),
+#   p %+% preprocess_fac_dep(fac_dep_filt,vdep,"dep"),
+#   times = 5
+# )
+# 
+# for(i in 1:100){
+#   preprocess_fac_dep(fac_dep_filt,vdep,"dep")
+# }
+# 
+# microbenchmark::microbenchmark(
+#   fac_filt_long %>% filter(oa_status==arrange_by, type=="Proportion") %>% dplyr::arrange(desc(value)), 
+#   fac_filt_long %>% dplyr::arrange(desc(value)) %>% filter(oa_status==arrange_by, type=="Proportion"),
+#   times = 10
+# )
 

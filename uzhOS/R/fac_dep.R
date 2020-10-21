@@ -108,45 +108,58 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
   switch(plot_type,
          # animated over years
          anim_year = {
-           
-           base_plt <- plot_ly(source = "bar_plot") 
+           future({
+             fac_filt_wide <- fac_filt_wide_hk$data()
+           base_plt <- plot_ly(fac_filt_wide,source = "bar_plot") 
            steps <- list()
            all_years <- unique(fac_filt_wide_hk$data()$year)
            all_oa_status <- as.character(unique(fac_filt_wide_hk$data()$oa_status))
            for(i in seq_along(all_years)){
-               step <- list(args = list('visible', rep(FALSE, length(all_years))),
+               step <- list(args = list('visible', rep(FALSE, length(all_years)*5)),
                             label=all_years[i],
                             method = 'restyle')
-               step$args[[2]][i] <-  TRUE  
+               step$args[[2]][(((i-1)*5)+1):(((i-1)*5+4)+1)] <-  TRUE  
                steps[[i]] <-  step 
            }
            plt_ls <- lapply(c("Count","Proportion"), function(facetting){
              rlang::eval_tidy(
                rlang::quo_squash(
                  rlang::quo({
-                   tmp_base_plt <- base_plt
+                   fac_filt_wide_wide <- fac_filt_wide %>% pivot_wider(values_from = !!facetting,
+                                                                       names_from = year, 
+                                                                       id_cols=c("dep","oa_status"),
+                                                                       names_prefix="P") %>% 
+                     dplyr::mutate(dplyr::across(dplyr::starts_with("P2"),~ifelse(is.na(.x),0,.x)))
+                   
+                   tmp_base_plt <-  plot_ly(fac_filt_wide_wide,source = "bar_plot") 
                    for(i in seq_along(all_years)){
-                     is_visible <- ifelse(all_years[i]==2020,TRUE,FALSE)
+                     is_visible <- ifelse(all_years[i]==2020,rep(TRUE,5),rep(FALSE,5))
+                     # tmpdat <- dplyr::filter(fac_filt_wide,year==all_years[i]) %>% dplyr::arrange(oa_status,dep)
                      tmp_base_plt <- tmp_base_plt %>% 
-                       add_bars(data=fac_filt_wide_hk$data() %>% filter(year==all_years[i]) %>% dplyr::arrange(dep),
-                                x = ~!!sym(facetting), 
+                       # add_bars(#data=tmpdat,#%>% dplyr::arrange(dep),
+                       add_trace(type = "bar",
+                                # x = ~!!sym(facetting),
+                                x = as.formula(paste0("~`P", all_years[i],"`")),
                                 y = ~dep, 
                                 name= ~oa_status,
                                 legendgroup= ~ oa_status,
                                 showlegend=FALSE,
                                 hoverinfo="x+name",
                                 visible=is_visible,
+                                # visible=TRUE,
+                                # inherit=FALSE,
                                 ids = ~dep,
                                 color = ~ oa_status, 
                                 colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))]
-                       ) 
+                       ) #%>% layout(barmode = "stack")
                    }
                    tmp_base_plt%>%
                             layout(barmode = "stack",
                                    title = title,
                                    yaxis=list(title="",categoryorder = "array",categoryarray=all_oa_status),
-                                   xaxis=list(title=!!facetting,range = c(0, ifelse(facetting=="Proportion",1,
-                                                                                    max(fac_filt_wide_hk$data() %>% dplyr::pull(TotalCount))))),
+                                   xaxis=list(title=!!facetting,range = c(0, ifelse(!!facetting=="Proportion",1,
+                                   # xaxis=list(title="Proportion",range = c(0, ifelse("Proportion"=="Proportion",1,
+                                                                                    max(fac_filt_wide %>% dplyr::pull(TotalCount))))),
                                    margin = list(l = 300,r = 50,b = 100,t = 100,pad = 20))
                    })))})
            subplot(plt_ls,nrows=1,titleX = TRUE,shareY = TRUE) %>%
@@ -166,10 +179,11 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                                                                          automargin=TRUE))))
                                          }))
                                      ))
-             
+           })
          },
          # aggreaggated over years
          dep_year = {
+           future({
            prop_plt <- fac_filt_wide_aggr %>% 
              plot_ly(x = ~Proportion, 
                      y = ~dep, 
@@ -226,10 +240,11 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                  }))
                ),
                annotations=list(list(text = "Sort<br>by", x=-0.1, y=1.2, xref='paper', yref='paper', showarrow=FALSE)))
-                    
+           })
          },
          # lineplot over year
          year_val_line = {
+           future({
            tmp <- fac_filt_wide_hk$data() %>% highlight_key(~oa_status)
            plt_ls <- lapply(c("Count","Proportion"), function(facetting){
              rlang::eval_tidy(
@@ -272,9 +287,11 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                layout(showlegend=FALSE)
            })
            subplot(colplts,margin=0.05) 
+           })
          },
          # barplot over year
          year_val_bar = {
+           future({
            tmp <- fac_filt_wide_hk$data() #%>% highlight_key(~oa_status)
            plt_ls <- lapply(c("Count","Proportion"), function(facetting){
              rlang::eval_tidy(
@@ -317,6 +334,7 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                layout(showlegend=FALSE)
            })
            subplot(colplts,margin=0.05) 
+           })
          }
          )
 

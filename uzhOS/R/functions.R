@@ -78,7 +78,12 @@ oa_status_order <- function(){
 #' @examples
 # author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
 # con <- dbConnect(odbc::odbc(), "PostgreSQL")
-# create_tbl_author(author_vec,con)
+# f <- future({
+#   con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#   create_tbl_author(author_vec,con)
+#   },packages = c("uzhOS"), globals = c("sql_con_cont","author_vec")
+#   )
+# value(f)
 # create_tbl_author(author_vec,con, fac_vec = "07 Faculty of Science")
 # create_tbl_author(author_vec,con, dep_vec = "Evolution in Action: From Genomes to Ecosystems" )
 create_tbl_author <- function(author_vec, con, authorstablename = "authors", authorkeystablename = "authorkeys", 
@@ -86,25 +91,18 @@ create_tbl_author <- function(author_vec, con, authorstablename = "authors", aut
   sql_con_cont(con)
   tbl_author <- tbl(con, authorstablename) %>% 
     filter(authorkey_fullname %in% author_vec) %>% 
-    select(eprintid,authorkey_fullname) %>% 
-    collect()
+    select(eprintid,authorkey_fullname)  
   
-  if(dim(tbl_author)[1] != 0){
-    tbl_eprints <- tbl(con, eprintstablename) %>% filter(eprintid %in% !!tbl_author$eprintid) %>% collect()
-  } else{
-    tbl_eprints <- tbl(con, eprintstablename) %>% head(0) %>% collect()
-  }
-  # tbl_authorkeys <- tbl(con, authorkeystablename) %>% filter(authorkey_fullname %in% author_vec) %>% collect()
+    tbl_eprints <- tbl(con, eprintstablename) 
+    
   tbl_author <-
     tbl_author %>%
     dplyr::left_join(tbl_eprints,by="eprintid") %>% 
-    inner_join(tbl(con, authorkeystablename) %>% filter(authorkey_fullname %in% author_vec) %>% collect(),
-               by="authorkey_fullname")
-  tbl_author <-
-    tbl_author %>% 
-    inner_join(tbl(con, subjectstablename) %>% filter(eprintid %in% !!tbl_author$eprintid) %>% collect(),
+    inner_join(tbl(con, authorkeystablename) ,
+               by="authorkey_fullname") %>% 
+    inner_join(tbl(con, subjectstablename) ,
                by="eprintid") %>%
-    # dplyr::left_join(tbl_authorkeys) %>% 
+    collect() %>% 
     dplyr::mutate(year = date, doi = tolower(doi)) %>% 
       dplyr::group_by(doi) %>% 
       dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
@@ -260,9 +258,8 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywa
   
   # get oa status from unpaywall
   oaf <- oadoi_fetch_local(unique(na.omit(m$doi)), con, unpaywalltablename)
-  m <- m %>% dplyr::full_join(oaf %>% dplyr::select(doi, oa_status), 
-                       by = "doi", suffix=c("", ".unpaywall")) %>% 
-    dplyr::rename(oa_status.unpaywall=oa_status)
+  m <- m %>% dplyr::full_join(oaf, 
+                       by = "doi", suffix=c(".zora", ".unpaywall"))
   
   # set overall oa status
   m$overall_oa <- m$oa_status.unpaywall

@@ -11,6 +11,9 @@ suppressPackageStartupMessages({
   library(plotly)
   library(DBI)
   library(shinyTree)
+  library(promises)
+  library(future)
+  plan(multiprocess)
 })
 on_rstudio <- TRUE
 if(on_rstudio){
@@ -133,16 +136,6 @@ ui <- navbarPage("Open science monitor UZH",
                  sidebarLayout(
                    sidebarPanel(
                      shinyTree("tree", checkbox = TRUE, search=TRUE, theme="proton", themeIcons = FALSE, themeDots = FALSE),
-                     # selectInput("fac_choice","Faculty",
-                     #             choices = c("all",sort(unique_fac_dep(fac_dep_filt,"fac")))),
-                     # selectInput("dep_choice","Department",choices = NULL),
-                     checkboxGroupInput("oa_status_filtered","OA status",
-                                        choices = unique(fac_dep_filt$oa_status),
-                                        selected = unique(fac_dep_filt$oa_status),
-                                        inline = TRUE),
-                     selectInput("oa_status_filtered_sorting","Sort by",
-                                        choices = unique(fac_dep_filt$oa_status),
-                                        selected = "closed"),
                      checkboxGroupInput("publication_type_filtered",
                                         "Publication types included",
                                         choices=unique(fac_dep_filt$type),
@@ -150,7 +143,6 @@ ui <- navbarPage("Open science monitor UZH",
                      actionButton("treeapply",label = "Apply selection")
                    ),
                    mainPanel(
-                     # plotOutput("plot_dep_fac",height = "800px",width = "100%")
                      plotlyOutput("plot_dep_fac_anim_year",height = "800px",width = "100%"),
                      plotlyOutput("plot_dep_fac_dep_year",height = "800px",width = "100%"),
                      plotlyOutput("plot_dep_fac_year_val_line",height = "800px",width = "100%"),
@@ -268,9 +260,9 @@ server = function(input, output,session) {
   })
   
   # create combined table from given user inputs
-  show_report_reac <- ShowReportServer("show_report", d, con)
+  show_report_reac <- ShowReportServer("show_report", isolate(d), con)
   observeEvent(input$show_report,{
-    d <- show_report_reac()
+    d <- show_report_reac() 
     shinyjs::show(id = "in_selection")
     shinyjs::show(id = "oa_status_filtered_table")
     shinyjs::show(id = "range_year")
@@ -454,144 +446,52 @@ server = function(input, output,session) {
   )
   
   ### Department ###############################################################
-  
-  # observeEvent(input$fac_choice,{
-  #   if(input$fac_choice != "all"){
-  #     dep_tmp <- unique_fac_dep(fac_dep_filt,"fac_dep") %>% 
-  #       dplyr::filter(fac == input$fac_choice) %>% 
-  #       dplyr::arrange(dep) %>% 
-  #       dplyr::pull(dep)
-  #     updateSelectInput(session,inputId = "dep_choice",choices = dep_tmp)
-  #   }
-  # })
+
   d_dep <- reactiveValues()
   
-  # get_json <- reactive({
-  #   future({
-  #     treeToJSON(orgtree, pretty = TRUE)
-  #   })
-  # })
-  
-  # output$tree <- renderTree({
-  #   get_json()
-  # })
-  # tree_future <- reactive({
-  #   future({
-  #     dt
-  #   })
-  # })
   output$tree <- renderTree({
-    # req(get_json())
-    # get_json()
     orgtree
   })
   
-  # output$plot_dep_fac <- renderPlot({
-  #   req(input$tree)
-  #   chosen_orgs_bool <- lapply(input$tree$Get("state"), function(i) i[3][[1]]) %>% unlist()
-  #   chosen_orgs <- names(chosen_orgs_bool)[chosen_orgs_bool][-1]
-  #   if (length(input$oa_status_filtered) == 0 || length(input$publication_type_filtered) == 0){
-  #     ggplot() + geom_blank()
-  #   } else {
-  #     plot_fac_dep(fac_dep_filt, fac_chosen = chosen_orgs, oa_status_filter = input$oa_status_filtered, 
-  #                  arrange_by = input$oa_status_filtered_sorting, publication_filter = input$publication_type_filtered)
-  #   }
-  # },res=100)
   
   observeEvent(input$treeapply,{
     chosen_orgs_bool <- lapply(input$tree$Get("state"), function(i) i[3][[1]]) %>% unlist()#, file="/dev/null")
     d_dep$chosen_orgs <- names(chosen_orgs_bool)[chosen_orgs_bool][-1]
-    d_dep$oa_status_filtered <- input$oa_status_filtered
+    if(length(d_dep$chosen_orgs) > 10){
+      d_dep$chosen_orgs <- d_dep$chosen_orgs[1:10]
+      showModal(modalDialog("Too many departmens were selected for proper visualization. Only the first 10 are shown.",
+                            title = "Number of Departments too large", size="s",easyClose = TRUE))
+    }
+    # d_dep$oa_status_filtered <- input$oa_status_filtered
     d_dep$publication_type_filtered <- input$publication_type_filtered
-    d_dep$oa_status_filtered_sorting <-  input$oa_status_filtered_sorting
-  })
-  
-  wide_hk <- reactive({
-    req(d_dep$chosen_orgs)
-    preprocess_fac_dep(fac_dep_filt,
-                              col_to_plot = "dep", 
-                              fac_chosen =  d_dep$chosen_orgs, 
-                              oa_status_filter = d_dep$oa_status_filtered, 
-                              publication_filter = d_dep$publication_type_filtered,
-                              by_year = TRUE) %>% 
-      arrange_fac_dep(arrange_by = d_dep$oa_status_filtered_sorting, type_arr="Count",by_year = TRUE) %>% 
+    # d_dep$oa_status_filtered_sorting <-  input$oa_status_filtered_sorting
+    d_dep$wide_data_for_plotly <- preprocess_fac_dep(fac_dep_filt,
+                                                     col_to_plot = "dep", 
+                                                     fac_chosen =  d_dep$chosen_orgs, 
+                                                     # oa_status_filter = d_dep$oa_status_filtered, 
+                                                     publication_filter = d_dep$publication_type_filtered,
+                                                     by_year = TRUE) %>% 
+      arrange_fac_dep(type_arr="Count",by_year = TRUE) %>% 
       tidyr::pivot_wider(names_from=type,values_from=value) %>% 
       highlight_key(~dep)
   })
   
-  # output$plot_dep_fac <- renderPlotly({
-  #   dep_plot_reac()
-  # })
-  # observe({
-  #   output$plot_dep_fac <- dep_plot_reac()
-  # })
   output$plot_dep_fac_anim_year <- renderPlotly({
-      plot_fac_dep(wide_hk(),fac_dep_filt,plot_type = "anim_year")
+    req(d_dep$wide_data_for_plotly)
+      plot_fac_dep(d_dep$wide_data_for_plotly,fac_dep_filt,plot_type = "anim_year")
   })
   output$plot_dep_fac_dep_year <- renderPlotly({
-    plot_fac_dep(wide_hk(),fac_dep_filt,plot_type = "dep_year")
+    req(d_dep$wide_data_for_plotly)
+    plot_fac_dep(d_dep$wide_data_for_plotly,fac_dep_filt,plot_type = "dep_year")
   })
   output$plot_dep_fac_year_val_line <- renderPlotly({
-    plot_fac_dep(wide_hk(),fac_dep_filt,plot_type = "year_val_line")
+    req(d_dep$wide_data_for_plotly)
+    plot_fac_dep(d_dep$wide_data_for_plotly,fac_dep_filt,plot_type = "year_val_line")
   })
   output$plot_dep_fac_year_val_bar <- renderPlotly({
-    plot_fac_dep(wide_hk(),fac_dep_filt,plot_type = "year_val_bar")
+    req(d_dep$wide_data_for_plotly)
+    plot_fac_dep(d_dep$wide_data_for_plotly,fac_dep_filt,plot_type = "year_val_bar")
   })
-  
-  
-  
-  # output$plot_dep_fac <- renderTags({
-  #   dep_plot_reac()
-  # })
-  # output$plot_dep_fac <- renderPlotly({
-  #   chosen_orgs <- tmp <- fac_dep_filt %>% group_by(dep,oa_status) %>% tally() %>% group_by(dep) %>% 
-  #     tally() %>% filter(n==5) %>% pull(dep) %>%  sample(1)
-  #   fac_filt_long <- preprocess_fac_dep(fac_dep_filt,
-  #                             col_to_plot = "dep", 
-  #                             fac_chosen = chosen_orgs,
-  #                             by_year = TRUE) %>% 
-  #     dplyr::filter(type=="Count") 
-  #   plot_fac_dep(fac_filt_long, use_plotly = TRUE)
-  # })
-  # observeEvent({input$oa_status_filtered;input$oa_status_filtered_sorting;input$publication_type_filtered;input$tree},{
-  #     chosen_orgs_bool <- lapply(input$tree$Get("state"), function(i) i[3][[1]]) %>% unlist()
-  #     chosen_orgs <- names(chosen_orgs_bool)[chosen_orgs_bool][-1]
-  #     tmp <- preprocess_fac_dep(fac_dep_filt,
-  #                               col_to_plot = "dep", 
-  #                               fac_chosen = chosen_orgs, 
-  #                               oa_status_filter = input$oa_status_filtered, 
-  #                               publication_filter = input$publication_type_filtered,
-  #                               by_year = TRUE) %>% 
-  #       dplyr::filter(type=="Count") %>% 
-  #       arrange_fac_dep(arrange_by = input$oa_status_filtered_sorting, type_arr="Count",by_year = TRUE)
-  #       # dplyr::mutate(dep=as.character(dep))
-  #     print(tmp)
-  #     tmpx <- lapply(all_oa_status,
-  #                  function(oas) {
-  #                    lapply(tmp$dep %>% unique, 
-  #                           function(dep) {
-  #                             tmpval <- tmp$value[tmp$dep==dep & tmp$oa_status==oas]
-  #                             if(length(tmpval)==0 || !(tmp$oa_status %in% input$oa_status_filtered)){
-  #                               tmpval <- 0
-  #                             }
-  #                             tmpval
-  #                           })
-  #                  }
-  #   )
-  #   tmpy <- lapply(all_oa_status,
-  #                  function(oas) as.list(unique(tmp$dep))
-  #   )
-  #   if(dim(tmp)[1] != 0){
-  #     plotlyProxy("plot_dep_fac", session) %>%
-  #       plotlyProxyInvoke("restyle", 
-  #                         list(
-  #                           y=tmpy,
-  #                           x=tmpx
-  #                         )
-  #       )
-  #   }
-  # 
-  # })
 
 }
 

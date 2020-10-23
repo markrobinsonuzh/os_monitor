@@ -70,4 +70,84 @@ test_that("oadoi_fetch_local correct",{
 })
   
 
+# test_that("create_combined_data compute all needed dfs",{
+df_zora <- create_zora(author_vec, con)
+df_orcid <- retrieve_from_orcid("0000-0002-3048-5518")
+search_string <- pubmed_search_string_from_zora_id(author_vec,con)
+df_pubmed <- retrieve_from_pubmed(search_string)
+df_publons <- retrieve_from_publons("0000-0002-3048-5518")
+# })
+
+all_combs <- expand.grid(df_orcid=c(TRUE,FALSE),
+            df_zora=c(TRUE,FALSE),
+            df_publons=c(TRUE,FALSE),
+            df_pubmed=c(TRUE,FALSE))
+
+test_comb <- function(df_orcid,df_zora,df_publons,df_pubmed,title=""){
+  test_that(paste("create_combined_data for: ",title),{
+    tbl_merge <- create_combined_data(df_orcid,df_pubmed,df_zora,df_publons,con)
+    is(tbl_merge,"data.frame")
+    expect_true("doi" %in% names(tbl_merge))
+    expect_true("overall_oa" %in% names(tbl_merge))
+    expect_true("title" %in% names(tbl_merge))
+    expect_true("year" %in% names(tbl_merge))
+  })
+}
+
+for(i in seq_along(all_combs[,1])){
+  comb_vec <- all_combs[i,]
+  args_list <- list()
+  if(comb_vec$df_orcid){
+    args_list[["df_orcid"]] <- df_orcid
+  } else {
+    args_list[["df_orcid"]] <- slice(df_orcid,0)
+  }
+  if(comb_vec$df_zora){
+    args_list[["df_zora"]] <- df_zora
+  }else {
+    args_list[["df_zora"]] <- slice(df_zora,0)
+  }
+  if(comb_vec$df_publons){
+    args_list[["df_publons"]] <- df_publons
+  }else {
+    args_list[["df_publons"]] <- slice(df_publons,0)
+  }
+  if(comb_vec$df_pubmed){
+    args_list[["df_pubmed"]] <- df_pubmed
+  }else {
+    args_list[["df_pubmed"]] <- slice(df_pubmed,0)
+  }
+  args_list[["title"]] <- paste0(names(comb_vec)[unlist(comb_vec)],collapse = ",")
+  do.call(test_comb, args = args_list)
+}
+
+
+
+
+tbl_merge <- create_combined_data(df_orcid,df_pubmed,df_zora,df_publons,con)
+test_that("df_scholar_matching correct",{
+  df_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
+  
+  df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=FALSE)
+  expect_equal(dim(df_scholar)[1],dim(df_scholar_matched)[1])
+  expect_equal(dim(df_scholar)[2],dim(df_scholar_matched)[2]-1)
+  expect_true(all(names(df_scholar) %in% names(df_scholar_matched)))
+  expect_true("doi" %in% names(df_scholar_matched))
+  
+  # df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=TRUE)
+  # expect_equal(dim(df_scholar)[1],dim(df_scholar_matched)[1])
+  # expect_equal(dim(df_scholar)[2],dim(df_scholar_matched)[2]-1)
+  # expect_true(all(names(df_scholar) %in% names(df_scholar_matched)))
+  # expect_true("doi" %in% names(df_scholar_matched))
+  
+  df_scholar <- retrieve_from_scholar("noresult")
+  
+  df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=FALSE)
+  expect_equal(dim(df_scholar)[1],dim(df_scholar_matched)[1])
+  expect_equal(dim(df_scholar)[2],dim(df_scholar_matched)[2]-1)
+  expect_true(all(names(df_scholar) %in% names(df_scholar_matched)))
+  expect_true("doi" %in% names(df_scholar_matched))
+  })
+
+
 

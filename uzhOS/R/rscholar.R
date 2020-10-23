@@ -13,7 +13,7 @@ retrieve_from_scholar <- function(scholar_id) {
   scholar_pubs <- lapply(starts, function(u) {
     scholar::get_publications(scholar_id, cstart = u, pagesize = 100, flush = FALSE)  
   })
-  scholar_pubs <- do.call(rbind, scholar_pubs)
+  scholar_pubs <- do.call(rbind, scholar_pubs) %>% tibble::as_tibble()
   scholar_pubs <- unique(scholar_pubs)
   scholar_pubs$title <- as.character(scholar_pubs$title)
   scholar_pubs$in_scholar <- TRUE

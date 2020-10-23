@@ -1,0 +1,10 @@
+testthat::test_that("retrieve_from_scholar correct",{
+  mr_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
+  expect_true(all(names(mr_scholar) %in% c("title","author","journal","number","cites","year","cid","pubid","in_scholar")))
+  expect_equal(typeof(mr_scholar$year),"double")
+  expect_equal(typeof(mr_scholar$in_scholar),"logical")
+  mr_scholar <- retrieve_from_scholar("noreport")
+  expect_true(all(names(mr_scholar) %in% c("title","author","journal","number","cites","year","cid","pubid","in_scholar")))
+  expect_equal(typeof(mr_scholar$year),"double")
+  expect_equal(typeof(mr_scholar$in_scholar),"logical")
+})

@@ -44,7 +44,9 @@
 # tbl_merge <- full_join(tbl_merge,df_scholar,by="doi",suffix=c("",".scholar"))
 # tbl_merge <- tbl_merge %>% mutate(across(starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
 df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
-  
+  if(dim(df_scholar)[1]==0){
+    return(df_scholar %>% dplyr::mutate(doi=character()))
+  }
   df_scholar$doi <- NA
   if ("title.orcid" %in% names(tbl_merge)){
     doi_is_na <- which(is.na(df_scholar$doi))

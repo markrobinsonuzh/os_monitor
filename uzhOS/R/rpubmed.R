@@ -37,11 +37,14 @@ fix_null <- function(x) {
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-#' pri_author <- "robinson m 0000 0002 3048 5518"
-#' pubmed_search_string_from_zora_id(pri_author,tbl_unique_authorkeys)
-pubmed_search_string_from_zora_id <- function(authorname, con, authorkeystablename = "authorkeys", cutoff_year=2001, orcid = NULL){
+# pri_author <- "robinson mark d (orcid: 0000-0002-3048-5518)"
+# pubmed_search_string_from_zora_id(pri_author,con)
+pubmed_search_string_from_zora_id <- function(author_vec, con, authorkeystablename = "authorkeys", cutoff_year=2001, orcid = NULL){
   scaffold <- "(%s[au] or %s[au] or %s[au]) AND (%i:%i[pdat]) AND (zurich[affiliation])"
-  auth_name <- tbl(con, authorkeystablename) %>% filter(authorkey_fullname %in% authorname) %>% collect() 
+  auth_name <- tbl(con, authorkeystablename) %>% filter(authorkey_fullname %in% author_vec) %>% collect() 
+  if (dim(auth_name)[1]==0){
+    return("")
+  }
   full_name <- auth_name$authorname
   split_name <- strsplit(full_name," ")
   pubmed_search <- sprintf(scaffold,
@@ -86,10 +89,16 @@ retrieve_from_pubmed <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, j
     entrez_summary(db = "pubmed", id = x$ids)
     },error=function(e) NULL)
   if (is.null(summ)){
-    return(NULL)
+    return(tibble::tibble(pubyear = integer(),
+                          title = character(),
+                          authors = character(),
+                          journal = character(),
+                          doi = character(),
+                          pmid = character(),
+                          in_pubmed = logical()))
   }
   summ <- lapply(summ, function(w) {
-    data.frame(pubyear = fix_null(strsplit(w$pubdate, " ")[[1]][1]), 
+    tibble::tibble(pubyear = fix_null(strsplit(w$pubdate, " ")[[1]][1]), 
                title = fix_null(w$title), 
                authors = fix_null(paste(w$authors$name, collapse = ", ")),
                journal = fix_null(w$source), 
@@ -106,6 +115,7 @@ retrieve_from_pubmed <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, j
   summ$doi <- gsub("&lt;","<", summ$doi)
   summ$doi <- gsub("&gt;",">", summ$doi)
   summ$in_pubmed <- TRUE
+  summ$pubyear <- as.integer(summ$pubyear)
   return(summ)
 }
 

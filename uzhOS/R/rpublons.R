@@ -17,7 +17,7 @@ retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db
     
     publget <- httr::GET(url=paste0("https://publons.com/api/v2/academic/publication/?academic=",id),auth_header)
     httr::stop_for_status(publget)
-    df_publons <- data.frame(doi=character(),
+    df_publons <- tibble::tibble(doi=character(),
                              title=character(),
                              date=character())
     publls <- httr::content(publget, encoding = "UTF-8")
@@ -34,14 +34,15 @@ retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db
       publls <- httr::content(publget, encoding = "UTF-8")
     }
     
-    df_publons$year <- stringr::str_extract(df_publons$date,"[:digit:]{4}")
+    df_publons$year <- stringr::str_extract(df_publons$date,"[:digit:]{4}") %>% 
+      as.integer()
     df_publons$in_publons <- TRUE
-    return(df_publons)
+    return(tibble::as_tibble(df_publons))
   } else {
-    return(data.frame(doi=character(),
+    return(tibble::tibble(doi=character(),
                       title=character(),
                       date=character(),
-                      year=character(),
+                      year=integer(),
                       in_publons=logical()))
   }
 

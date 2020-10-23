@@ -106,6 +106,7 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
   })
   names(orderings_oa) <- oa_status_in_df
   switch(plot_type,
+         #######################################################################
          # animated over years
          anim_year = {
            future({
@@ -181,6 +182,7 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                                      ))
            })
          },
+         #######################################################################
          # aggreaggated over years
          dep_year = {
            future({
@@ -242,6 +244,7 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                annotations=list(list(text = "Sort<br>by", x=-0.1, y=1.2, xref='paper', yref='paper', showarrow=FALSE)))
            })
          },
+         #######################################################################
          # lineplot over year
          year_val_line = {
            future({
@@ -289,81 +292,74 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
            subplot(colplts,margin=0.05) 
            })
          },
+         #######################################################################
          # barplot over year
          year_val_bar = {
            future({
-             lmargin <- max(stringr::str_length(vdep))*6
-           tmp <- fac_filt_wide_hk$data() #%>% highlight_key(~oa_status)
-           # plt_ls <- lapply(c("Count","Proportion"), function(facetting){
-           #   rlang::eval_tidy(
-           #     rlang::quo_squash(
-           #       rlang::quo({
-                   
-                   #) #%>% layout(margin=list(l=400,r=0,t=0,b=0,pad=0))
-                   # })))})
-           # colplts <- lapply(1, function(i){
-           plt_ls <- lapply(c("Count","Proportion"), function(facetting){
-             rlang::eval_tidy(
-               rlang::quo_squash(
-                 rlang::quo({
-             pc_ls <- lapply(dep_choosen, function(dep_c){
-               plot_ly(tmp %>% filter(dep==dep_c),
-                       x = ~year, 
-                       y = ~!!sym(facetting), 
-                       text = ~oa_status,
-                       # hoverinfo="x+y+text",
-                       hovertemplate = paste('%{x}',
-                                             '<br>%{y:.2f}'),
-                       name= ~ oa_status,
-                       legendgroup= ~ oa_status,
-                       showlegend=FALSE,
-                       source = "bar_plot",
-                       type="bar",
-                       height = 50+80*length(dep_choosen),
-                       color = ~ oa_status, 
-                       colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))])  %>% 
-                 layout(
-                   barmode = "stack",
-                   # autosize=FALSE,
-                   yaxis=list(title=""),#,autosize=FALSE),
-                   # xaxis=list(autosize=FALSE),
-                   annotations=list(
-                     list(
-                       x = -0.1,
-                       y = 0.5,
-                       showarrow = FALSE,
-                       text = ifelse(!!facetting=="Count",dep_c,""),
-                       xref = "paper",
-                       yref = "paper",
-                       xanchor="right",
-                       align="right")),
-                   margin=list(l=lmargin,r=0,t=10,b=10,pad=4)
-                 )
-             })
-             subplot(pc_ls,nrows = length(dep_choosen),titleY = TRUE,shareX = TRUE,titleX=FALSE,
-                     margin=0.01-(length(dep_choosen)/50*0.01))
-                     # margin = 0.05*(1/length(dep_choosen))) #%>% 
-               # layout(showlegend=FALSE)#,autosize=FALSE)#,margin=c(0.4,0,0,0))
-                 })))})
-           # })
-           subplot(plt_ls,margin=0.05)
-           # })
-         })
+             # margins on the left (for labels)
+             lmargin <- max(stringr::str_length(dep_choosen))*6
+             # loop through Counts and Proportions
+             plt_ls <- lapply(c("Count","Proportion"), function(facetting){
+               # functions for substitution of 'facetting'
+               rlang::eval_tidy(
+                 rlang::quo_squash(
+                   rlang::quo({
+                     # loop over departments
+                     pc_ls <- lapply(dep_choosen, function(dep_c){
+                       plot_ly(fac_filt_wide_hk$data() %>% filter(dep==dep_c),
+                               x = ~year, 
+                               y = ~!!sym(facetting), 
+                               text = ~oa_status,
+                               hovertemplate = ifelse(!!facetting=="Count",
+                                                      paste('year: %{x} <br> %{text}: %{y}'),
+                                                      paste('year: %{x} <br> %{text}: %{y:.2f}')),
+                               # name= ~ oa_status,
+                               legendgroup= ~ oa_status,
+                               showlegend=ifelse(dep_c==dep_choosen[1] && !!facetting == "Count",TRUE,FALSE),
+                               source = "bar_plot",
+                               type="bar",
+                               height = 50+80*length(dep_choosen),
+                               color = ~ oa_status, 
+                               colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))])  %>% 
+                         layout(
+                           barmode = "stack",
+                           # autosize=FALSE,
+                           yaxis=list(title=""),#,autosize=FALSE),
+                           # xaxis=list(autosize=FALSE),
+                           annotations=list(
+                             list(
+                               x = -0.1,
+                               y = 0.5,
+                               showarrow = FALSE,
+                               text = ifelse(!!facetting=="Count",dep_c,""),
+                               xref = "paper",
+                               yref = "paper",
+                               xanchor="right",
+                               align="right")),
+                           margin=list(l=lmargin,r=0,t=10,b=10,pad=4)
+                         )
+                     })
+                     subplot(pc_ls,nrows = length(dep_choosen),titleY = TRUE,shareX = TRUE,titleX=FALSE,
+                             margin=0.01-(length(dep_choosen)/50*0.01))
+                   })))})
+             subplot(plt_ls,margin=0.05)
+           }
+         )
     })
 
 }
-# value(plot_fac_dep(wide_data_for_plotly,fac_dep_filt,plot_type = "year_val_bar"))
+# value(plot_fac_dep(wide_data_for_plotly_hk,fac_dep_filt,plot_type = "year_val_bar"))
 # 
 # 
 # 
 # wide_data_for_plotly_hk <- preprocess_fac_dep(fac_dep_filt,
-#                                            col_to_plot = "dep", 
-#                                            fac_chosen =  vdep, 
-#                                            # oa_status_filter = d_dep$oa_status_filtered, 
+#                                            col_to_plot = "dep",
+#                                            fac_chosen =  vdep[1:3],
+#                                            # oa_status_filter = d_dep$oa_status_filtered,
 #                                            publication_filter = "article",
-#                                            by_year = TRUE) %>% 
-#   arrange_fac_dep(type_arr="Count",by_year = TRUE) %>% 
-#   tidyr::pivot_wider(names_from=type,values_from=value) %>% 
+#                                            by_year = TRUE) %>%
+#   arrange_fac_dep(type_arr="Count",by_year = TRUE) %>%
+#   tidyr::pivot_wider(names_from=type,values_from=value) %>%
 #   highlight_key(~dep)
 
 

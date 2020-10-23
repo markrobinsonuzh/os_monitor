@@ -14,6 +14,7 @@ suppressPackageStartupMessages({
   library(promises)
   library(future)
   plan(multiprocess)
+  library(data.tree)
 })
 on_rstudio <- TRUE
 if(on_rstudio){
@@ -53,7 +54,7 @@ ui <- navbarPage("Open science monitor UZH",
                  tabPanel("Author OA explorer",
                           fluidPage(
                             useShinyjs(),
-                            sidebarPanel(width=6,
+                            div(id="Sidebar",sidebarPanel(width=6,
                                          # author name selection
                                          selectizeInput("author_search","Author search",NULL,selected = NULL, multiple = FALSE, 
                                                         options = list(maxOptions = 1000,placeholder="select author",maxItems=10)) %>% 
@@ -86,22 +87,25 @@ ui <- navbarPage("Open science monitor UZH",
                                                                               tags$span(class="help-block","(or if linked: ORCID, ResearcherID or TRUID)")), value=""),
                                          # aggregate data
                                          disabled(actionButton(inputId = "show_report",label = "Show report"))
-                            ),
+                            )),
                             # disabled(downloadButton("report", "Generate report"))
                             mainPanel(
+                              actionButton("showSidebar", "Show sidebar") %>% shinyjs::hidden(),
+                              actionButton("hideSidebar", "Hide sidebar") %>% shinyjs::hidden(),
+                              splitLayout(cellWidths = c("20%", "80%"),
                               # panel for filtering
                               wellPanel(
-                                splitLayout(cellWidths = c("25%", "75%"),
-                                            checkboxGroupInput(inputId = "in_selection",label = "Data sets included","",inline = TRUE) %>% 
-                                              shinyjs::hidden(),
-                                            verbatimTextOutput("sub_summary")
-                                ),
+                                # splitLayout(cellWidths = c("35%", "65%"),
+                                checkboxGroupInput(inputId = "in_selection",label = "Data sets included","",inline = TRUE) %>% 
+                                  shinyjs::hidden(),
+                                verbatimTextOutput("sub_summary"),
+                                # ),
                                 sliderInput("range_year",label = "Cutoff year",min=2001,max = 2020,value=c(2001,2020))%>% 
                                   shinyjs::hidden(),
                                 checkboxGroupInput("oa_status_filtered_table","OA status",
                                                    choices = names(open_cols_fn()),
                                                    selected = names(open_cols_fn()),
-                                                   inline = TRUE) %>% 
+                                                   inline = FALSE) %>% 
                                   shinyjs::hidden(),
                               ),
                               # output panel (tables, plots etc.)
@@ -127,6 +131,7 @@ ui <- navbarPage("Open science monitor UZH",
                                                    DT::dataTableOutput("table_selected_closed")),
                                           tabPanel("Closed in Zora", DT::dataTableOutput("table_closed_in_zora")),
                                           tabPanel("Percent closed", DT::dataTableOutput("table_oa_percent_time"))
+                              )
                               )
                             )
                           )
@@ -164,7 +169,16 @@ server = function(input, output,session) {
   })
   
   ### Author ###################################################################
-  
+  observeEvent(input$showSidebar, {
+    shinyjs::show(id = "Sidebar")
+    shinyjs::hide(id="showSidebar")
+    shinyjs::show(id = "hideSidebar")
+  })
+  observeEvent({input$hideSidebar;input$show_report}, {
+    shinyjs::hide(id = "Sidebar")
+    shinyjs::show(id="showSidebar")
+    shinyjs::hide(id = "hideSidebar")
+  })
   shinyhelper::observe_helpers(session = session)
   # data
   d <- reactiveValues(pubmed="",orcid="",publons="",scholar="")
@@ -174,7 +188,7 @@ server = function(input, output,session) {
   
   # show available alias if any author_search given, otherwise hide
   observe({
-    alias_selected_show_Server("alias_selected",input$author_search)
+  alias_selected_show_Server("alias_selected",input$author_search)
     # find and parse aliases of authors
     alias_selected_Server("alias_selected",input$author_search, con, fac_vec=d$fac_vec, dep_vec=d$dep_vec)
     if (is.null(input$author_search)){
@@ -456,8 +470,17 @@ server = function(input, output,session) {
   
   
   observeEvent(input$treeapply,{
-    chosen_orgs_bool <- lapply(input$tree$Get("state"), function(i) i[3][[1]]) %>% unlist()#, file="/dev/null")
-    d_dep$chosen_orgs <- names(chosen_orgs_bool)[chosen_orgs_bool][-1]
+    # print(attr(get_selected(input$tree)[[1]],"stselected"))
+    
+    d_dep$chosen_orgs <- lapply(get_selected(input$tree), function(i) {
+      if(attr(i,"stselected")){
+        i
+      }
+    }) %>% unlist()#, file="/dev/null")
+    # chosen_orgs_names <- lapply(get_selected(input$tree), function(i) i) %>% unlist()#, file="/dev/null")
+    # d_dep$chosen_orgs <- chosen_orgs_names[chosen_orgs_bool]
+    # chosen_orgs_bool <- lapply(input$tree$Get("state"), function(i) i[3][[1]]) %>% unlist()#, file="/dev/null")
+    # d_dep$chosen_orgs <- names(chosen_orgs_bool)[chosen_orgs_bool][-1]
     if(length(d_dep$chosen_orgs) > 50){
       d_dep$chosen_orgs <- d_dep$chosen_orgs[1:50]
       showModal(modalDialog("Too many departments were selected for proper visualization. Only the first 50 are shown.",
@@ -472,6 +495,7 @@ server = function(input, output,session) {
                                                      # oa_status_filter = d_dep$oa_status_filtered, 
                                                      publication_filter = d_dep$publication_type_filtered,
                                                      by_year = TRUE) %>% 
+      dplyr::mutate(year=as.integer(year)) %>% 
       arrange_fac_dep(type_arr="Count",by_year = TRUE) %>% 
       tidyr::pivot_wider(names_from=type,values_from=value) %>% 
       highlight_key(~dep)

@@ -41,7 +41,7 @@ retrieve_from_orcid <- function(orcid, exclude = "data-set") {
   df <- do.call(rbind,c(z,works_split[n==1]))
   rownames(df) <- NULL
   df$in_orcid <- TRUE
-  return(df)
+  return(tibble::as.tibble(df))
 }
 
 

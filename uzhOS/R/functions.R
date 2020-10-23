@@ -192,7 +192,7 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywa
                             dplyr::mutate(doi=tolower(doi)) %>%
                             dplyr::as_tibble(), 
                           by="doi", suffix=c(".orcid",".zora"),
-                          na_matches="never") 
+                          na_matches="never")
     m$doi[m$doi=="logical(0)"] <- NA
     # %>%
     #   dplyr::filter(doi != "logical(0)")
@@ -213,8 +213,7 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywa
   } else {
     m <- zora %>% 
       dplyr::mutate(doi=tolower(doi)) %>% 
-      dplyr::rename(year.zora=year,
-             oa_status.zora = oa_status) %>% 
+      dplyr::rename(year.zora=year) %>% 
       dplyr::mutate(title.zora=title) %>% 
       dplyr::as_tibble()
   }
@@ -227,9 +226,9 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywa
                           by="doi", suffix = c("", ".pubmed"),
                           na_matches="never")
     # rename for consistency
-    if("oa_status" %in% names(m)){
-      m <- m %>% dplyr::rename(oa_status.pubmed=oa_status)
-    }
+    # if("oa_status" %in% names(m)){
+    #   m <- m %>% dplyr::rename(oa_status.pubmed=oa_status)
+    # }
     if("title" %in% names(m)){
       m <- m %>% dplyr::rename(title.pubmed=title)
     }
@@ -242,9 +241,9 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywa
                             dplyr::as_tibble(), 
                           by="doi", suffix = c("", ".publons"),
                           na_matches="never")
-    if("oa_status" %in% names(m)){
-      m <- m %>% dplyr::rename(oa_status.publons=oa_status)
-    }
+    # if("oa_status" %in% names(m)){
+    #   m <- m %>% dplyr::rename(oa_status.publons=oa_status)
+    # }
     if("title" %in% names(m)){
       m <- m %>% dplyr::rename(title.publons=title)
     }
@@ -261,13 +260,15 @@ create_combined_data <- function(df_orcid,df_pubmed,zora,df_publons,con, unpaywa
   m <- m %>% dplyr::full_join(oaf, 
                        by = "doi", suffix=c(".zora", ".unpaywall"))
   
+  print(str(m))
+  print(as_tibble(m))
   # set overall oa status
   m$overall_oa <- m$oa_status.unpaywall
-  print(m %>% select(starts_with("oa"), overall_oa))
+  # print(m %>% select(starts_with("oa"), overall_oa))
   m$overall_oa <- factor(m$overall_oa, levels = names(open_cols_fn()))
   
-  print(dim(m))
-  print(m %>% select(starts_with("oa"), overall_oa))
+  # print(dim(m))
+  # print(m %>% select(starts_with("oa"), overall_oa))
   # print(m$overall_oa %>% table(useNA = "ifany"))
   if (!is.null(df_orcid)){
     m$overall_oa[m$type.orcid=="other"] <- "preprint"

@@ -1,3 +1,15 @@
+#' @export
+empty_scholar<- function(){
+  tibble::tibble(year = double(),
+                 title = character(),
+                 author = character(),
+                 journal = character(),
+                 number = character(),
+                 cites = double(),
+                 cid = character(),
+                 pubid = character(),
+                 in_scholar = logical())
+}
 
 #' Retrieve a table of records from Google Scholar
 #'

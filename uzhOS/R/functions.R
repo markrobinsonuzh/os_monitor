@@ -3,7 +3,7 @@
 # library(RefManageR)
 # library(scholar)
 
-
+#' @export
 sql_con_cont <- function(con){
   if (!(is(con,"PqConnection") | is(con,"PostgreSQL"))){
     stop("'con' is no valid connection of type 'RPostgres::`PqConnection-class` or 'OdbcConnection PostgreSQL'.", .call=FALSE)
@@ -30,10 +30,10 @@ oadoi_fetch_local <- function(dois, con, unpaywalltablename = "unpaywall"){
   dois <- tolower(dois)
   # if is database connection to mongodb
   oaf <- tbl(con, unpaywalltablename) %>% filter(doi %in% dois) %>% collect() %>% 
-    mutate(oa_status = stringr::str_trim(oa_status))
+    mutate(oa_status = factor(stringr::str_trim(oa_status),levels = names(open_cols_fn())))
     # if is filename, load first
   if(length(oaf)==0){
-    return(tibble::tibble(doi=character(),oa_status=character()))
+    return(tibble::tibble(doi=character(),oa_status=factor(levels = names(open_cols_fn()))))
   } else {
     return(oaf)
   }
@@ -54,7 +54,7 @@ open_cols_fn <- function(){
     "blue" = "blue", 
     "unknown"="white") 
 }
-
+#' @export
 oa_status_order <- function(){
   c("closed", "preprint", "bronze", "blue","hybrid", "green","gold")
 }
@@ -103,7 +103,7 @@ create_tbl_author <- function(author_vec, con, authorstablename = "authors", aut
     inner_join(tbl(con, subjectstablename) ,
                by="eprintid") %>%
     collect() %>% 
-    dplyr::mutate(year = date, doi = tolower(doi)) %>% 
+    dplyr::mutate(year = as.integer(date), doi = tolower(doi)) %>% 
       dplyr::group_by(doi) %>% 
       dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
       unique()
@@ -130,6 +130,22 @@ create_tbl_author <- function(author_vec, con, authorstablename = "authors", aut
   return(tbl_author)
 } 
 
+#' @export
+empty_zora <- function(){
+  tibble::tibble(eprintid = integer(),
+                 authorkey_fullname = character(),
+                 doi = character(),
+                 date = character(),
+                 title = character(),
+                 refereed = character(),
+                 institution = character(),
+                 oa_status = factor(levels = names(open_cols_fn())),
+                 published_doc = logical(),
+                 authorkey = character(),
+                 authroname = character(),
+                 year = integer(),
+                 in_zora = logical())
+}
 
 #' create_zora
 #'

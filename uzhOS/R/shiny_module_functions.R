@@ -45,7 +45,7 @@ ShowReportServer <- function(id, d, con, authorstablename = "authors", authorkey
             tbl
             retrieve_from_pubmed
             tryCatch({retrieve_from_pubmed(d$pubmed)},
-                     error=function(e) tibble(pubyear=charachter(), title=character(),
+                     error=function(e) tibble::tibble(pubyear=charachter(), title=character(),
                      authors= character(), journal=character(), doi=character(), 
                      pmid=character(), in_pubmed=logical())
                      )

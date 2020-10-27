@@ -1,3 +1,14 @@
+#' @export
+empty_pubmed <- function(){
+  tibble::tibble(pubyear = integer(),
+                 title = character(),
+                 authors = character(),
+                 journal = character(),
+                 doi = character(),
+                 pmid = character(),
+                 in_pubmed = logical())
+}
+
 #' Trim null values or length 0 vectors to return single NA
 #'
 #' @param x value to fix
@@ -89,13 +100,7 @@ retrieve_from_pubmed <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, j
     entrez_summary(db = "pubmed", id = x$ids)
     },error=function(e) NULL)
   if (is.null(summ)){
-    return(tibble::tibble(pubyear = integer(),
-                          title = character(),
-                          authors = character(),
-                          journal = character(),
-                          doi = character(),
-                          pmid = character(),
-                          in_pubmed = logical()))
+    return(empty_pubmed())
   }
   summ <- lapply(summ, function(w) {
     tibble::tibble(pubyear = fix_null(strsplit(w$pubdate, " ")[[1]][1]), 

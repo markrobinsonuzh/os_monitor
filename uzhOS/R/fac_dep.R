@@ -28,7 +28,7 @@ all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablenam
     year=unique(fac_dep$year),
     type=unique(fac_dep$type),
     count=0,stringsAsFactors = FALSE) %>% 
-    as_tibble()
+    tibble::as_tibble()
   
   fac_dep <- left_join(all_expected,fac_dep, by=c("dep","oa_status","year","type"), suffix=c(".all","")) %>% 
     mutate(count=ifelse(is.na(count),count.all,count)) %>% dplyr::select(-count.all)

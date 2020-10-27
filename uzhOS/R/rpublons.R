@@ -1,3 +1,12 @@
+#' @export
+empty_publons <- function(){
+  tibble::tibble(doi=character(),
+                 title=character(),
+                 date=character(),
+                 year=integer(),
+                 in_publons=logical())
+}
+
 #' retrieve from publons
 #'
 #' @param id either publons ID, ORCID, ResearcherID or TRUID
@@ -39,11 +48,7 @@ retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db
     df_publons$in_publons <- TRUE
     return(tibble::as_tibble(df_publons))
   } else {
-    return(tibble::tibble(doi=character(),
-                      title=character(),
-                      date=character(),
-                      year=integer(),
-                      in_publons=logical()))
+    return(empty_publons())
   }
 
 }

@@ -1,3 +1,13 @@
+#' @export
+empty_orcid <- function(){
+  tibble::tibble(title=character(),
+                 journal=character(),
+                 type=character(),
+                 doi=character(),
+                 year=integer(),
+                 in_orcid=logical())
+}
+
 #' Retrieve a table of records from orcid.org
 #'
 #' @param orcid ORCID to retrieve records for
@@ -11,23 +21,13 @@
 #' mr_orcs <- retrieve_from_orcid("0000-0002-3048-5518")
 retrieve_from_orcid <- function(orcid, exclude = "data-set") {
   if(!check_if_likely_orcid(orcid)){
-    return(tibble::tibble(title=character(),
-                   journal=character(),
-                   type=character(),
-                   doi=character(),
-                   year=integer(),
-                   in_orcid=logical()))
+    return(empty_orcid())
   }
   works <- tryCatch({rorcid::orcid_works(orcid)},error=function(e) {
     return(NA)
   })
   if (is.na(works)){
-    return(tibble::tibble(title=character(),
-                          journal=character(),
-                          type=character(),
-                          doi=character(),
-                          year=integer(),
-                          in_orcid=logical()))
+    return(empty_orcid())
   }
   works <- works[[1]]$works
   if(nrow(works)==0) {

@@ -159,10 +159,11 @@ ui <- navbarPage("Open science monitor UZH",
                      actionButton("treeapply",label = "Apply selection")
                    ),
                    mainPanel(
-                     plotlyOutput("plot_dep_fac_anim_year",height = "800px",width = "100%"),
-                     plotlyOutput("plot_dep_fac_dep_year",height = "800px",width = "100%"),
-                     plotlyOutput("plot_dep_fac_year_val_line",height = "800px",width = "100%"),
-                     plotlyOutput("plot_dep_fac_year_val_bar",height = "800px",width = "100%")
+                     # plotlyOutput("plot_dep_fac_anim_year",height = "800px",width = "100%"),
+                     # plotlyOutput("plot_dep_fac_dep_year",height = "800px",width = "100%"),
+                     # plotlyOutput("plot_dep_fac_year_val_line",height = "800px",width = "100%"),
+                     # plotlyOutput("plot_dep_fac_year_val_bar",height = "800px",width = "100%")
+                     uiOutput("plot_dep_fac_year_val_bar")
                  ))
                )
       )
@@ -547,45 +548,38 @@ server = function(input, output,session) {
   })
   
   
+  
   observeEvent(input$treeapply,{
-    chosen_orgs_bool <- lapply(input$tree$Get("state"), function(i) i[3][[1]]) %>% unlist()#, file="/dev/null")
-    d_dep$chosen_orgs <- names(chosen_orgs_bool)[chosen_orgs_bool][-1]
-    if(length(d_dep$chosen_orgs) > 10){
-      d_dep$chosen_orgs <- d_dep$chosen_orgs[1:10]
-      showModal(modalDialog("Too many departmens were selected for proper visualization. Only the first 10 are shown.",
+    d_dep$chosen_orgs <- lapply(get_selected(input$tree), function(i) {
+      if(attr(i,"stselected")){
+        i
+      }
+    }) %>% unlist()
+    if(length(d_dep$chosen_orgs) > 50){
+      d_dep$chosen_orgs <- d_dep$chosen_orgs[1:50]
+      showModal(modalDialog("Too many departments were selected for proper visualization. Only the first 50 are shown.",
                             title = "Number of Departments too large", size="s",easyClose = TRUE))
     }
-    # d_dep$oa_status_filtered <- input$oa_status_filtered
     d_dep$publication_type_filtered <- input$publication_type_filtered
-    # d_dep$oa_status_filtered_sorting <-  input$oa_status_filtered_sorting
     d_dep$wide_data_for_plotly <- preprocess_fac_dep(fac_dep_filt,
                                                      col_to_plot = "dep", 
                                                      fac_chosen =  d_dep$chosen_orgs, 
-                                                     # oa_status_filter = d_dep$oa_status_filtered, 
                                                      publication_filter = d_dep$publication_type_filtered,
                                                      by_year = TRUE) %>% 
+      dplyr::mutate(year=as.integer(year)) %>% 
       arrange_fac_dep(type_arr="Count",by_year = TRUE) %>% 
       tidyr::pivot_wider(names_from=type,values_from=value) %>% 
       highlight_key(~dep)
   })
   
-  output$plot_dep_fac_anim_year <- renderPlotly({
-    req(d_dep$wide_data_for_plotly)
-      plot_fac_dep(d_dep$wide_data_for_plotly,fac_dep_filt,plot_type = "anim_year")
-  })
-  output$plot_dep_fac_dep_year <- renderPlotly({
-    req(d_dep$wide_data_for_plotly)
-    plot_fac_dep(d_dep$wide_data_for_plotly,fac_dep_filt,plot_type = "dep_year")
-  })
-  output$plot_dep_fac_year_val_line <- renderPlotly({
-    req(d_dep$wide_data_for_plotly)
-    plot_fac_dep(d_dep$wide_data_for_plotly,fac_dep_filt,plot_type = "year_val_line")
-  })
-  output$plot_dep_fac_year_val_bar <- renderPlotly({
+  output$plot_dep_fac_year_val_bar_unsized <- renderPlotly({
     req(d_dep$wide_data_for_plotly)
     plot_fac_dep(d_dep$wide_data_for_plotly,fac_dep_filt,plot_type = "year_val_bar")
   })
-
+  output$plot_dep_fac_year_val_bar <- renderUI({
+    plotlyOutput(outputId = "plot_dep_fac_year_val_bar_unsized")
+  })
+  
 }
 
 # Run the application 

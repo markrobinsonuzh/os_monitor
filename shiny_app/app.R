@@ -129,7 +129,8 @@ ui <- navbarPage("Open science monitor UZH",
                                           shinyjs::hidden(),
                                actionButton(inputId = "reset_DT_selection",label = "Reset selection") %>% 
                                  shinyjs::hidden(),
-                               actionButton("create_bibtex","Get Bibtex citation")
+                               actionButton("create_bibtex","Get Bibtex citation") %>% 
+                                 shinyjs::hidden()
                                ) %>% 
                                  shinyhelper::helper(type="markdown",
                                                    title = "Apply and Reset selection help",
@@ -339,6 +340,8 @@ server = function(input, output,session) {
   observe({
     req(tbl_merge())
     d$m <- tbl_merge()
+    d$m_sub <- tbl_merge()
+    d$m_sub_sel <- tbl_merge()
   })
   
   # activate some stuff and preparation
@@ -468,14 +471,23 @@ server = function(input, output,session) {
   # })
   
   observeEvent(input$create_bibtex,{
-    shinyWidgets::ask_confirmation(
-      inputId = "create_bibtex_confirmation",
-      title = "Confirm Bibtex retrieval",
-      text = paste("You are about to retrieve the bibtex entries of ",
-                   length(d$m_sub_sel$doi), "publications. This will take approximately",
-                   lubridate::seconds(length(d$m_sub_sel$doi)*5)," and will run in the background."
-                   )
-    )
+    if (!is.null(d$m_sub_sel$doi) && length(d$m_sub_sel$doi) > 0){
+      shinyWidgets::ask_confirmation(
+        inputId = "create_bibtex_confirmation",
+        title = "Confirm Bibtex retrieval",
+        text = paste("You are about to retrieve the bibtex entries of ",
+                     length(d$m_sub_sel$doi), "publications. This will take approximately",
+                     lubridate::seconds(length(d$m_sub_sel$doi)*0.5)," and will run in the background."
+        )
+      )
+    } else {
+      show_alert(
+        title = "Bibtex retrieval error",
+        text = "No valid doi's selected from Table. (The Table is likely empty)",
+        type = "error"
+      )
+    }
+
   })
   
   bibtex_ls <- reactiveVal()
@@ -490,6 +502,7 @@ server = function(input, output,session) {
     }
   })
    observeEvent(bibtex_ls(),{
+     print(bibtex_ls())
      req(bibtex_ls())
      shinyjs::enable("create_bibtex")
      output$bibsummary <-  renderText(bibtex_ls())
@@ -498,9 +511,9 @@ server = function(input, output,session) {
    })
   
   output$bibtex_download <- downloadHandler(
-    filename = paste0("BIBTEX_FOR_ORCID_",d$orcid, ".bib"),
+    filename = function() {paste0("BIBTEX_FOR_",d$author_vec[1], ".bib")},
     content = function(file){
-        writeLines( paste(value(bibtex_ls()),collapse = "\n"),file)
+        writeLines( paste(bibtex_ls(),collapse = "\n"),file)
     }
   )
       

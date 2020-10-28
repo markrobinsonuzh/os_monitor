@@ -28,7 +28,7 @@ GetBibEntryWithDOI_no_temp <- function (doi, progress = shiny::Progress$new())
       # temp <- GET(modify_url("https://doi.org/", path = doi[i]), 
       # config = list(followlocation = TRUE), add_headers(Accept = "application/x-bibtex"))
       temp <- httr::GET(httr::modify_url("https://data.crossref.org/", path = doi[i]), 
-                        config = list(followlocation = TRUE), httr::add_headers(Accept = "application/x-bibtex"))
+                        config = list(followlocation = TRUE), httr::add_headers(Accept = "application/x-bibtex", mailto = "retogerber93@gmail.com"))
       return(httr::content(temp, as = "text", encoding = "UTF-8"))
     })
   })

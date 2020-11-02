@@ -2,20 +2,18 @@
 suppressPackageStartupMessages({
   library(shiny)
   library(dplyr)
-  library(purrr)
-  # library(rcrossref)
   library(ggplot2)
   library(stringr)
   library(shinyjs)
-  # library(mongolite)
-  # library(shinyBS)
   library(plotly)
   library(DBI)
   library(shinyTree)
+  library(shinyWidgets)
+  library(promises)
+  library(future)
+  plan(multiprocess)
 })
-"0000-0002-3048-5518"
-"XPfrRQEAAAAJ"
-on_rstudio <- TRUE
+on_rstudio <- FALSE
 if(on_rstudio){
   setwd("/srv/shiny-server/os_monitor/shiny_app")
   maindir <- file.path(getwd(),"..")
@@ -24,9 +22,8 @@ if(on_rstudio){
   maindir <- getwd()
 }
 # functions for backend
-# devtools::install("/srv/shiny-server/os_monitor/uzhOS",build = TRUE)
-# library(uzhOS)
 devtools::load_all(file.path(maindir,"uzhOS"))
+# library(uzhOS)
 outdir <- file.path(maindir,"output")
 datadir <- file.path(maindir,"data")
 # token to get acces to orcid (currently Reto's token)
@@ -34,75 +31,84 @@ Sys.setenv(ORCID_TOKEN="8268867c-bf2c-4841-ab9c-bfeddd582a9c")
 use_sql <- TRUE
 if(use_sql){
   con <- dbConnect(odbc::odbc(), "PostgreSQL")
+  unique_authorkeys_processed <- tbl(con, "authorkeys") %>% 
+    pull(authorname)
+  names(unique_authorkeys_processed) <- stringr::str_to_title(unique_authorkeys_processed)
 } 
-options(shinyTree.defaultParser="tree")
-
 ### UI #########################################################################
-ui <- navbarPage("Open science monitor",
+ui <- navbarPage("Open science monitor UZH",
                  tabPanel("Author OA explorer",
                           fluidPage(
                             useShinyjs(),
                             shinyFeedback::useShinyFeedback(),
-                            sidebarPanel(width=6,
-                                         # Orcid input
-                                         textInput("orcid",label = a("Orcid",href="https://orcid.org",target="_blank"), value="0000-0002-3048-5518"),
-                                         # Pubmed query input
-                                         textAreaInput("pubmed",label = a("Pubmed Query",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"), value=""),
-                                         # google scholar input
-                                         textInput("scholar",label = a("Google Scholar id",href="https://scholar.google.ch",target="_blank"), value="") %>% 
-                                           shinyhelper::helper(type="markdown",
-                                                               title = "Google scholar id help",
-                                                               content = 'Google_scholar_help'),
-                                         # publons input
-                                         textInput("publons",label = tags$div(tags$a("ResearchID (Publons)",href="https://publons.com",target="_blank"),
-                                                                              tags$span(class="help-block","(or if linked: ORCID)")), value=""),
-                                         # aggregate data
-                                         disabled(actionButton(inputId = "show_report",label = "Show report"))
-                            ),
+                            div(id="Sidebar",sidebarPanel(width=6,
+                                                          # Orcid input
+                                                          textInput(NS("input_check","orcid"),label = a("Orcid",href="https://orcid.org",target="_blank"), value=""),
+                                                          # Pubmed query input
+                                                          splitLayout(cellWidths = c("75%", "25%"),
+                                                                      textAreaInput(NS("input_check", "pubmed"),label = a("Pubmed Query",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"), value="") %>% 
+                                                                        shinyjs::disabled(),
+                                                                      actionButton(NS("input_check", "activate_pubmed"),HTML("Generate <br/> Pubmed <br/> Query")) %>% 
+                                                                        shinyjs::disabled()),
+                                                          # google scholar input
+                                                          textInput(NS("input_check", "scholar"),label = a("Google Scholar id",href="https://scholar.google.ch",target="_blank"), value="") %>% 
+                                                            shinyhelper::helper(type="markdown",
+                                                                                title = "Google scholar id help",
+                                                                                content = 'Google_scholar_help'),
+                                                          # publons input
+                                                          textInput(NS("input_check", "publons"),label = tags$div(tags$a("Publons id",href="https://publons.com",target="_blank"),
+                                                                                                                  tags$span(class="help-block","(or if linked: ORCID, ResearcherID or TRUID)")), value=""),
+                                                          # aggregate data
+                                                          showReportUI("show_report"),
+                                                          ProgressbarUI("show_report") #%>% shinyjs::hidden()
+                            )),
                             # disabled(downloadButton("report", "Generate report"))
-                            conditionalPanel("input.show_report > 0",
                             mainPanel(
-                              # panel for filtering
-                              wellPanel(
-                                uiOutput("selection_rules"),
-                                # splitLayout(cellWidths = c("25%", "75%"),
-                                            # checkboxGroupInput(inputId = "in_selection",label = "Data sets included","",inline = TRUE) %>% 
-                                              # shinyjs::hidden(),
+                              actionButton("showSidebar", "Show sidebar") %>% shinyjs::hidden(),
+                              actionButton("hideSidebar", "Hide sidebar") %>% shinyjs::hidden(),
+                              splitLayout(cellWidths = c("25%", "75%"),
+                                          # panel for filtering
+                                          wellPanel(
+                                            datasetSelectionsUpdateUI("selection_standard"),
                                             verbatimTextOutput("sub_summary"),
-                                # ),
-                                sliderInput("range_year",label = "Cutoff year",min=2001,max = 2020,value=c(2001,2020))%>% 
-                                  shinyjs::hidden(),
-                                checkboxGroupInput("oa_status_filtered_table","OA status",
-                                                   choices = names(open_cols_fn()),
-                                                   selected = names(open_cols_fn()),
-                                                   inline = TRUE) %>% 
-                                  shinyjs::hidden(),
-                              ),
-                              # output panel (tables, plots etc.)
-                              tabsetPanel(type = "tabs",
-                                          tabPanel("Upset Plot", plotOutput("plot_upset"),height="600px"),
-                                          tabPanel("Histogram", plotlyOutput("plot_selected") %>% 
-                                                     shinyhelper::helper(type="markdown",
-                                                                         title = "Histogram selection help",
-                                                                         content = 'Histogram_selection')),
-                                          tabPanel("Table", 
-                                                   # data_table_selection_UI("DT_author_selection")),
-                                                   flowLayout(#cellWidths = c("30%","30%","60%"),
-                                                     actionButton(inputId = "apply_DT_selection",label = "Apply selection") %>% 
-                                                       shinyjs::hidden(),
-                                                     actionButton(inputId = "reset_DT_selection",label = "Reset selection") %>% 
-                                                       shinyjs::hidden(),
-                                                     downloadButton("bibtex", "Bibtex citation") %>% 
-                                                       shinyjs::hidden()
-                                                   ) %>% 
-                                                     shinyhelper::helper(type="markdown",
-                                                                         title = "Apply and Reset selection help",
-                                                                         content = 'Apply_and_Reset_selection'),
-                                                   DT::dataTableOutput("table_selected_closed")),
-                                          tabPanel("Percent closed", DT::dataTableOutput("table_oa_percent_time"))
+                                            # ),
+                                            sliderInput("range_year",label = "Cutoff year",min=2001,max = 2020,value=c(2001,2020))%>% 
+                                              shinyjs::hidden(),
+                                            selectizeInput("oa_status_filtered_table","OA status",names(open_cols_fn()),selected = names(open_cols_fn()), multiple = TRUE, 
+                                                           options = list(maxOptions = 10,placeholder="select oa status",maxItems=10)) %>% 
+                                              shinyjs::hidden(),
+                                          ),
+                                          # output panel (tables, plots etc.)
+                                          tabsetPanel(id = "author_plots_tables",
+                                                      type = "tabs",
+                                                      tabPanel("Upset Plot", plotOutput("plot_upset"),height="600px"),
+                                                      tabPanel("Histogram", plotlyOutput("plot_selected") %>% 
+                                                                 shinyhelper::helper(type="markdown",
+                                                                                     title = "Histogram selection help",
+                                                                                     content = 'Histogram_selection')),
+                                                      tabPanel("Table", 
+                                                               flowLayout(
+                                                                 actionButton(inputId = "apply_DT_selection",label = "Apply selection") %>% 
+                                                                   shinyjs::hidden(),
+                                                                 actionButton(inputId = "reset_DT_selection",label = "Reset selection") %>% 
+                                                                   shinyjs::hidden(),
+                                                                 actionButton("create_bibtex","Get Bibtex citation") %>% 
+                                                                   shinyjs::hidden()
+                                                               ) %>% 
+                                                                 shinyhelper::helper(type="markdown",
+                                                                                     title = "Apply and Reset selection help",
+                                                                                     content = 'Apply_and_Reset_selection'),
+                                                               DT::dataTableOutput("table_selected_closed")),
+                                                      tabPanel("Bibtex",
+                                                               downloadButton("bibtex_download", "Download Bibtex citation") %>% 
+                                                                 shinyjs::hidden(),
+                                                               verbatimTextOutput("bibsummary")
+                                                      ),
+                                                      tabPanel("Closed in Zora", DT::dataTableOutput("table_closed_in_zora")),
+                                                      tabPanel("Percent closed", DT::dataTableOutput("table_oa_percent_time"))
+                                          )
                               )
                             )
-                          )
                           )
                  )
 )
@@ -118,271 +124,169 @@ server = function(input, output,session) {
   })
   
   ### Author ###################################################################
+  observeEvent(input$showSidebar, {
+    shinyjs::show(id = "Sidebar")
+    shinyjs::hide(id="showSidebar")
+    shinyjs::show(id = "hideSidebar")
+  })
+  observeEvent({input$hideSidebar;tbl_merge()}, {
+    shinyjs::hide(id = "Sidebar")
+    shinyjs::show(id="showSidebar")
+    shinyjs::hide(id = "hideSidebar")
+  })
   
   shinyhelper::observe_helpers(session = session)
   # data
-  d <- reactiveValues(pubmed="",orcid="",publons="",scholar="")
-  # plots and tables
-  p_t <- reactiveValues()
+  d <- reactiveValues(pubmed="",orcid="",publons="",scholar="", 
+                      is_valid_pubmed=FALSE, is_valid_orcid=FALSE, is_valid_publons=FALSE, is_valid_scholar=FALSE,is_valid_zora=FALSE)
   # input values for selection
   selection_ls <- reactiveValues(init=TRUE)
   
-  # for manual input from user
-  observeEvent(input$orcid,{
-    if(input$orcid != ""){
-      shinyFeedback::feedbackWarning(
-        "orcid", 
-        tryCatch(rorcid::as.orcid(x = input$orcid),error=function(e) "") == "",
-        "Please select a valid Orcid!"
-      ) 
-      d$orcid <- input$orcid
-    }
-  })
-  observeEvent(input$pubmed,{
-    d$pubmed <- input$pubmed
-  })
-  observeEvent(input$scholar,{
-    if(input$scholar != ""){
-      shinyFeedback::feedbackWarning(
-        "scholar", 
-        tryCatch(scholar::get_profile(input$scholar),error=function(e) "") == "",
-        "Please select a valid Google scholar id!"
-      )
-      d$scholar <- input$scholar
-    }
-  })
-  observeEvent(input$publons,{
-    if(input$publons != ""){
-      shinyFeedback::feedbackWarning(
-        "publons", 
-        !in_publons(input$publons),
-        "Please select a valid ResearcherID!"
-      )
-      d$publons <- input$publons
-    }
-  })
+  # plots and tables
+  p_t <- reactiveValues()
+  updateSelectizeInput(session, 'author_search', choices = unique_authorkeys_processed, server = TRUE)
   
+  # Orcid and author vector into reactive value
+  orcid_auth_react <- alias_selected_orcid_auth_Server("alias_selected")
   observe({
-    d$orcid <- input$orcid
-    if (d$orcid=="" && d$pubmed=="" && d$scholar=="" && d$publons==""){
-      disable("show_report")
-    } else{
-      enable("show_report")
-    }    
+    orcid_auth_tmp <- orcid_auth_react()
+    d$orcid <- orcid_auth_tmp[["orcid"]]
+    d$author_vec <- orcid_auth_tmp[["author_vec"]]
+    d$is_valid_zora <- TRUE
   })
   
-  observeEvent(input$activate_pubmed,{
-    showModal(modalDialog("This is an automatically generated query and is 
-                          unlikely to find all correct entries. For more details see:",
-                          a("NCBI pubmedhelp",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"),
-                          title = "Pubmed query info", size="s",easyClose = TRUE))
-    
-    d$pubmed <- tryCatch({
-      pubmed_search_string_from_zora_id(d$author_vec[1],
-                                        con, 
-                                        cutoff_year= c(2000),
-                                        orcid = unlist(ifelse(is.null(d$orcid),list(NULL),d$orcid)))
-    },error=function(e)"")
-    updateTextAreaInput(session,"pubmed",value=d$pubmed)
-    enable("pubmed")
+  # pubmed activating, model dialog and query generation
+  pubmedActivateServer("input_check", d, con)
+  observeEvent({d$pubmed},{
+    updateTextAreaInput(session,NS("input_check", "pubmed"),value=d$pubmed)
   })
-
   
-  # create combined table from given user inputs
-  show_report_reac <- ShowReportServer("show_report", d, con)
-  observeEvent(input$show_report,{
+  # check for valid inputs
+  orcidCheckServer("input_check", d)
+  pubmedCheckServer("input_check", d)
+  publonsCheckServer("input_check", d)
+  scholarCheckServer("input_check", d)
+  
+  # wait for clicking of "show_report", then retrieve all data asynchronously 
+  scholarModalServer("show_report",d)
+  tbl_merge <- reactiveVal(NULL)
+  df_zora <- reactiveVal(empty_zora())
+  df_orcid <- reactiveVal(empty_orcid())
+  createOrcidServer("show_report", d, df_orcid)
+  df_publons <- reactiveVal(empty_publons())
+  createPublonsServer("show_report", d, df_publons)
+  df_scholar <- reactiveVal(empty_scholar())
+  createScholarServer("show_report", d, df_scholar)
+  df_pubmed <- reactiveVal(empty_pubmed())
+  createPubmedServer("show_report", d, df_pubmed)
+  # merge results when they become available
+  observeEvent({df_orcid();df_pubmed();df_publons()},{
+    if (any(purrr::map_lgl(c(df_orcid,df_pubmed,df_publons), ~ dim(req(.x()))[1] != 0))){
+      print("do merge")
+      future(seed=NULL,{
+        con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
+        create_combined_data(isolate(df_orcid()),isolate(df_pubmed()),isolate(df_zora()),isolate(df_publons()),con) %>%
+          dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))}) %...>%
+        tbl_merge()
+    }
+  })
+  # check if all except scholar are merged, then give signal to merge scholar as well
+  observeEvent({tbl_merge()},{
+    req(tbl_merge())
+    all_poss_datasets <- c("orcid","pubmed","publons","scholar")
+    datainmerge <- tbl_merge() %>% dplyr::select(starts_with("in_")) %>% names() %>% stringr::str_replace("in_","")
+    dataininput <- c(d$is_valid_orcid, d$is_valid_pubmed, d$is_valid_publons, d$is_valid_scholar)
+    if ((length(datainmerge) == (sum(dataininput)-1)) && ("scholar" %in% all_poss_datasets[dataininput])){
+      d$do_scholar_match <- TRUE
+      print("signal scholar match")
+    }
+  })
+  
+  # combine scholar with tbl_merge
+  observeEvent({df_scholar();d$do_scholar_match},{
+    print("check scholar")
+    if (d$do_scholar_match && (dim(df_scholar())[1] != 0)){
+      print("merge scholar")
+      future(seed=NULL,{
+        str_length
+        tmpscholar <- df_scholar_matching(isolate(tbl_merge()),isolate(df_scholar()))
+        dplyr::full_join(isolate(tbl_merge()),tmpscholar,by="doi",suffix=c("",".scholar"))
+      }) %...>%
+        dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x))) %...>%
+        tbl_merge()
+      d$do_scholar_match <- FALSE
+    }
+  })
+  
+  # deactivate 'show_report' button while processing
+  ActivateShowReportServer("show_report", d, df_zora, df_orcid, df_pubmed, df_publons, df_scholar)
+  DeactivateShowReportServer("show_report")
+  
+  # progress bar
+  ProgressbarCreateServer("show_report")
+  ProgressbarUpdateServer("show_report", d, df_zora, df_orcid, df_pubmed, df_publons, df_scholar)
+  
+  # save 'tbl_merge' in 'm' for downstream analysis
+  observe({
+    req(tbl_merge())
+    d$m <- tbl_merge()
+    d$m_sub <- tbl_merge()
+    d$m_sub_sel <- tbl_merge()
+  })
+  
+  # activate some stuff and preparation
+  observeEvent(d$m,{
     selection_ls$init <- TRUE
-    d <- show_report_reac()
     shinyjs::show(id = "in_selection")
     shinyjs::show(id = "oa_status_filtered_table")
     shinyjs::show(id = "range_year")
     shinyjs::show(id = "apply_DT_selection")
     shinyjs::show(id = "reset_DT_selection")
-    shinyjs::show(id = "bibtex")
-    
-    d$all_selection_choices <- colnames(d$m)[grep("in_",colnames(d$m))]
-    # d$subset_selection_choices <- 
-    # output$selection_rules <- renderUI({
-    #   splitLayout(cellWidths = 100,
-    #   selectizeInput(inputId = "blab1", label = NULL, choices = c("In","Not In"), selected = "In"),
-    #   selectizeInput(inputId = "blab2", label = NULL, choices = d$all_selection_choices, selected = d$all_selection_choices[1]),
-    #   selectizeInput(inputId = "blab3", label = NULL, choices = c("And","Or"), options = list(maxItems=1),selected = NULL, multiple = TRUE)
-    #   )
-    # })
-    
+    shinyjs::show(id = "create_bibtex")
     # update and show selections
     # update single selection for plots and tables
-    # updateCheckboxGroupInput(session,"in_selection",
-    #                          choices =  c(colnames(d$m)[grep("in_",colnames(d$m))],"inverse"),
-    #                          selected = c(colnames(d$m)[grep("in_",colnames(d$m))]))
-    
+    d$all_selection_choices <- colnames(d$m)[grep("in_",colnames(d$m))]
   })
   
-  observeEvent({
-    map(seq_len(length(d$all_selection_choices)*3), function(i){input[[paste0("blab",i)]]})
-    },{
-    req(input$show_report)
-    req(d$all_selection_choices)
-    if(selection_ls$init){
-      for(i in seq_len(length(d$all_selection_choices)*3-1)){
-        if(i%%3 == 1){
-          selection_ls[[paste0("blab",i)]] <- "In"
-        } else if(i%%3 == 2){
-          selection_ls[[paste0("blab",i)]] <- stringr::str_replace_all(d$all_selection_choices[(i+1)/3],"in_","")
-          
-        } else {
-          selection_ls[[paste0("blab",i)]] <- "Or"
-        }
-      }
-      selection_ls$init <- FALSE
-    } else{
-      for(i in seq_len(length(d$all_selection_choices)*3-1)){
-        selection_ls[[paste0("blab",i)]] <- input[[paste0("blab",i)]]
-      }
-    }
-    selection_list <- map(seq_len(length(d$all_selection_choices)*3-1), ~ selection_ls[[paste0("blab",.x)]])
-    nr_not_null <- map(selection_list, ~ !is.null(.x)) %>% reduce(sum)
-    if(nr_not_null < 2){
-      total_not_null_needed <- 2
-    }else if(nr_not_null%%3 == 0){
-      total_not_null_needed <- nr_not_null + 2
-    } else if (nr_not_null%%3 == 1){
-      total_not_null_needed <- nr_not_null + 1
-    } else if (nr_not_null%%3 == 2 && !((nr_not_null+1)/3 == length(d$all_selection_choices))){
-      total_not_null_needed <- nr_not_null + 1
-    } else {
-      total_not_null_needed <- nr_not_null
-    }
-    filter_all_selection_choices <- function(i, all_selection_choices){
-      id_to_remove <- seq(2,i,by=3)
-      id_to_remove <- id_to_remove[-length(id_to_remove)]
-      ind_to_remove <- map(id_to_remove, ~ which(paste0("in_",selection_ls[[paste0("blab",.x)]]) == all_selection_choices)) %>% unlist()
-      if(length(ind_to_remove) > 0){
-        ret_sele <- all_selection_choices[-ind_to_remove]
-      } else {
-        ret_sele <- all_selection_choices
-      }
-      return(ret_sele %>% stringr::str_replace_all("in_","") %>% unlist())
-    }
-    
-    list_all_choices <- map(seq_len(ceiling(total_not_null_needed/3)), function(i){filter_all_selection_choices((i*3)-1,d$all_selection_choices)})
-    output$selection_rules <- renderUI({
-      # splitLayout(cellWidths = rep(100,total_not_null_needed),
-                  map(seq_len(total_not_null_needed), function(i){
-                    if(i %% 3 == 1){
-                      div(style="display: inline-block;vertical-align:top; width: 100px;",
-                          selectizeInput(inputId = paste0("blab",i), label = NULL, 
-                                         choices = c("In","Not In"), options = list(maxItems=1),
-                                         selected = selection_ls[[paste0("blab",i)]], multiple = TRUE))
-                    } else if(i %% 3 == 2){
-                      div(style="display: inline-block;vertical-align:top; width: 150px;",
-                          selectizeInput(inputId = paste0("blab",i), label = NULL, 
-                                         choices = list_all_choices[[(i+1)/3]], options = list(maxItems=1), 
-                                         selected = selection_ls[[paste0("blab",i)]], multiple = TRUE))
-                    } else {
-                      div(style="display: vertical-align:top; width: 70px;",
-                          selectizeInput(inputId = paste0("blab",i), label = NULL, 
-                                         choices = c("And","Or"), options = list(maxItems=1), 
-                                         selected = selection_ls[[paste0("blab",i)]], multiple = TRUE))
-                    }
-                  }) 
-      # )
+  # modules for updating selection UI
+  datasetSelectionsServer("selection_standard",d,selection_ls)
+  datasetSelectionsUpdateServer("selection_standard",d,selection_ls)
+  
+  observeEvent({input$oa_status_filtered_table; input$range_year; d$m_sub_all_oa},{
+    req(d$m_sub_all_oa)
+    m_filt <- d$m_sub_all_oa %>% 
+      dplyr::mutate(year=as.integer(year)) %>% 
+      dplyr::filter(overall_oa %in% input$oa_status_filtered_table,
+                    year >= input$range_year[1],
+                    year <= input$range_year[2])
+    d$m_sub <- m_filt
+    d$m_sub_sel <- m_filt
+  })
+  
+  # update summary when subset changes
+  observeEvent({d$m_sub},{
+    # summary of subset table
+    overall_oa_status <- dplyr::pull(d$m_sub,"overall_oa")
+    levels(overall_oa_status) <- c(levels(overall_oa_status),"unknown")
+    overall_oa_status[is.na(overall_oa_status)] <- "unknown"
+    output$sub_summary <- renderPrint({
+      print(paste("Total:",length(overall_oa_status)))
+      table(overall_oa_status,useNA = "ifany")
     })
-    
   })
   
-  observeEvent({
-    map(seq_len(length(d$all_selection_choices)*3), function(i){input[[paste0("blab",i)]]})
-  },{
-    req(input$show_report)
-    req(d$all_selection_choices)
-    tmpfilt <- map(seq_len(length(d$all_selection_choices)*3-1), function(i){
-      if(i%%3 == 1){
-        ifelse(input[[paste0("blab",i)]] == "Not In" && !is.null(input[[paste0("blab",i)]]), "!", "")
-      } else if(i%%3 == 2){
-        ifelse(!is.null(input[[paste0("blab",i)]]),paste0("in_",input[[paste0("blab",i)]]),"")
-        
-      } else {
-        ifelse(input[[paste0("blab",i)]] == "And" && !is.null(input[[paste0("blab",i)]]), "&", "|")
-      }
-    }) 
-    print(tmpfilt)
-    tmpfilt <- tmpfilt %>% unlist() 
-    for (i in seq(2,length(tmpfilt),by=3)){
-      if(tmpfilt[i] == ""){
-        tmpfilt[(i-1):(i+1)] <- ""
-      }
-    }
-    tmpfilt <- tmpfilt %>% paste(collapse = "")
-    if(stringr::str_detect(tmpfilt,"\\|$|&$")){
-      tmpfilt <- stringr::str_replace(tmpfilt,"\\|$|&$","")
-    }
-    print(tmpfilt)
-    
-    
-    if(!(tmpfilt=="")){
-      m_filt <- subset(d$m,eval(parse(text=tmpfilt)))
-      print(m_filt)
-      d$m_sub <- m_filt
-      d$m_sub_sel <- m_filt
-      
-      # summary of subset table
-      overall_oa_status <- dplyr::pull(d$m_sub,"overall_oa")
-      levels(overall_oa_status) <- c(levels(overall_oa_status),"unknown")
-      overall_oa_status[is.na(overall_oa_status)] <- "unknown"
-      output$sub_summary <- renderPrint({
-        print(paste("Total:",length(overall_oa_status)))
-        table(overall_oa_status,useNA = "ifany")
-      })
-    }
-
-
-    
-    
-  })
-  
-  # # create subset of combined table based on selection of tables
-  # observe({
-  #   req(input$in_selection)
-  #   d$in_selection <- gsub("in_","",input$in_selection[input$in_selection != "inverse"]) %>% stringr::str_to_title()
-  #   in_selection_quo <- quos(input$in_selection[input$in_selection != "inverse"])
-  #   if (length(input$in_selection[input$in_selection != "inverse"]) != 0){
-  #     m_filt <- d$m %>%
-  #       dplyr::filter((year >= input$range_year[1]) & (year <= input$range_year[2])) %>%
-  #       dplyr::filter(overall_oa %in% input$oa_status_filtered_table)
-  #     ind <- m_filt %>%
-  #       dplyr::select(!!!in_selection_quo) %>%
-  #       purrr::reduce(.f=function(x,y){x|y},.init = FALSE)
-  #     if ("inverse" %in% input$in_selection){
-  #       ind <- !ind
-  #     }
-  #     d$m_sub <- m_filt[ind,]
-  #     d$m_sub_sel <- m_filt[ind,]
-  #   }
-  #   
-  #   # summary of subset table
-  #   overall_oa_status <- dplyr::pull(d$m_sub,"overall_oa")
-  #   levels(overall_oa_status) <- c(levels(overall_oa_status),"unknown")
-  #   overall_oa_status[is.na(overall_oa_status)] <- "unknown"
-  #   output$sub_summary <- renderPrint({
-  #     print(paste("Total:",length(overall_oa_status)))
-  #     table(overall_oa_status,useNA = "ifany")
-  #   })
-  # })
-  
-  ### oa status upset plot -----------------------------------------------------
-  p_t$upset_plot <- reactive({tryCatch({upset_plot(d$m_sub)},error=function(e) {print(e);ggplot() + geom_blank()})})
+  ## oa status upset plot -----------------------------------------------------
+  p_t$upset_plot <- reactive({tryCatch({upset_plot(d$m)},error=function(e) {print(e);ggplot() + geom_blank()})})
   output$plot_upset <- renderPlot({
-    req(d$m_sub)
+    # req(d$m_sub)
     p_t$upset_plot()
   },res=100)
   
-  ### selected plot  -----------------------------------------------------------
+  ## selected plot  -----------------------------------------------------------
   p_t$selected_plot <- reactive({tryCatch({oa_status_time_plot(d$m_sub,
-                                                               title = paste(paste0(d$in_selection,collapse = " + "), "OA Status"), 
+                                                               title = paste(paste0(d$in_selection,collapse = " + "), "OA Status"),
                                                                oa_status_used=overall_oa,use_plotly=TRUE)},
                                           error=function(e) {print(e);ggplot() + geom_blank()})})
-  # output$plot_selected <- renderPlot({
   output$plot_selected <- renderPlotly({
     req(d$m_sub)
     p_t$selected_plot()
@@ -403,7 +307,7 @@ server = function(input, output,session) {
       dplyr::filter(d$m_sub,
                     year==d$plot_selected_ly_clicked[["year"]],
                     overall_oa==d$plot_selected_ly_clicked[["oa_status"]]),
-      !(is.null(d$zora) || dim(d$zora)[1]==0))
+      oa_status_zora = FALSE)
     },error=function(e) DT::datatable(head(d$m,0)))})
   observeEvent(event_data("plotly_click"),{
     showModal(modalDialog(DT::renderDataTable({
@@ -423,16 +327,20 @@ server = function(input, output,session) {
     d$m_sub_sel <- d$m_sub
   })
   # render table
-  p_t$selected_closed_table <- reactive({tryCatch({overall_closed_table(d$m_sub_sel,!(is.null(d$zora) || dim(d$zora)[1]==0))},
+  p_t$selected_closed_table <- reactive({tryCatch({overall_closed_table(d$m_sub_sel, oa_status_zora = FALSE)},
                                                   error=function(e) DT::datatable(head(d$m,0)))})
-  # observe({data_table_selection_processing_Server("DT_author_selection",d)})
-  # p_t$selected_closed_table <- data_table_selection_table_Server("DT_author_selection",d$m, d$m_sub_sel)
   output$table_selected_closed <- DT::renderDataTable({
     req(d$m_sub_sel)
     p_t$selected_closed_table()
   })
   
-
+  
+  ### Zora closed table  -------------------------------------------------------
+  p_t$closed_in_zora_table <- reactive({closed_in_zora_table(d$zora)})
+  output$table_closed_in_zora <- DT::renderDataTable({
+    req(d$zora)
+    p_t$closed_in_zora_table()
+  })
   ### OA percent time table  ---------------------------------------------------
   p_t$oa_percent_time_table <- reactive({tryCatch({oa_percent_time_table(d$m,input$range_year)},error=function(e) ggplot() + geom_blank())})
   output$table_oa_percent_time <- DT::renderDataTable({
@@ -440,29 +348,50 @@ server = function(input, output,session) {
     p_t$oa_percent_time_table()
   })
   
-  # # bibtex creation
-  # bib_reac <- in_selection_bib_Server("bib",d$m)
-  # observe({
-  #   d$to_update <- bib_reac()
-  #   output$bibtex_summary <- renderPrint({paste("Total number of entries to download:", length(d$to_update))})
-  # })
+  observeEvent(input$create_bibtex,{
+    if (!is.null(d$m_sub_sel$doi) && length(d$m_sub_sel$doi) > 0){
+      shinyWidgets::ask_confirmation(
+        inputId = "create_bibtex_confirmation",
+        title = "Confirm Bibtex retrieval",
+        text = paste("You are about to retrieve the bibtex entries of ",
+                     length(d$m_sub_sel$doi), "publications. This will take approximately",
+                     lubridate::seconds(length(d$m_sub_sel$doi)*0.5)," and will run in the background."
+        )
+      )
+    } else {
+      show_alert(
+        title = "Bibtex retrieval error",
+        text = "No valid doi's selected from Table. (The Table is likely empty)",
+        type = "error"
+      )
+    }
+    
+  })
   
-  output$bibtex <- downloadHandler(
-    filename = paste0("BIBTEX_FOR_ORCID_",d$orcid, ".bib"),
-    content = function(file){
+  bibtex_ls <- reactiveVal()
+  observeEvent(input$create_bibtex_confirmation,{
+    if(input$create_bibtex_confirmation){
+      shinyjs::disable("create_bibtex")
       to_update <- d$m_sub_sel$doi
       if(length(to_update) > 0) {
-        bibtex_from_doi <- GetBibEntryWithDOI_no_temp(to_update)
-        writeLines( paste(bibtex_from_doi,collapse = "\n"),file)
-        # df_pubmed[df_pubmed$doi %in% to_update,] %>% select(-authors,-pmid)
-        # print("start")
-        # write missing entries to bibtex file
-        # bibtex_from_doi <- GetBibEntryWithDOI(d$to_update)
-        # print("all found")
-        # toBiblatex(bibtex_from_doi)
-        # writeLines(toBiblatex(bibtex_from_doi),file)
-        # print("all written")
+        GetBibEntryWithDOI_no_temp(to_update) %...>% 
+          bibtex_ls()
       }
+    }
+  })
+  observeEvent(bibtex_ls(),{
+    print(bibtex_ls())
+    req(bibtex_ls())
+    shinyjs::enable("create_bibtex")
+    output$bibsummary <-  renderText(bibtex_ls())
+    shinyjs::show("bibtex_download")
+    updateTabsetPanel(session, "author_plots_tables", selected = "Bibtex")
+  })
+  
+  output$bibtex_download <- downloadHandler(
+    filename = function() {paste0("BIBTEX_FOR_",d$author_vec[1], ".bib")},
+    content = function(file){
+      writeLines( paste(bibtex_ls(),collapse = "\n"),file)
     }
   )
   
@@ -503,39 +432,44 @@ server = function(input, output,session) {
   
   ### Department ###############################################################
   
-  # observeEvent(input$fac_choice,{
-  #   if(input$fac_choice != "all"){
-  #     dep_tmp <- unique_fac_dep(fac_dep_filt,"fac_dep") %>% 
-  #       dplyr::filter(fac == input$fac_choice) %>% 
-  #       dplyr::arrange(dep) %>% 
-  #       dplyr::pull(dep)
-  #     updateSelectInput(session,inputId = "dep_choice",choices = dep_tmp)
-  #   }
-  # })
-  
-  get_json <- reactive({
-    treeToJSON(orgtree, pretty = TRUE)
-  })
+  d_dep <- reactiveValues()
   
   output$tree <- renderTree({
-    get_json()
+    orgtree
   })
   
-  output$plot_dep_fac <- renderPlot({
-    req(input$tree)
-    chosen_orgs_bool <- lapply(input$tree$Get("state"), function(i) i[3][[1]]) %>% unlist()
-    chosen_orgs <- names(chosen_orgs_bool)[chosen_orgs_bool][-1]
-    if (length(input$oa_status_filtered) == 0 || length(input$publication_type_filtered) == 0){
-      ggplot() + geom_blank()
-    } else {
-      plot_fac_dep(fac_dep_filt, fac_chosen = chosen_orgs, oa_status_filter = input$oa_status_filtered, 
-                   arrange_by = input$oa_status_filtered_sorting, publication_filter = input$publication_type_filtered)
+  
+  
+  observeEvent(input$treeapply,{
+    d_dep$chosen_orgs <- lapply(get_selected(input$tree), function(i) {
+      if(attr(i,"stselected")){
+        i
+      }
+    }) %>% unlist()
+    if(length(d_dep$chosen_orgs) > 50){
+      d_dep$chosen_orgs <- d_dep$chosen_orgs[1:50]
+      showModal(modalDialog("Too many departments were selected for proper visualization. Only the first 50 are shown.",
+                            title = "Number of Departments too large", size="s",easyClose = TRUE))
     }
-  },res=100)
+    d_dep$publication_type_filtered <- input$publication_type_filtered
+    d_dep$wide_data_for_plotly <- preprocess_fac_dep(fac_dep_filt,
+                                                     col_to_plot = "dep", 
+                                                     fac_chosen =  d_dep$chosen_orgs, 
+                                                     publication_filter = d_dep$publication_type_filtered,
+                                                     by_year = TRUE) %>% 
+      dplyr::mutate(year=as.integer(year)) %>% 
+      arrange_fac_dep(type_arr="Count",by_year = TRUE) %>% 
+      tidyr::pivot_wider(names_from=type,values_from=value) %>% 
+      highlight_key(~dep)
+  })
   
-  
-  
-  
+  output$plot_dep_fac_year_val_bar_unsized <- renderPlotly({
+    req(d_dep$wide_data_for_plotly)
+    plot_fac_dep(d_dep$wide_data_for_plotly,fac_dep_filt,plot_type = "year_val_bar")
+  })
+  output$plot_dep_fac_year_val_bar <- renderUI({
+    plotlyOutput(outputId = "plot_dep_fac_year_val_bar_unsized")
+  })
   
 }
 

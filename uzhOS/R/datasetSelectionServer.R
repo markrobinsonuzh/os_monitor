@@ -126,7 +126,7 @@ datasetSelectionsUpdateServer <- function(id, d,selection_ls) {
       tmpfilt <- stringr::str_replace(tmpfilt,"\\|$|&$","")
     }
     
-    if(!(tmpfilt=="")){
+    if(tmpfilt != ""){
       d$m_sub_all_oa <- subset(d$m,eval(parse(text=tmpfilt)))
     }
   

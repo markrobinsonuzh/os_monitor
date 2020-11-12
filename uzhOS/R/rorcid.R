@@ -5,7 +5,8 @@ empty_orcid <- function(){
                  type=character(),
                  doi=character(),
                  year=integer(),
-                 in_orcid=logical())
+                 in_orcid=logical()) %>% 
+    as_tibble_reac(name="orcid")
 }
 
 #' Retrieve a table of records from orcid.org
@@ -31,10 +32,7 @@ retrieve_from_orcid <- function(orcid, exclude = "data-set") {
   }
   works <- works[[1]]$works
   if(nrow(works)==0) {
-    df <- data.frame(title = character(0), journal=character(0),
-                     type = character(0), doi = character(0), 
-                     year = integer(0))
-    return(df)
+    return(empty_orcid())
   }
   works$doi <- sapply(works$`external-ids.external-id`, 
                       function(u) ifelse(nrow(u)>0, u$`external-id-value`[u$`external-id-type`=="doi"], NA))

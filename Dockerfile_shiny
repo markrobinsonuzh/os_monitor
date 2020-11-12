@@ -2,50 +2,34 @@ FROM rocker/shiny-verse
 
 # system libraries of general use
 RUN apt-get update && apt-get install -y \
-    sudo \
-    pandoc \
-    pandoc-citeproc \
-    libcurl4-gnutls-dev \
-    libcairo2-dev \
-    libxt-dev \
-    libssl-dev \
-    libssh2-1-dev \
-    git \
-    libxml2 \
-    libxml2-dev
-
-RUN apt-get install -y \
-    jq
-
-# Install R packages
-RUN install2.r rcrossref 
-RUN install2.r roadoi 
-RUN install2.r 	mongolite 
-RUN install2.r  shinyjs 
-RUN install2.r 	rentrez 
-RUN install2.r 	RefManageR 
-RUN install2.r	scholar 
-RUN install2.r	here 
-RUN install2.r	rorcid 
-RUN install2.r	testthat 
-RUN install2.r	devtools 
-RUN install2.r	shinyhelper 
-RUN install2.r	UpSetR
-RUN install2.r htmlTable
-RUN install2.r shinytest
-RUN install2.r rjson
-
-RUN apt-get install -y curl
-
-RUN apt-get update \
-      && apt-get install -y --no-install-recommends \
-          ca-certificates \
-          bzip2 \
-          libfontconfig \
-      && apt-get clean \
-      && rm -rf /var/lib/apt/lists/*
+	bzip2 \
+	ca-certificates \
+	ca-certificates-java \
+	curl \
+	default-jre-headless \
+    	git \
+	java-common \
+	jq \
+	libcurl4-gnutls-dev \
+    	libcairo2-dev \
+	libfontconfig \
+    	libssl-dev \
+    	libssh2-1-dev \
+    	libxml2 \
+    	libxml2-dev \
+    	libxt-dev \
+	odbc-postgresql \
+	openjdk-11-jre-headless \ 
+	pandoc \
+    	pandoc-citeproc \
+	sudo \
+	unixodbc \
+	unixodbc-dev \
+	vim  \
+	&& apt-get clean \
+	&& rm -rf /var/lib/apt/lists/*
   
-  RUN apt-get update \
+RUN apt-get update \
       && apt-get install -y --no-install-recommends \
       && mkdir /tmp/phantomjs \
       && curl -L https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2 \
@@ -55,33 +39,38 @@ RUN apt-get update \
       && cd \
       && rm -rf /tmp/* /var/lib/apt/lists/*
 
-#RUN R -e "shinytest::installDependencies()"
-
-RUN apt-get update && apt-get install -y \
-	ca-certificates-java \
-	default-jre-headless \
-	java-common \
-	openjdk-11-jre-headless
-
-#RUN cd /home/rstudio && \
-#	curl https://s3.amazonaws.com/rstudio-shinycannon-build/2019-11-22-20:24:21_1.0.0-9b22a92/deb/shinycannon_1.0.0-9b22a92_amd64.deb && \
-#	dpkg -i shinycannon_1.0.0-9b22a92_amd64.deb
-#
 
 
-RUN apt-get install -y unixodbc unixodbc-dev --install-suggests
-RUN apt-get install -y vim
-RUN install2.r DBI 
-RUN install2.r RPostgres
-RUN install2.r dbplyr
-RUN install2.r shiny
-RUN install2.r plotly
-RUN apt-get install odbc-postgresql
+# Install R packages
+RUN install2.r \
+	data.tree \
+	DBI \
+	dbplyr \
+	devtools \
+	future \
+	here \
+	htmlTable \
+	odbc \
+	plotly \
+	rcrossref \
+	RefManager \
+	rentrez \
+	rjson \
+	roadoi \
+	rorcid \
+	RPostgres \		
+	scholar \
+	shiny \
+	shinyFeedback \
+	shinyhelper \
+	shinyjs \
+	shinytest \
+	shinyTree \
+	shinyWidgets \
+	testthat \
+	UpSetR
+
 RUN R -e "devtools::install_github('krassowski/complex-upset')"
-RUN install2.r odbc
-RUN R -e "devtools::install_github('shinyTree/shinyTree')"
-RUN install2.r data.tree
-RUN install2.r shinyFeedback
 
 RUN rm -rf /srv/shiny-server/*
 RUN mkdir /srv/shiny-server/apps

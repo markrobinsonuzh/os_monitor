@@ -11,3 +11,6 @@
 */*.js.gz
 */*.zip
 */*.rds
+odbc.ini
+sql_dumps/*
+docker-compose_shiny.yml

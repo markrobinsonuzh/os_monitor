@@ -4,10 +4,8 @@ services:
                 build:
                         context: .
                         dockerfile: Dockerfile_db
-                environment:
-                        POSTGRES_PASSWORD: flora
-                        POSTGRES_USER: shiny
-                        POSTGRES_DB: oa
+                env_file:
+                        - postgres.env
                 volumes:
                         - type: volume
                           source: sql_data_os_monitor
@@ -23,7 +21,28 @@ services:
                         dockerfile: Dockerfile_shiny
                 ports:
                         - "3839:3839"
+        ganglia:
+                image: kurthuwig/ganglia:latest
+                ports:
+                        - "172.23.38.46:80:80"
+                        - "8649:8649"
+                        - "8649:8649/udp"
+                volumes:
+                        - type: volume
+                          source: ganglia_conf_os_monitor
+                          target: /etc/ganglia
+                          volume:
+                                  nocopy: true
+                        - type: volume
+                          source: ganglia_data_os_monitor
+                          target: /var/lib/ganglia
+                          volume:
+                                  nocopy: true
 
 volumes:
         sql_data_os_monitor:
+                external: true
+        ganglia_conf_os_monitor:
+                external: true
+        ganglia_data_os_monitor:
                 external: true

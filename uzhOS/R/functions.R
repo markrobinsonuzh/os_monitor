@@ -52,7 +52,7 @@ open_cols_fn <- function(){
     "green" = "chartreuse4", "gold" = "gold",
     "preprint" = "red", "bronze" = "darkgoldenrod4",
     "blue" = "blue", 
-    "unknown"="white") 
+    "unknown"="gray90") 
 }
 #' @export
 oa_status_order <- function(){
@@ -144,7 +144,8 @@ empty_zora <- function(){
                  authorkey = character(),
                  authroname = character(),
                  year = integer(),
-                 in_zora = logical())
+                 in_zora = logical()) %>% 
+    as_tibble_reac(name="zora")
 }
 
 #' create_zora

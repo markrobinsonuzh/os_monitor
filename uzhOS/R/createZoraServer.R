@@ -18,13 +18,13 @@ showReportUI <- function(id, label = "Show Report") {
 #' @import shiny
 #' @import future
 #' 
-scholarModalServer <- function(id, d) {
+scholarModalServer <- function(id, df_scholar) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
-        if(d$is_valid_scholar){
+        if(valid_input(df_scholar())){
           showModal(modalDialog("Retrieving and matching entries from Google scholar usually takes a few minutes. 
                                 The plots and tables will update automatically on successfull completion.",
                                 title = "Google scholar info", size="s",easyClose = TRUE))
@@ -44,20 +44,27 @@ scholarModalServer <- function(id, d) {
 #' @import shiny
 #' @import future
 #' 
-createZoraServer <- function(id, d, df_zora) {
+createZoraServer <- function(id, df_zora) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
+        assign_to_reactiveVal(df_zora, "try_to_retrieve", FALSE)
+        assign_to_reactiveVal(df_zora, "retrieval_done", FALSE)
+        assign_to_reactiveVal(df_zora, "successfully_retrieved", FALSE)
+        if (valid_input(df_zora())){
         future(seed=NULL,{
           con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
           create_zora(author_vec, con)
         }, globals = list(empty_zora=empty_zora,
                           tbl=tbl,
                           create_zora=create_zora,
-                          author_vec=isolate(d$author_vec))) %...>% 
-          df_zora() 
+                          author_vec=isolate(input_value(df_zora())))) %...>% 
+            to_tibble_reac_template(df_zora()) %...>% 
+            `retrieval_done<-`(TRUE) %...>% 
+            df_zora()
+        }
       })
     }
   )
@@ -72,13 +79,17 @@ createZoraServer <- function(id, d, df_zora) {
 #' @import shiny
 #' @import future
 #' 
-createOrcidServer <- function(id, d, df_orcid) {
+createOrcidServer <- function(id, df_orcid) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
-        if (!is.null(d$orcid) && d$orcid != ""){
+        assign_to_reactiveVal(df_orcid, "try_to_retrieve", FALSE)
+        assign_to_reactiveVal(df_orcid, "retrieval_done", FALSE)
+        assign_to_reactiveVal(df_orcid, "successfully_retrieved", FALSE)
+        if (valid_input(df_orcid())){
+          assign_to_reactiveVal(df_orcid, "try_to_retrieve", TRUE)
           future(seed=NULL,{
             con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
             retrieve_from_orcid(orcid) %>%
@@ -86,15 +97,30 @@ createOrcidServer <- function(id, d, df_orcid) {
           }, globals = list(empty_orcid=empty_orcid,
                             tbl=tbl,
                             retrieve_from_orcid=retrieve_from_orcid,
-                            orcid=isolate(d$orcid))) %...>% 
+                            orcid=isolate(input_value(df_orcid())))) %...>% 
+            to_tibble_reac_template(df_orcid()) %...>% 
+            `retrieval_done<-`(TRUE) %...>% 
             df_orcid()
-        } else {
-          empty_orcid()
         }
       })
     }
   )
 }
+ResultCheckServer <- function(id, df_whatever) {
+  moduleServer(
+    id,
+    ## Below is the module function
+    function(input, output, session) {
+      observeEvent(retrieval_done(df_whatever()),{
+        req(input$show_report)
+        if (retrieval_done(df_whatever())){
+          check_and_set_successfull_retrieval(df_whatever)
+        }
+      })
+    }
+  )
+}
+
 
 #' create scholar module
 #'
@@ -105,23 +131,26 @@ createOrcidServer <- function(id, d, df_orcid) {
 #' @import shiny
 #' @import future
 #' 
-createScholarServer <- function(id, d, df_scholar) {
+createScholarServer <- function(id, df_scholar) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
-        if (!is.null(d$scholar) && d$scholar != ""){
-          print("do scholar")
+        assign_to_reactiveVal(df_scholar, "try_to_retrieve", FALSE)
+        assign_to_reactiveVal(df_scholar, "retrieval_done", FALSE)
+        assign_to_reactiveVal(df_scholar, "successfully_retrieved", FALSE)
+        if (valid_input(df_scholar())){
+          assign_to_reactiveVal(df_scholar, "try_to_retrieve", TRUE)
           future(seed=NULL,{
             retrieve_from_scholar(scholar)
           }, globals = list(empty_scholar=empty_scholar,
                             tbl=tbl,
                             retrieve_from_scholar=retrieve_from_scholar,
-                            scholar=isolate(d$scholar))) %...>%
+                            scholar=isolate(input_value(df_scholar())))) %...>% 
+            to_tibble_reac_template(df_scholar()) %...>% 
+            `retrieval_done<-`(TRUE) %...>% 
             df_scholar()
-        }else {
-          empty_scholar()
         }
       })
     }
@@ -137,25 +166,32 @@ createScholarServer <- function(id, d, df_scholar) {
 #' @import shiny
 #' @import future
 #' 
-createPubmedServer <- function(id, d, df_pubmed) {
+createPubmedServer <- function(id, df_pubmed) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
-        future(seed=NULL,{
-          tryCatch({retrieve_from_pubmed(pubmed)},
-                   error=function(e) empty_pubmed())
-        }, globals = list(empty_pubmed=empty_pubmed,
-                          tbl=tbl,
-                          retrieve_from_pubmed=retrieve_from_pubmed,
-                          pubmed=isolate(d$pubmed))) %...>%
-          df_pubmed()
+        assign_to_reactiveVal(df_pubmed, "try_to_retrieve", FALSE)
+        assign_to_reactiveVal(df_pubmed, "retrieval_done", FALSE)
+        assign_to_reactiveVal(df_pubmed, "successfully_retrieved", FALSE)
+        if (valid_input(df_pubmed())){
+          assign_to_reactiveVal(df_pubmed, "try_to_retrieve", TRUE)
+          future(seed=NULL,{
+            tryCatch({retrieve_from_pubmed(pubmed)},
+                     error=function(e) empty_pubmed())
+          }, globals = list(empty_pubmed=empty_pubmed,
+                            tbl=tbl,
+                            retrieve_from_pubmed=retrieve_from_pubmed,
+                            pubmed=isolate(input_value(df_pubmed())))) %...>% 
+            to_tibble_reac_template(df_pubmed()) %...>% 
+            `retrieval_done<-`(TRUE) %...>% 
+            df_pubmed()
+        }
       })
     }
   )
 }
-
 
 #' create publons module
 #'
@@ -166,20 +202,28 @@ createPubmedServer <- function(id, d, df_pubmed) {
 #' @import shiny
 #' @import future
 #' 
-createPublonsServer <- function(id, d, df_publons) {
+createPublonsServer <- function(id, df_publons) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
-        future(seed=NULL,{
-          tryCatch({retrieve_from_publons(publons)},
-                   error=function(e) {return(empty_publons())})
-          }, globals = list(empty_publons=empty_publons,
-                            tbl=tbl,
-                            retrieve_from_publons=retrieve_from_publons,
-                            publons=isolate(d$publons))) %...>%
-          df_publons()
+        req(input$show_report)
+        assign_to_reactiveVal(df_publons, "try_to_retrieve", FALSE)
+        assign_to_reactiveVal(df_publons, "retrieval_done", FALSE)
+        assign_to_reactiveVal(df_publons, "successfully_retrieved", FALSE)
+        if (valid_input(df_publons())){
+          future(seed=NULL,{
+            tryCatch({retrieve_from_publons(publons)},
+                     error=function(e) {return(empty_publons())})
+            }, globals = list(empty_publons=empty_publons,
+                              tbl=tbl,
+                              retrieve_from_publons=retrieve_from_publons,
+                              publons=isolate(input_value(df_publons())))) %...>% 
+            to_tibble_reac_template(df_publons()) %...>% 
+            `retrieval_done<-`(TRUE) %...>%
+            df_publons()
+        }
       })
     }
   )
@@ -243,7 +287,7 @@ ProgressbarCreateServer <- function(id) {
 #' @import shiny
 #' @import future
 #' 
-DeactivateShowReportServer <- function(id) {
+DeactivateShowReportServer <- function(id, d) {
   moduleServer(
     id,
     ## Below is the module function
@@ -251,6 +295,7 @@ DeactivateShowReportServer <- function(id) {
       # ProgressbarCreateServer("show_report")
       observeEvent({input$show_report},{
           shinyjs::disable("show_report")
+        d$m <- d$m_filt <- d$m_filt_sub <-  NULL
       })  
     }
   )
@@ -265,15 +310,17 @@ DeactivateShowReportServer <- function(id) {
 #' @import shiny
 #' @import future
 #' 
-ActivateShowReportServer <- function(id, d, df_zora, df_orcid, df_pubmed, df_publons, df_scholar) {
+ActivateShowReportServer <- function(id, df_ls) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
-      # ProgressbarCreateServer("show_report")
-      observeEvent({df_zora();df_orcid();df_pubmed();df_publons();df_scholar()},{
-        nr_datasets <- purrr::map_lgl(c(df_zora,df_orcid,df_pubmed,df_publons,df_scholar), ~ dim(req(.x()))[1] != 0) %>% sum()
-        nr_datasets_total <- c(d$is_valid_zora, d$is_valid_orcid, d$is_valid_pubmed, d$is_valid_publons, d$is_valid_scholar) %>% sum()
+      observeEvent({
+        purrr::map_lgl(df_ls, ~ retrieval_done(.x()))
+        },{
+          print("test activate show report")
+        nr_datasets <- purrr::map_lgl(df_ls, ~ retrieval_done(.x())) %>% sum()
+        nr_datasets_total <- purrr::map_lgl(df_ls, ~ valid_input(.x())) %>% sum()
         if(nr_datasets==nr_datasets_total){
           shinyjs::enable("show_report")
         }
@@ -292,16 +339,14 @@ ActivateShowReportServer <- function(id, d, df_zora, df_orcid, df_pubmed, df_pub
 #' @import shiny
 #' @import future
 #' 
-ProgressbarUpdateServer <- function(id, d, df_zora, df_orcid, df_pubmed, df_publons, df_scholar) {
+ProgressbarUpdateServer <- function(id, df_ls) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
-      # ProgressbarCreateServer("show_report")
-      observeEvent({df_zora();df_orcid();df_pubmed();df_publons();df_scholar()},{
-        nr_datasets <- purrr::map_lgl(c(df_zora,df_orcid,df_pubmed,df_publons,df_scholar), ~ dim(req(.x()))[1] != 0) %>% sum()
-        nr_datasets_total <- c(d$is_valid_zora, d$is_valid_orcid, d$is_valid_pubmed, d$is_valid_publons, d$is_valid_scholar) %>% sum()
-        
+      observeEvent({purrr::map_lgl(df_ls, ~ retrieval_done(.x()))},{
+        nr_datasets <- purrr::map_lgl(df_ls, ~ retrieval_done(.x())) %>% sum()
+        nr_datasets_total <- purrr::map_lgl(df_ls, ~ valid_input(.x())) %>% sum()
         updateProgressBar(
           session = session,
           id = "pb_data_retrieval",

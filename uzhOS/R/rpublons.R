@@ -4,7 +4,8 @@ empty_publons <- function(){
                  title=character(),
                  date=character(),
                  year=integer(),
-                 in_publons=logical())
+                 in_publons=logical()) %>% 
+    as_tibble_reac(name="publons")
 }
 
 #' retrieve from publons

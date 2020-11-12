@@ -25,7 +25,7 @@ services:
                         PASSWORD: flora
                 volumes:
                         - type: bind
-                          source: /home/reto/ownCloud/Projects/open_access/os_monitor
+                          source: /home/reto/Nextcloud/Projects/open_access/os_monitor
                           target: /srv/shiny-server/os_monitor
 
                 ports:

@@ -70,7 +70,7 @@ alias_selected_Server <- function(id, author_search, con,authorstablename = "aut
             #   org_unit_tmp <- rbind(org_unit_tmp,data.frame(fac=rep("",dim(fac_tmp)[1]-fac_org_diff),count=rep("",fac_org_diff)))
             # }
             fac_org_type_max <- max(c(dim(org_unit_tmp)[1], dim(fac_tmp)[1], dim(type_tmp)[1]))
-            org_unit_tmp <- rbind(org_unit_tmp,data.frame(fac=rep("",fac_org_type_max-dim(org_unit_tmp)[1]),
+            org_unit_tmp <- rbind(org_unit_tmp,data.frame(dept=rep("",fac_org_type_max-dim(org_unit_tmp)[1]),
                                                 count=rep("",fac_org_type_max-dim(org_unit_tmp)[1])))
             fac_tmp <- rbind(fac_tmp,data.frame(fac=rep("",fac_org_type_max-dim(fac_tmp)[1]),
                                                 count=rep("",fac_org_type_max-dim(fac_tmp)[1])))
@@ -155,7 +155,7 @@ alias_selected_orcid_auth_Server <- function(id) {
       reactive({
         orcid_ind <- str_which(input$aliases_selected,"([:alnum:]{4}-){3}[:alnum:]{4}")
         if(length(orcid_ind)>=1){
-          orcid <- str_extract_all(input$aliases_selected[orcid_ind][1],"([:alnum:]{4}-){3}[:alnum:]{4}")
+          orcid <- str_extract_all(input$aliases_selected[orcid_ind][1],"([:alnum:]{4}-){3}[:alnum:]{4}")[[1]]
           author_vec <- input$aliases_selected
         } else{
           orcid <- NULL

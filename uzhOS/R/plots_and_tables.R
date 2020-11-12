@@ -42,7 +42,8 @@ oa_status_time_plot <- function(tbl_merge,cutoff_year=2000,colname=year,title="Z
                     color = ~ !!q_oa_status_used, 
                     colors = open_cols_fn()[names(open_cols_fn()) %in% unique(tmptib_1 %>% pull(!!q_oa_status_used))],
                     hoverinfo="y",
-                    legendgroup= ~ !!q_oa_status_used) %>%
+                    legendgroup= ~ !!q_oa_status_used,
+                    source = "C") %>%
             add_bars() %>%
             layout(barmode = "stack",
                    title = title,

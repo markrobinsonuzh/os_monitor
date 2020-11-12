@@ -13,7 +13,7 @@ suppressPackageStartupMessages({
   library(future)
   plan(multiprocess)
 })
-on_rstudio <- FALSE
+on_rstudio <- TRUE
 if(on_rstudio){
   setwd("/srv/shiny-server/os_monitor/shiny_app")
   maindir <- file.path(getwd(),"..")
@@ -141,7 +141,8 @@ ui <- navbarPage("Open science monitor UZH",
                                shinyjs::hidden(),
                              verbatimTextOutput("bibsummary")
                              ),
-                    tabPanel("Closed in Zora", DT::dataTableOutput("table_closed_in_zora")),
+                    tabPanel("Pubmed citations", DT::dataTableOutput("table_pubmetric")),
+                    tabPanel("Pubmed citations Plot", uiOutput("plot_pubmetric")),
                     tabPanel("Percent closed", DT::dataTableOutput("table_oa_percent_time"))
         )
         )
@@ -180,6 +181,9 @@ server = function(input, output,session) {
     print(name)
     })
   
+  # have some tabs hidden at the start
+  hideTab("author_plots_tables", "Bibtex")
+  hideTab("author_plots_tables", "Upset Plot")
   ### Author ###################################################################
   observeEvent(input$showSidebar, {
     shinyjs::show(id = "Sidebar")
@@ -202,6 +206,15 @@ server = function(input, output,session) {
   # plots and tables
   p_t <- reactiveValues()
   updateSelectizeInput(session, 'author_search', choices = unique_authorkeys_processed, server = TRUE)
+  
+  df_zora <- reactiveVal(empty_zora())
+  df_orcid <- reactiveVal(empty_orcid())
+  df_publons <- reactiveVal(empty_publons())
+  df_scholar <- reactiveVal(empty_scholar())
+  df_pubmed <- reactiveVal(empty_pubmed())
+  
+  df_ls <- list(df_zora, df_orcid, df_pubmed, df_publons, df_scholar)
+  all_poss_datasets <- c("zora","orcid","pubmed","publons","scholar")
   
   # show available alias if any author_search given, otherwise hide
   observe({
@@ -243,17 +256,36 @@ server = function(input, output,session) {
   })
   # Orcid and author vector into reactive value
   orcid_auth_react <- alias_selected_orcid_auth_Server("alias_selected")
-  observe({
+  observeEvent({orcid_auth_react()},{
+    req(NS("alias_selected",input$aliases_selected))
+    print("here")
     orcid_auth_tmp <- orcid_auth_react()
-    d$orcid <- orcid_auth_tmp[["orcid"]]
-    d$author_vec <- orcid_auth_tmp[["author_vec"]]
-    d$is_valid_zora <- TRUE
+    print(orcid_auth_tmp)
+    if (!is.null(orcid_auth_tmp[["orcid"]])){
+      assign_to_reactiveVal(df_orcid, "input_value", orcid_auth_tmp[["orcid"]])
+    } else {
+      assign_to_reactiveVal(df_orcid, "input_value", "")
+    }
+    if (!is.null(orcid_auth_tmp[["author_vec"]])){
+      assign_to_reactiveVal(df_zora, "input_value", orcid_auth_tmp[["author_vec"]])
+    } else {
+      assign_to_reactiveVal(df_zora, "input_value", "")
+    }
+    # d$orcid <- orcid_auth_tmp[["orcid"]]
+    # d$author_vec <- orcid_auth_tmp[["author_vec"]]
+    
+    if (!is.null(input_value(df_zora())) || input_value(df_zora()) != ""){
+      assign_to_reactiveVal(df_zora, "valid_input", TRUE)
+    } else {
+      assign_to_reactiveVal(df_zora, "valid_input", FALSE)
+    }
+    # d$is_valid_zora <- TRUE
   })
 
   # automated string operations, enable, disable report buttons
-  observeEvent(d$author_vec,{
-    updateTextInput(session,NS("input_check", "orcid"),value=d$orcid)
-    if (is.null(d$author_vec)){
+  observeEvent(input_value(df_zora()),{
+    updateTextInput(session,NS("input_check", "orcid"),value=input_value(df_orcid()))
+    if (is.null(input_value(df_zora())) || input_value(df_zora()) == ""){
         disable(NS("show_report", "show_report"))
         disable("report")
         disable(NS("input_check", "activate_pubmed"))
@@ -264,33 +296,45 @@ server = function(input, output,session) {
     }
   })
   # pubmed activating, model dialog and query generation
-  pubmedActivateServer("input_check", d, con)
-  observeEvent({d$pubmed},{
-    updateTextAreaInput(session,NS("input_check", "pubmed"),value=d$pubmed)
+  pubmedActivateServer("input_check", df_zora, df_orcid, df_pubmed, con)
+  observeEvent({input_value(df_pubmed())},{
+    updateTextAreaInput(session,NS("input_check", "pubmed"),value=input_value(df_pubmed()))
   })
 
   # check for valid inputs
-  orcidCheckServer("input_check", d)
-  pubmedCheckServer("input_check", d)
-  publonsCheckServer("input_check", d)
-  scholarCheckServer("input_check", d)
+  orcidCheckServer("input_check", df_orcid)
+  pubmedCheckServer("input_check", df_pubmed)
+  publonsCheckServer("input_check", df_publons)
+  scholarCheckServer("input_check", df_scholar)
+  
+  
+  # deactivate 'show_report' button while processing
+  DeactivateShowReportServer("show_report")
+  ActivateShowReportServer("show_report", df_ls)
   
   # wait for clicking of "show_report", then retrieve all data asynchronously 
-  scholarModalServer("show_report",d)
+  scholarModalServer("show_report", df_scholar)
   tbl_merge <- reactiveVal(NULL)
-  df_zora <- reactiveVal(empty_zora())
-  createZoraServer("show_report", d, df_zora)
-  df_orcid <- reactiveVal(empty_orcid())
-  createOrcidServer("show_report", d, df_orcid)
-  df_publons <- reactiveVal(empty_publons())
-  createPublonsServer("show_report", d, df_publons)
-  df_scholar <- reactiveVal(empty_scholar())
-  createScholarServer("show_report", d, df_scholar)
-  df_pubmed <- reactiveVal(empty_pubmed())
-  createPubmedServer("show_report", d, df_pubmed)
+  
+  createZoraServer("show_report", df_zora)
+  ResultCheckServer("show_report", df_zora)
+  
+  createOrcidServer("show_report", df_orcid)
+  ResultCheckServer("show_report", df_orcid)
+  
+  createPublonsServer("show_report", df_publons)
+  ResultCheckServer("show_report", df_publons)
+  
+  createScholarServer("show_report", df_scholar)
+  ResultCheckServer("show_report", df_scholar)
+  
+  createPubmedServer("show_report", df_pubmed)
+  ResultCheckServer("show_report", df_pubmed)
+  
+  # df_pubmetric <- reactiveVal(empty_pubmetric())
   # merge results when they become available
-  observeEvent({df_zora();df_orcid();df_pubmed();df_publons()},{
-    if (any(purrr::map_lgl(c(df_zora,df_orcid,df_pubmed,df_publons), ~ dim(req(.x()))[1] != 0))){
+  observeEvent({purrr::map_lgl(df_ls, ~ successfully_retrieved(.x()))},{
+    if (any(purrr::map_lgl(c(df_zora,df_orcid,df_pubmed,df_publons), ~successfully_retrieved(.x())))){
       print("do merge")
       future(seed=NULL,{
         con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
@@ -302,46 +346,65 @@ server = function(input, output,session) {
   # check if all except scholar are merged, then give signal to merge scholar as well
   observeEvent({tbl_merge()},{
     req(tbl_merge())
-    all_poss_datasets <- c("author_vec","orcid","pubmed","publons","scholar")
-    datainmerge <- tbl_merge() %>% dplyr::select(starts_with("in_")) %>% names() %>% stringr::str_replace("in_","")
-    datainmerge[datainmerge=="zora"] <- "author_vec"
-    dataininput <- c(d$is_valid_zora, d$is_valid_orcid, d$is_valid_pubmed, d$is_valid_publons, d$is_valid_scholar)
-    if ((length(datainmerge) == (sum(dataininput)-1)) && ("scholar" %in% all_poss_datasets[dataininput])){
+    d$datainmerge <- tbl_merge() %>% dplyr::select(starts_with("in_")) %>% names() %>% stringr::str_replace("in_","")
+    d$dataininput <- purrr::map_lgl(all_poss_datasets, function(df){
+      if (valid_input(eval(sym(paste0("df_",df)))())){
+        if (retrieval_done(eval(sym(paste0("df_",df)))()) && !successfully_retrieved(eval(sym(paste0("df_",df)))())){
+          FALSE
+        } else {
+          TRUE
+        }
+      } else {
+        FALSE
+      }
+    })
+    # if all retrieved, but scholar not yet merged, give signal to merge scholar
+    if ((length(d$datainmerge) == (sum(d$dataininput)-1)) && successfully_retrieved(df_scholar())){
       d$do_scholar_match <- TRUE
-      print("signal scholar match")
+      # if all merged (including scholar, or scholar not present) get citation metrics
+    } else if (length(d$datainmerge) == (sum(d$dataininput))){
+      future(seed=NULL,{
+        retrieve_from_pubmed_with_doi(isolate(tbl_merge())[["doi"]]) %>% 
+          dplyr::right_join(isolate(tbl_merge()), by= "doi", suffix = c(".pubmetric","")) 
+      }, globals = list(retrieve_from_pubmed_with_doi=retrieve_from_pubmed_with_doi,
+                        tbl_merge=tbl_merge)) %...>% 
+        tbl_merge()
     }
   })
 
   # combine scholar with tbl_merge
-  observeEvent({df_scholar();d$do_scholar_match},{
-    print("check scholar")
-    if (d$do_scholar_match && (dim(df_scholar())[1] != 0)){
-      print("merge scholar")
+  observeEvent({successfully_retrieved(df_scholar());d$do_scholar_match},{
+    if (d$do_scholar_match && successfully_retrieved(df_scholar())){
       future(seed=NULL,{
         str_length
         tmpscholar <- df_scholar_matching(isolate(tbl_merge()),isolate(df_scholar()))
-        dplyr::full_join(isolate(tbl_merge()),tmpscholar,by="doi",suffix=c("",".scholar"))
-      }) %...>%
-        dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x))) %...>%
+        dplyr::full_join(isolate(tbl_merge()),tmpscholar,by="doi",suffix=c("",".scholar")) %>% 
+          dplyr::mutate(#year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year)),                        ,
+            overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),levels = names(open_cols_fn()))) %>% 
+          dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
+      }) %...>% 
+        dplyr::mutate(year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year))) %...>% 
         tbl_merge()
       d$do_scholar_match <- FALSE
     }
   })
   
-  # deactivate 'show_report' button while processing
-  ActivateShowReportServer("show_report", d, df_zora, df_orcid, df_pubmed, df_publons, df_scholar)
-  DeactivateShowReportServer("show_report")
-  
   # progress bar
   ProgressbarCreateServer("show_report")
-  ProgressbarUpdateServer("show_report", d, df_zora, df_orcid, df_pubmed, df_publons, df_scholar)
+  ProgressbarUpdateServer("show_report", df_ls)
   
   # save 'tbl_merge' in 'm' for downstream analysis
-  observe({
+  observeEvent({tbl_merge()},{
     req(tbl_merge())
     d$m <- tbl_merge()
     d$m_sub <- tbl_merge()
     d$m_sub_sel <- tbl_merge()
+    # hide upset plot if only one dataset available
+    if (length(d$datainmerge) < 2){
+      hideTab("author_plots_tables", "Upset Plot")
+    } else {
+      showTab("author_plots_tables", "Upset Plot")
+    }
   })
   
   # activate some stuff and preparation
@@ -376,9 +439,9 @@ server = function(input, output,session) {
   # update summary when subset changes
   observeEvent({d$m_sub},{
     # summary of subset table
-    overall_oa_status <- dplyr::pull(d$m_sub,"overall_oa")
-    levels(overall_oa_status) <- c(levels(overall_oa_status),"unknown")
-    overall_oa_status[is.na(overall_oa_status)] <- "unknown"
+    overall_oa_status <- dplyr::pull(d$m_sub,"overall_oa") %>% as.character()
+    # overall_oa_status[is.na(overall_oa_status)] <- "unknown"
+    # levels(overall_oa_status) <- names(open_cols_fn())
     output$sub_summary <- renderPrint({
       print(paste("Total:",length(overall_oa_status)))
       table(overall_oa_status,useNA = "ifany")
@@ -400,34 +463,34 @@ server = function(input, output,session) {
                                                                title = paste(paste0(d$in_selection,collapse = " + "), "OA Status"),
                                                                oa_status_used=overall_oa,use_plotly=TRUE)},
                                           error=function(e) {print(e);ggplot() + geom_blank()})})
-  # output$plot_selected <- renderPlot({
   output$plot_selected <- renderPlotly({
-      req(d$m_sub)
+    req(d$m_sub)
     p_t$selected_plot()
   })
-  observeEvent(event_data("plotly_click"),{
+  observeEvent(event_data("plotly_click", source = "C"),{
     req(d$m_sub)
-    print(event_data("plotly_click"))
+    ev_dat <- event_data("plotly_click", source = "C")
     # only use existing oa status
     oa_order <- names(open_cols_fn()[names(open_cols_fn()) %in% unique(d$m_sub$overall_oa)])
-    modulus_click <- event_data("plotly_click")$curveNumber %% length(oa_order)
-    d$plot_selected_ly_clicked <- list(year=event_data("plotly_click")$x,
+    modulus_click <- ev_dat$curveNumber %% length(oa_order)
+    d$plot_selected_ly_clicked <- list(year=ev_dat$x,
                                        oa_status=oa_order[modulus_click+1])
   })
-
+  
   # popup table
   p_t$modal_selected_table <- reactive({req(d$plot_selected_ly_clicked)
     tryCatch({overall_closed_table(
       dplyr::filter(d$m_sub,
                     year==d$plot_selected_ly_clicked[["year"]],
-                    overall_oa==d$plot_selected_ly_clicked[["oa_status"]]))
-      },error=function(e) DT::datatable(head(d$m,0)))})
-  observeEvent(event_data("plotly_click"),{
+                    overall_oa==d$plot_selected_ly_clicked[["oa_status"]]),
+      oa_status_zora = FALSE)
+    },error=function(e) DT::datatable(head(d$m,0)))})
+  observeEvent(event_data("plotly_click", source = "C"),{
     showModal(modalDialog(DT::renderDataTable({
       p_t$modal_selected_table()
     }),title = "Selection", size="l",easyClose = TRUE))
   })
-
+  
   ### selected closed table  ---------------------------------------------------
   # apply selection
   observeEvent(input$apply_DT_selection,{
@@ -440,22 +503,34 @@ server = function(input, output,session) {
     d$m_sub_sel <- d$m_sub
   })
   # render table
-  p_t$selected_closed_table <- reactive({tryCatch({overall_closed_table(d$m_sub_sel)},
-                                                 error=function(e) DT::datatable(head(d$m,0)))})
-  # observe({data_table_selection_processing_Server("DT_author_selection",d)})
-  # p_t$selected_closed_table <- data_table_selection_table_Server("DT_author_selection",d$m, d$m_sub_sel)
+  p_t$selected_closed_table <- reactive({tryCatch({overall_closed_table(d$m_sub_sel, oa_status_zora = FALSE)},
+                                                  error=function(e) DT::datatable(head(d$m,0)))})
   output$table_selected_closed <- DT::renderDataTable({
     req(d$m_sub_sel)
     p_t$selected_closed_table()
   })
-
-
-  ### Zora closed table  -------------------------------------------------------
-  p_t$closed_in_zora_table <- reactive({closed_in_zora_table(d$zora)})
-  output$table_closed_in_zora <- DT::renderDataTable({
-    req(d$zora)
-      p_t$closed_in_zora_table()
+  
+  
+  ### Pubmetric table  -------------------------------------------------------
+  output$table_pubmetric <- DT::renderDataTable({
+    req(d$m_sub)
+    if("relative_citation_ratio" %in% names(d$m_sub)){
+      d$m_sub %>% 
+        dplyr::filter(!is.na(relative_citation_ratio)) %>% 
+        dplyr::select(doi,relative_citation_ratio,nih_percentile,citation_count,in_pubmed )
+    }
   })
+  
+  output$plot_pubmetric <- renderUI({
+    req(d$m_sub)
+    if("relative_citation_ratio" %in% names(d$m_sub)){
+      d$m_sub %>% 
+        dplyr::filter(!is.na(relative_citation_ratio)) %>% 
+        dplyr::select(doi,relative_citation_ratio,nih_percentile,citation_count,title, year,overall_oa, journal ) %>% 
+        pubmed_citation_plotly()
+    }
+  })
+
   ### OA percent time table  ---------------------------------------------------
   p_t$oa_percent_time_table <- reactive({tryCatch({oa_percent_time_table(d$m,input$range_year)},error=function(e) ggplot() + geom_blank())})
   output$table_oa_percent_time <- DT::renderDataTable({

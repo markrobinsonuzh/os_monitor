@@ -1,4 +1,10 @@
 #' @export
+check_if_likely_scholar <- function(scholar){
+  stringr::str_detect(scholar,"[-_0-9A-Za-z]{12}")
+}
+
+
+#' @export
 empty_scholar<- function(){
   tibble::tibble(year = double(),
                  title = character(),
@@ -8,7 +14,8 @@ empty_scholar<- function(){
                  cites = double(),
                  cid = character(),
                  pubid = character(),
-                 in_scholar = logical())
+                 in_scholar = logical()) %>% 
+    as_tibble_reac(name="scholar")
 }
 
 #' Retrieve a table of records from Google Scholar

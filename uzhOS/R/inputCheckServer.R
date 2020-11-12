@@ -7,7 +7,7 @@
 #' @import shiny
 #' @import future
 #' 
-pubmedActivateServer <- function(id, d, con) {
+pubmedActivateServer <- function(id, df_zora, df_orcid, df_pubmed, con) {
   moduleServer(
     id,
     ## Below is the module function
@@ -18,12 +18,13 @@ pubmedActivateServer <- function(id, d, con) {
                               a("NCBI pubmedhelp",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"),
                               title = "Pubmed query info", size="s",easyClose = TRUE))
         
-        d$pubmed <- tryCatch({
-          pubmed_search_string_from_zora_id(d$author_vec[1],
+        pubmed_value <- tryCatch({
+          pubmed_search_string_from_zora_id(input_value(df_zora()),
                                             con, 
                                             cutoff_year= c(2000),
-                                            orcid = unlist(ifelse(is.null(d$orcid),list(NULL),d$orcid)))
+                                            orcid = unlist(ifelse(input_value(df_orcid()) == "",list(NULL),input_value(df_orcid()))))
         },error=function(e)"")
+        assign_to_reactiveVal(df_pubmed, "input_value", pubmed_value)
         enable("pubmed")
       })
     })}
@@ -41,25 +42,25 @@ pubmedActivateServer <- function(id, d, con) {
 #' @import shiny
 #' @import future
 #' 
-orcidCheckServer <- function(id, d) {
+orcidCheckServer <- function(id, df_orcid) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent(input$orcid,{
-        if(input$orcid != ""){
-          if(check_if_likely_orcid(input$orcid)){
-            d$is_valid_orcid <- any(tryCatch(rorcid::as.orcid(x = input$orcid),error=function(e) "") != "")
-          } else {
-            d$is_valid_orcid <- FALSE
-          }
-          shinyFeedback::feedbackWarning(
-            "orcid", 
-            !d$is_valid_orcid,
-            "Please select a valid Orcid!"
-          ) 
+        if(check_if_likely_orcid(input$orcid)){
+          assign_to_reactiveVal(df_orcid, 
+                                "valid_input",
+                                any(tryCatch(rorcid::as.orcid(x = input$orcid),error=function(e) "") != ""))
+        } else {
+          assign_to_reactiveVal(df_orcid, "valid_input", FALSE)
         }
-        d$orcid <- input$orcid
+        shinyFeedback::feedbackWarning(
+          "orcid", 
+          (input$orcid != "" && !valid_input(df_orcid())),
+          "Please select a valid Orcid!"
+        ) 
+        assign_to_reactiveVal(df_orcid, "input_value", input$orcid)
       })})}
 
 #' create zora module
@@ -71,18 +72,18 @@ orcidCheckServer <- function(id, d) {
 #' @import shiny
 #' @import future
 #' 
-pubmedCheckServer <- function(id, d) {
+pubmedCheckServer <- function(id, df_pubmed) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent(input$pubmed,{
         if(input$pubmed != ""){
-          d$is_valid_pubmed <- TRUE
+          assign_to_reactiveVal(df_pubmed, "valid_input", TRUE)
         } else {
-          d$is_valid_pubmed <- FALSE
+          assign_to_reactiveVal(df_pubmed, "valid_input", FALSE)
         }
-        d$pubmed <- input$pubmed
+        assign_to_reactiveVal(df_pubmed, "input_value", input$pubmed)
       })
     })}
 
@@ -95,21 +96,24 @@ pubmedCheckServer <- function(id, d) {
 #' @import shiny
 #' @import future
 #' 
-scholarCheckServer <- function(id, d) {
+scholarCheckServer <- function(id, df_scholar) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent(input$scholar,{
-        if(input$scholar != ""){
-          d$is_valid_scholar <- any(tryCatch(scholar::get_profile(input$scholar),error=function(e) "") != "")
-          shinyFeedback::feedbackWarning(
-            "scholar", 
-            !d$is_valid_scholar,
-            "Please select a valid Google scholar id!"
-          )
-          d$scholar <- input$scholar
+        if (check_if_likely_scholar(input$scholar)){
+          assign_to_reactiveVal(df_scholar, "valid_input", any(tryCatch(scholar::get_profile(input$scholar),error=function(e) "") != ""))
+        } else {
+          assign_to_reactiveVal(df_scholar, "valid_input", FALSE)
         }
+        shinyFeedback::feedbackWarning(
+          "scholar", 
+          (input$scholar != "" && !valid_input(df_scholar())),
+          "Please select a valid Google scholar id!"
+        )
+        assign_to_reactiveVal(df_scholar, "input_value", input$scholar)
+        
       })
     })}
 
@@ -122,20 +126,20 @@ scholarCheckServer <- function(id, d) {
 #' @import shiny
 #' @import future
 #' 
-publonsCheckServer <- function(id, d) {
+publonsCheckServer <- function(id, df_publons) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent(input$publons,{
         if(input$publons != ""){
-          d$is_valid_publons <- in_publons(input$publons)
+          assign_to_reactiveVal(df_publons, "valid_input", in_publons(input$publons))
           shinyFeedback::feedbackWarning(
             "publons", 
-            !d$is_valid_publons,
+            !valid_input(df_publons()),
             "Please select a valid ResearcherID!"
           )
         }
-        d$publons <- input$publons
+        assign_to_reactiveVal(df_publons, "input_value", input$publons)
       })
       })}

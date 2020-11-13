@@ -50,10 +50,12 @@ RUN install2.r \
 	future \
 	here \
 	htmlTable \
+	iCiteR \
+	mongolite \
 	odbc \
 	plotly \
 	rcrossref \
-	RefManager \
+	readr \
 	rentrez \
 	rjson \
 	roadoi \
@@ -71,6 +73,8 @@ RUN install2.r \
 	UpSetR
 
 RUN R -e "devtools::install_github('krassowski/complex-upset')"
+RUN R -e "devtools::install_github('ropensci/RefManageR')"
+
 
 RUN rm -rf /srv/shiny-server/*
 RUN mkdir /srv/shiny-server/apps

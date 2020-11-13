@@ -17,7 +17,6 @@ Imports:
   ggplot2,
   stringr,
   here,
-  mongolite,
   DT,
   rorcid,
   httr,

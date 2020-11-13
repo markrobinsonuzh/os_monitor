@@ -13,6 +13,22 @@ showReportUI <- function(id, label = "Show Report") {
     actionButton(ns("show_report"), label = label),
   )
 }
+#' @export
+#' @import shiny
+#' @import future
+#' 
+showReportValueServer <- function(id, d) {
+  moduleServer(
+    id,
+    ## Below is the module function
+    function(input, output, session) {
+      observeEvent(input$show_report,{
+        shiny_print_logs(paste("show_report pressed, start retrieval... (pressed",input$show_report,"times)"), sps)
+        d$show_report <- input$show_report
+      })
+    }
+  )
+}
 
 #' @export
 #' @import shiny
@@ -44,7 +60,7 @@ scholarModalServer <- function(id, df_scholar) {
 #' @import shiny
 #' @import future
 #' 
-createZoraServer <- function(id, df_zora) {
+createZoraServer <- function(id, df_zora, sps) {
   moduleServer(
     id,
     ## Below is the module function
@@ -54,6 +70,7 @@ createZoraServer <- function(id, df_zora) {
         assign_to_reactiveVal(df_zora, "retrieval_done", FALSE)
         assign_to_reactiveVal(df_zora, "successfully_retrieved", FALSE)
         if (valid_input(df_zora())){
+          shiny_print_logs(paste("retrieve zora",input$show_report), sps)
         future(seed=NULL,{
           con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
           create_zora(author_vec, con)
@@ -79,7 +96,7 @@ createZoraServer <- function(id, df_zora) {
 #' @import shiny
 #' @import future
 #' 
-createOrcidServer <- function(id, df_orcid) {
+createOrcidServer <- function(id, df_orcid, sps) {
   moduleServer(
     id,
     ## Below is the module function
@@ -89,6 +106,7 @@ createOrcidServer <- function(id, df_orcid) {
         assign_to_reactiveVal(df_orcid, "retrieval_done", FALSE)
         assign_to_reactiveVal(df_orcid, "successfully_retrieved", FALSE)
         if (valid_input(df_orcid())){
+          shiny_print_logs(paste("retrieve orcid:",input_value(df_orcid())), sps)
           assign_to_reactiveVal(df_orcid, "try_to_retrieve", TRUE)
           future(seed=NULL,{
             con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
@@ -106,15 +124,18 @@ createOrcidServer <- function(id, df_orcid) {
     }
   )
 }
-ResultCheckServer <- function(id, df_whatever) {
+ResultCheckServer <- function(id, df_whatever, sps) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent(retrieval_done(df_whatever()),{
         req(input$show_report)
-        if (retrieval_done(df_whatever())){
+        if (retrieval_done(df_whatever()) && !successfully_retrieved(df_whatever())){
           check_and_set_successfull_retrieval(df_whatever)
+          shiny_print_logs(paste("retrieval of", name(df_whatever()), ":", 
+                                 ifelse(successfully_retrieved(df_whatever()),"Success","Failure!")), 
+                           sps)
         }
       })
     }
@@ -131,7 +152,7 @@ ResultCheckServer <- function(id, df_whatever) {
 #' @import shiny
 #' @import future
 #' 
-createScholarServer <- function(id, df_scholar) {
+createScholarServer <- function(id, df_scholar, sps) {
   moduleServer(
     id,
     ## Below is the module function
@@ -141,6 +162,7 @@ createScholarServer <- function(id, df_scholar) {
         assign_to_reactiveVal(df_scholar, "retrieval_done", FALSE)
         assign_to_reactiveVal(df_scholar, "successfully_retrieved", FALSE)
         if (valid_input(df_scholar())){
+          shiny_print_logs(paste("retrieve scholar",input_value(df_scholar())), sps)
           assign_to_reactiveVal(df_scholar, "try_to_retrieve", TRUE)
           future(seed=NULL,{
             retrieve_from_scholar(scholar)
@@ -166,7 +188,7 @@ createScholarServer <- function(id, df_scholar) {
 #' @import shiny
 #' @import future
 #' 
-createPubmedServer <- function(id, df_pubmed) {
+createPubmedServer <- function(id, df_pubmed, sps) {
   moduleServer(
     id,
     ## Below is the module function
@@ -176,6 +198,7 @@ createPubmedServer <- function(id, df_pubmed) {
         assign_to_reactiveVal(df_pubmed, "retrieval_done", FALSE)
         assign_to_reactiveVal(df_pubmed, "successfully_retrieved", FALSE)
         if (valid_input(df_pubmed())){
+          shiny_print_logs(paste("retrieve pubmed",input_value(df_pubmed())), sps)
           assign_to_reactiveVal(df_pubmed, "try_to_retrieve", TRUE)
           future(seed=NULL,{
             tryCatch({retrieve_from_pubmed(pubmed)},
@@ -202,7 +225,7 @@ createPubmedServer <- function(id, df_pubmed) {
 #' @import shiny
 #' @import future
 #' 
-createPublonsServer <- function(id, df_publons) {
+createPublonsServer <- function(id, df_publons, sps) {
   moduleServer(
     id,
     ## Below is the module function
@@ -213,6 +236,7 @@ createPublonsServer <- function(id, df_publons) {
         assign_to_reactiveVal(df_publons, "retrieval_done", FALSE)
         assign_to_reactiveVal(df_publons, "successfully_retrieved", FALSE)
         if (valid_input(df_publons())){
+          shiny_print_logs(paste("retrieve publons",input_value(df_publons())), sps)
           future(seed=NULL,{
             tryCatch({retrieve_from_publons(publons)},
                      error=function(e) {return(empty_publons())})
@@ -294,8 +318,11 @@ DeactivateShowReportServer <- function(id, d) {
     function(input, output, session) {
       # ProgressbarCreateServer("show_report")
       observeEvent({input$show_report},{
+        shiny_print_logs("deactivate show report, set data to NULL", d$sps)
           shinyjs::disable("show_report")
-        d$m <- d$m_filt <- d$m_filt_sub <-  NULL
+          d$show_report <- input$show_report
+          d$processing <- TRUE
+          d$m <- d$m_filt <- d$m_filt_sub <-  NULL
       })  
     }
   )
@@ -310,18 +337,19 @@ DeactivateShowReportServer <- function(id, d) {
 #' @import shiny
 #' @import future
 #' 
-ActivateShowReportServer <- function(id, df_ls) {
+ActivateShowReportServer <- function(id, df_ls, d) {
   moduleServer(
     id,
     ## Below is the module function
     function(input, output, session) {
       observeEvent({
-        purrr::map_lgl(df_ls, ~ retrieval_done(.x()))
+        d$m
+        # purrr::map_lgl(df_ls, ~ retrieval_done(.x()))
         },{
-          print("test activate show report")
+        shiny_print_logs("check activation of show report", d$sps)
         nr_datasets <- purrr::map_lgl(df_ls, ~ retrieval_done(.x())) %>% sum()
         nr_datasets_total <- purrr::map_lgl(df_ls, ~ valid_input(.x())) %>% sum()
-        if(nr_datasets==nr_datasets_total){
+        if(nr_datasets==nr_datasets_total && "in_pubmetric" %in% names(d$m)){
           shinyjs::enable("show_report")
         }
       })  

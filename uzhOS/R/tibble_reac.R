@@ -14,7 +14,8 @@
 #'
 #' @examples
 new_tibble_reac <- function(data, name="", input_value = "", valid_input = FALSE, 
-                            try_to_retrieve = FALSE, retrieval_done = FALSE, successfully_retrieved = FALSE, ...) {
+                            try_to_retrieve = FALSE, retrieval_done = FALSE, 
+                            successfully_retrieved = FALSE, try_to_merge=FALSE, ...) {
   stopifnot(is.data.frame(data))
   data <-  tibble::new_tibble(data, ..., nrow = nrow(data), class = "tibble_reac")
   attributes(data) <- c(attributes(data), 
@@ -23,7 +24,8 @@ new_tibble_reac <- function(data, name="", input_value = "", valid_input = FALSE
                         valid_input=valid_input, 
                         try_to_retrieve=try_to_retrieve,
                         retrieval_done=retrieval_done,
-                        successfully_retrieved=successfully_retrieved)
+                        successfully_retrieved=successfully_retrieved,
+                        try_to_merge=try_to_merge)
   data
 }
 
@@ -42,6 +44,7 @@ validate_tibble_reac <- function(x) {
   try_to_retrieve <- attr(x, "try_to_retrieve")
   retrieval_done <- attr(x, "retrieval_done")
   successfully_retrieved <- attr(x, "successfully_retrieved")
+  try_to_merge <- attr(x, "try_to_merge")
   if (!is(name,"character")) {
     stop(
       "name must be character",
@@ -70,6 +73,12 @@ validate_tibble_reac <- function(x) {
   if (!is(successfully_retrieved,"logical")) {
     stop(
       "successfully_retrieved must be logical.",
+      call. = FALSE
+    )
+  }
+  if (!is(try_to_merge,"logical")) {
+    stop(
+      "try_to_merge must be logical",
       call. = FALSE
     )
   }
@@ -198,8 +207,8 @@ try_to_retrieve.default <- function(x) attr(x, "try_to_retrieve")
 "try_to_retrieve<-.default" <- function(x, value) {
   stopifnot(is(value,"logical"))
   attr(x, "try_to_retrieve") <- value
-  if(retrieval_done(x)){
-    retrieval_done <- FALSE
+  if(value && retrieval_done(x)){
+    retrieval_done(x) <- FALSE
   }
   x
 }
@@ -207,8 +216,8 @@ try_to_retrieve.default <- function(x) attr(x, "try_to_retrieve")
 "try_to_retrieve<-.tibble_reac" <- function(x, value) {
   stopifnot(is(value,"logical"))
   attr(x, "try_to_retrieve") <- value
-  if(retrieval_done(x)){
-    retrieval_done <- FALSE
+  if(value && retrieval_done(x)){
+    retrieval_done(x) <- FALSE
   }
   x
 }
@@ -230,8 +239,8 @@ retrieval_done.default <- function(x) attr(x, "retrieval_done")
 "retrieval_done<-.default" <- function(x, value) {
   stopifnot(is(value,"logical"))
   attr(x, "retrieval_done") <- value
-  if(try_to_retrieve(x)){
-    try_to_retrieve <- FALSE
+  if(value && try_to_retrieve(x)){
+    try_to_retrieve(x) <- FALSE
   }
   x
 }
@@ -239,8 +248,8 @@ retrieval_done.default <- function(x) attr(x, "retrieval_done")
 "retrieval_done<-.tibble_reac" <- function(x, value) {
   stopifnot(is(value,"logical"))
   attr(x, "retrieval_done") <- value
-  if(try_to_retrieve(x)){
-    try_to_retrieve <- FALSE
+  if(value && try_to_retrieve(x)){
+    try_to_retrieve(x) <- FALSE
   }
   x
 }
@@ -269,6 +278,32 @@ successfully_retrieved.default <- function(x) attr(x, "successfully_retrieved")
 "successfully_retrieved<-.tibble_reac" <- function(x, value) {
   stopifnot(is(value,"logical"))
   attr(x, "successfully_retrieved") <- value
+  x
+}
+
+# try_to_merge methods
+#' @export
+try_to_merge <- function(x) {
+  UseMethod("try_to_merge")
+}
+#' @export
+try_to_merge.tibble_reac <- function(x) attr(x, "try_to_merge")
+#' @export
+try_to_merge.default <- function(x) attr(x, "try_to_merge")
+#' @export
+"try_to_merge<-" <- function(x, value) {
+  UseMethod("try_to_merge<-")
+}
+#' @export
+"try_to_merge<-.default" <- function(x, value) {
+  stopifnot(is(value,"logical"))
+  attr(x, "try_to_merge") <- value
+  x
+}
+#' @export
+"try_to_merge<-.tibble_reac" <- function(x, value) {
+  stopifnot(is(value,"logical"))
+  attr(x, "try_to_merge") <- value
   x
 }
 
@@ -312,8 +347,6 @@ to_tibble_reac_template <- function(x, tbl_reac){
 #'
 #' @examples
 check_and_set_successfull_retrieval <- function(x){
-  print(str(x()))
-  print(dim(x()))
   if(dim(x())[1] != 0){
     assign_to_reactiveVal(x, "successfully_retrieved", TRUE)
   } else {

@@ -159,7 +159,7 @@ rec_req_id_converter <- function(doi){
   # doi <- unique(doi)
   id <- paste(doi,collapse = ",")
   # retrieve PMID from doi using converter api
-  pubmed_doi_convert_get <- httr::GET(url=paste0("https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/?tool=my_tool&email=my_emails@example.com&ids=",id,"&idtype=doi"))
+  pubmed_doi_convert_get <- httr::GET(url=paste0("https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/?tool=my_tool&email=my_emailss@example.com&ids=",id,"&idtype=doi"))
   
   # if error but more than one doi, split dataset into two and try again
   if(httr::http_error(pubmed_doi_convert_get) && length(doi)!=1){
@@ -198,7 +198,9 @@ empty_pubmetric <- function(){
 #' doi <- c("10.1186/1471-2105-3-35")
 #' retrieve_from_pubmed_with_doi(doi)
 retrieve_from_pubmed_with_doi <- function(doi){
-  pubmed_doi_convert_cont <- rec_req_id_converter(doi) 
+  pubmed_doi_convert_cont <- tryCatch(rec_req_id_converter(doi) %>% 
+             dplyr::filter(!is.na(pmid)),
+           error=function(e) NULL)
   if (!is.null(pubmed_doi_convert_cont) && dim(pubmed_doi_convert_cont)[1] != 0){
     # get pubmed metrics
     pubmed_metrics <- iCiteR::get_metrics(pubmed_doi_convert_cont$pmid)
@@ -370,8 +372,10 @@ pubmed_citation_plotly <- function(tbl_merge){
 
 if (FALSE){
   mr_orcs <- retrieve_from_orcid("0000-0002-3048-5518")
-  df_pubmetric <- retrieve_from_pubmed_with_doi(mr_orcs$doi)
-  tbl_merge <- dplyr::inner_join(mr_orcs,df_pubmetric)
+  for(i in 1:10){
+    df_pubmetric <- retrieve_from_pubmed_with_doi(mr_orcs$doi)
+  }
+  tbl_merge <- dplyr::left_join(mr_orcs,df_pubmetric)
   df_unpaywall <- oadoi_fetch_local(tbl_merge$doi,con)
   tbl_merge <- dplyr::inner_join(tbl_merge,df_unpaywall) %>% 
     dplyr::mutate(overall_oa=oa_status)

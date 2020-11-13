@@ -26,5 +26,13 @@ Imports:
   scholar,
   rcrossref,
   htmlTable,
-  shinytest
+  shinytest,
+  shiny,
+  shinyjs,
+  plotly,
+  DBI,
+  shinyTree,
+  shinyWidgets,
+  promises,
+  future
 RoxygenNote: 7.1.1

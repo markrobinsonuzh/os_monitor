@@ -15,7 +15,8 @@ suppressPackageStartupMessages({
   library(shinydashboard)
   library(shinydashboardPlus)
 })
-if(as.logical(as.integer(Sys.getenv("RSTUDIO")))){
+on_rstudio <- as.logical(as.integer(Sys.getenv("RSTUDIO")))
+if(!is.na(on_rstudio) && on_rstudio){
   setwd("/srv/shiny-server/os_monitor/shiny_app")
   maindir <- file.path(getwd(),"..")
 } else {

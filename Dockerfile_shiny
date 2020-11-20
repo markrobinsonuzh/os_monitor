@@ -63,6 +63,7 @@ RUN install2.r \
 	RPostgres \		
 	scholar \
 	shiny \
+	shinydashboard \
 	shinyFeedback \
 	shinyhelper \
 	shinyjs \
@@ -74,6 +75,7 @@ RUN install2.r \
 
 RUN R -e "devtools::install_github('krassowski/complex-upset')"
 RUN R -e "devtools::install_github('ropensci/RefManageR')"
+RUN R -e "devtools::install_github('RinteRface/shinydashboardPlus')"
 
 
 RUN rm -rf /srv/shiny-server/*

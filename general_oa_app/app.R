@@ -12,8 +12,11 @@ suppressPackageStartupMessages({
   library(promises)
   library(future)
   plan(multiprocess)
+  library(shinydashboard)
+  library(shinydashboardPlus)
 })
-if(as.logical(as.integer(Sys.getenv("RSTUDIO") ))){
+on_rstudio <- as.logical(as.integer(Sys.getenv("RSTUDIO")))
+if(!is.na(on_rstudio) && on_rstudio){
   setwd("/srv/shiny-server/os_monitor/shiny_app")
   maindir <- file.path(getwd(),"..")
 } else {
@@ -38,7 +41,7 @@ if(use_sql){
 ui <- function(request) {
   dashboardPage(
     preloader = list(
-      waiter = list(html = tagList(spin_1(), "Loading ..."), color = "#3c8dbc"),
+      waiter = list(html = tagList(waiter::spin_1(), "Loading ..."), color = "#3c8dbc"),
       duration = 1
     ),
     title =  "Open access monitor",

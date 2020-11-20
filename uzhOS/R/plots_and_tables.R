@@ -156,9 +156,10 @@ overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
                                     paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
                                            eprintid, "' target='_blank'>", eprintid, "</a>")))
   }
-  DT::datatable(z, extensions = 'Buttons',
-                options = list(dom = 'Bfrtip',
-                               pageLength = 200,
+  colns <- stringr::str_replace_all(colnames(z),"\\."," ")
+  DT::datatable(z, extensions = 'Buttons',colnames = colns,
+                options = list(dom = 'Blfrtip',
+                               # pageLength = 200,
                                buttons = list('copy', 'csv', 'excel')),
                 escape = FALSE, rownames = FALSE)
 }
@@ -209,3 +210,32 @@ upset_plot <- function(tbl_merge){
     )
   }
 }
+
+
+
+
+
+#' create simple bar of oa status summary
+#'
+#' @param overall_oa_status character vector of oa status
+#'
+#' @return ggplot
+#' @export
+#'
+#' @examples
+#' simple_oa_summary_histogram(c("closed","green","gold"))
+simple_oa_summary_histogram <- function(overall_oa_status){
+  tmpt <- table(overall_oa_status)
+  tmpc <- cumsum(tmpt)
+  tmpcn <- (tmpc-c(0,tmpc[-length(tmpc)]))/2
+  postib <- tibble(x=tmpc-tmpcn,y=1,label=as.integer(tmpt))
+  
+  ggplot(tibble::tibble(overall_oa=overall_oa_status)) + 
+    geom_bar(aes(y="someplaceholder",fill=overall_oa), position = position_stack(reverse = TRUE)) + 
+    scale_fill_manual(values=open_cols_fn()) +
+    theme_bw() +
+    theme(line = element_blank(),rect = element_blank(),text = element_blank(), legend.position = "none") +
+    geom_text(data = postib,aes(x=x,y=y,label=label))
+}
+
+

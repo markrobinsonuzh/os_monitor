@@ -48,6 +48,7 @@ RUN install2.r \
 	htmlTable\
 	iCiteR \
 	shiny \
+	shinydashboard \
 	shinyFeedback \
 	shinyhelper \
 	shinyjs \
@@ -68,6 +69,7 @@ RUN install2.r \
 	testthat \
 	UpSetR
 RUN R -e "devtools::install_github('krassowski/complex-upset')"
+RUN R -e "devtools::install_github('RinteRface/shinydashboardPlus')"
 
 COPY odbc.ini /etc
 EXPOSE 8787	

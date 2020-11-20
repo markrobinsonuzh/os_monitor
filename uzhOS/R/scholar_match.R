@@ -47,7 +47,7 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
   if(dim(df_scholar)[1]==0){
     return(df_scholar %>% dplyr::mutate(doi=character()))
   }
-  df_scholar$doi <- NA
+  df_scholar <-  df_scholar %>% dplyr::mutate(doi = as.character(NA))
   if ("title.orcid" %in% names(tbl_merge)){
     doi_is_na <- which(is.na(df_scholar$doi))
     m1 <- match(toupper(df_scholar$title[doi_is_na]), toupper(tbl_merge$title.orcid))
@@ -176,15 +176,24 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
     doi_is_na <- which(is.na(df_scholar$doi))
     # get info from rcrossref
     qrows <- df_scholar[doi_is_na,]
-    Sys.setenv(crossref_email="somemail@someplace.com")
+    Sys.setenv(crossref_email="retogerber93@gmail.com")
     out <- lapply(seq_along(doi_is_na),function(i){
       sq <- rcrossref::cr_works(flq=list(query.bibliographic=paste(qrows$title[i],qrows$year[i], qrows$journal[i]),
                               query.author=qrows$author[i]),limit = 3)
-      scores <- as.numeric(sq$data$score)
-      if (scores[1]/scores[2]>1.5 & scores[1]>70 & !is.null(sq)){
-        sq$data[1,] %>% dplyr::select(doi,container.title,published.print,title)
+      if(!is.null(sq$data)){
+        sq$data <-
+          sq$data %>% dplyr::mutate(score=as.numeric(score))
+          
+        if(dim(sq$data)[1] > 1){
+          sq$data <-
+            sq$data %>% dplyr::filter(.data[["score"]]/c(.data[["score"]][-1],.data[["score"]][length(.data[["score"]][-1])]) > 1.5)
+        }
+        sq$data %>% 
+          dplyr::filter(score > 70) %>% 
+          dplyr::slice(1) %>% 
+          dplyr::select(doi,container.title,published.print,title)
       } else{
-        data.frame(doi=character(),container.title=character(),published.print=character(),title=character())
+        tibble::tibble(doi=character(),container.title=character(),published.print=character(),title=character())
       }
     })
     empty_r <- sapply(seq_along(out), function(i) nrow(out[[i]])>0)

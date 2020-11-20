@@ -19,13 +19,13 @@ new_tibble_reac <- function(data, name="", input_value = "", valid_input = FALSE
   stopifnot(is.data.frame(data))
   data <-  tibble::new_tibble(data, ..., nrow = nrow(data), class = "tibble_reac")
   attributes(data) <- c(attributes(data), 
-                        name=name,
-                        input_value=input_value,
-                        valid_input=valid_input, 
-                        try_to_retrieve=try_to_retrieve,
-                        retrieval_done=retrieval_done,
-                        successfully_retrieved=successfully_retrieved,
-                        try_to_merge=try_to_merge)
+                        list(name=name),
+                        list(input_value=input_value),
+                        list(valid_input=valid_input), 
+                        list(try_to_retrieve=try_to_retrieve),
+                        list(retrieval_done=retrieval_done),
+                        list(successfully_retrieved=successfully_retrieved),
+                        list(try_to_merge=try_to_merge))
   data
 }
 

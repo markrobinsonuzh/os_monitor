@@ -12,9 +12,10 @@ suppressPackageStartupMessages({
   library(promises)
   library(future)
   plan(multiprocess)
+  library(shinydashboard)
+  library(shinydashboardPlus)
 })
-on_rstudio <- TRUE
-if(on_rstudio){
+if(as.logical(as.integer(Sys.getenv("RSTUDIO")))){
   setwd("/srv/shiny-server/os_monitor/shiny_app")
   maindir <- file.path(getwd(),"..")
 } else {
@@ -49,131 +50,229 @@ print("read tree")
 orgtree <- readRDS(file.path(datadir, "orgtree.rds"))
 
 ### UI #########################################################################
-ui <- navbarPage("Open science monitor UZH",
-       tabPanel("Author OA explorer",
-       fluidPage(
-          useShinyjs(),
-          shinyFeedback::useShinyFeedback(),
-          div(id="Sidebar",sidebarPanel(width=6,
-            # author name selection
-            selectizeInput("author_search","Author search",NULL,selected = NULL, multiple = FALSE, 
-                           options = list(maxOptions = 1000,placeholder="select author",maxItems=10)) %>% 
-              shinyhelper::helper(type="markdown",
-                                  title = "Author search input help",
-                                  content = 'Author_search_input'),
-            # faculty selection
-            selectizeInput("faculty_search","Faculty Filter",c("all",sort(unique_fac_dep(fac_dep_filt,"fac"))),selected="all",multiple=TRUE) %>% 
-              disabled(),
-            # department selection
-            selectizeInput("department_search","Department Filter","all",selected="all",multiple=TRUE) %>% 
-              disabled(),
-            # ui to show the author entries with additional information
-            alias_selected_UI("alias_selected"),
-            # Orcid input
-            textInput(NS("input_check","orcid"),label = a("Orcid",href="https://orcid.org",target="_blank"), value=""),
-            # Pubmed query input
-            splitLayout(cellWidths = c("75%", "25%"),
-                        textAreaInput(NS("input_check", "pubmed"),label = a("Pubmed Query",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"), value="") %>% 
-                          shinyjs::disabled(),
-                        actionButton(NS("input_check", "activate_pubmed"),HTML("Generate <br/> Pubmed <br/> Query")) %>% 
-                          shinyjs::disabled()),
-            # google scholar input
-            textInput(NS("input_check", "scholar"),label = a("Google Scholar id",href="https://scholar.google.ch",target="_blank"), value="") %>% 
-              shinyhelper::helper(type="markdown",
-                                  title = "Google scholar id help",
-                                  content = 'Google_scholar_help'),
-            # publons input
-            textInput(NS("input_check", "publons"),label = tags$div(tags$a("Publons id",href="https://publons.com",target="_blank"),
-                                                 tags$span(class="help-block","(or if linked: ORCID, ResearcherID or TRUID)")), value=""),
-            # aggregate data
-            # disabled(actionButton(inputId = "show_report",label = "Show report")),
-            showReportUI("show_report"),
-            ProgressbarUI("show_report") #%>% shinyjs::hidden()
-          )),
-          # disabled(downloadButton("report", "Generate report"))
-      mainPanel(
-        actionButton("showSidebar", "Show sidebar") %>% shinyjs::hidden(),
-        actionButton("hideSidebar", "Hide sidebar") %>% shinyjs::hidden(),
-        splitLayout(cellWidths = c("25%", "75%"),
-        # panel for filtering
-        wellPanel(
-          datasetSelectionsUpdateUI("selection_standard"),
-          
-          # splitLayout(cellWidths = c("25%", "75%"),
-          #   checkboxGroupInput(inputId = "in_selection",label = "Data sets included","",inline = TRUE) %>%
-          #     shinyjs::hidden(),
-            verbatimTextOutput("sub_summary"),
-          # ),
-          sliderInput("range_year",label = "Cutoff year",min=2001,max = 2020,value=c(2001,2020))%>% 
-            shinyjs::hidden(),
-          selectizeInput("oa_status_filtered_table","OA status",names(open_cols_fn()),selected = names(open_cols_fn()), multiple = TRUE, 
-                         options = list(maxOptions = 10,placeholder="select oa status",maxItems=10)) %>% 
-            shinyjs::hidden(),
-          # checkboxGroupInput("oa_status_filtered_table","OA status",
-          #                    choices = names(open_cols_fn()),
-          #                    selected = names(open_cols_fn()),
-          #                    inline = TRUE) %>% 
-            # shinyjs::hidden(),
-        ),
-        # output panel (tables, plots etc.)
-        tabsetPanel(id = "author_plots_tables",
-                    type = "tabs",
-                    tabPanel("Upset Plot", plotOutput("plot_upset"),height="600px"),
-                    tabPanel("Histogram", plotlyOutput("plot_selected") %>% 
+ui <- function(request) {
+  dashboardPage(
+    preloader = list(
+      waiter = list(html = tagList(waiter::spin_1(), "Loading ..."), color = "#3c8dbc"),
+      duration = 1
+    ),
+    title =  "Open access monitor",
+    dashboardHeader(leftUi = tagList(
+      h4("Open access monitor"))),#title = "Open access monitor", titleWidth = 200),
+    dashboardSidebar(collapsed = TRUE,
+                     sidebarMenu(id="menu",
+                                 menuItem("Author", tabName = "Author", icon = icon("user")),
+                                 menuItem("Department", tabName = "Department", icon = icon("users"))
+                     )
+    ),
+    dashboardBody(
+      useShinyjs(),
+      shinyFeedback::useShinyFeedback(),
+      tabItems(
+        # First tab content
+        tabItem(tabName = "Author",
+                fluidRow(
+                  column(width = 4,
+                         box(title = "Author information", width = NULL, collapsible = TRUE, id = "box_author_input",
+                             selectizeInput("author_search","Author search",NULL,selected = NULL, multiple = FALSE, 
+                                            options = list(maxOptions = 1000,placeholder="select author",maxItems=10)) %>% 
                                shinyhelper::helper(type="markdown",
-                                                   title = "Histogram selection help",
-                                                   content = 'Histogram_selection')),
-                    tabPanel("Table", 
-                             # data_table_selection_UI("DT_author_selection")),
-                             flowLayout(#cellWidths = c("30%","30%","60%"),
-                               actionButton(inputId = "apply_DT_selection",label = "Apply selection") %>% 
-                                          shinyjs::hidden(),
-                               actionButton(inputId = "reset_DT_selection",label = "Reset selection") %>% 
-                                 shinyjs::hidden(),
-                               actionButton("create_bibtex","Get Bibtex citation") %>% 
-                                 shinyjs::hidden()
-                               ) %>% 
-                                 shinyhelper::helper(type="markdown",
-                                                   title = "Apply and Reset selection help",
-                                                   content = 'Apply_and_Reset_selection'),
-                             DT::dataTableOutput("table_selected_closed")),
-                    tabPanel("Bibtex",
-                             downloadButton("bibtex_download", "Download Bibtex citation") %>% 
-                               shinyjs::hidden(),
-                             verbatimTextOutput("bibsummary")
-                             ),
-                    tabPanel("Pubmed citations", DT::dataTableOutput("table_pubmetric")),
-                    tabPanel("Pubmed citations Plot", uiOutput("plot_pubmetric")),
-                    tabPanel("Percent closed", DT::dataTableOutput("table_oa_percent_time"))
+                                                   title = "Author search input help",
+                                                   content = 'Author_search_input'),
+                             # faculty selection
+                             selectizeInput("faculty_search","Faculty Filter",c("all",sort(unique_fac_dep(fac_dep_filt,"fac"))),selected="all",multiple=TRUE) %>% 
+                               disabled(),
+                             # department selection
+                             selectizeInput("department_search","Department Filter","all",selected="all",multiple=TRUE) %>% 
+                               disabled(),
+                             # ui to show the author entries with additional information
+                             alias_selected_UI("alias_selected"),
+                             # Orcid input
+                             textInputIcon(NS("input_check","orcid"),
+                                           label = a("Orcid",href="https://orcid.org",target="_blank"), value="",
+                                           icon = icon("orcid")),
+                             # Pubmed query input
+                             splitLayout(cellWidths = c("75%", "25%"),
+                                         textAreaInput(NS("input_check", "pubmed"),label = a("Pubmed Query",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"), value="") %>% 
+                                           shinyjs::disabled(),
+                                         actionButton(NS("input_check", "activate_pubmed"),HTML("Generate <br/> Pubmed <br/> Query")) %>% 
+                                           shinyjs::disabled()),
+                             # google scholar input
+                             textInput(NS("input_check", "scholar"),label = a("Google Scholar id",href="https://scholar.google.ch",target="_blank"), value="") %>% 
+                               shinyhelper::helper(type="markdown",
+                                                   title = "Google scholar id help",
+                                                   content = 'Google_scholar_help'),
+                             # publons input
+                             textInput(NS("input_check", "publons"),label = tags$div(tags$a("Publons id",href="https://publons.com",target="_blank"),
+                                                                                     tags$span(class="help-block","(or if linked: ORCID, ResearcherID or TRUID)")), value=""),
+                             # if pubmetrics
+                             shinyWidgets::prettySwitch(inputId = "retrieve_pubmetric",label = "Retrieve Pubmed citation metrics", 
+                                                        fill = TRUE, status = "primary"),
+                             # aggregate data
+                             showReportUI("show_report"),
+                             ProgressbarUI("show_report")
+                         ),
+                         div(id="shinyjsbox_author_filter",
+                             box(width = NULL, title = "Filter options", collapsible = TRUE, id = "box_author_filter",
+                                 boxPad(
+                                   uiOutput("pgb_closed"),
+                                   br(),
+                                   boxPad(color = "teal",
+                                          # to change the color of "teal"
+                                          tags$style(HTML(".bg-teal {
+                               background-color:#FFFAFA!important;
+                               color:#000000!important;
+                              }")),
+                                          h4("Filter"),
+                                          fluidRow(
+                                            column(width = 8,
+                                                   h5("Dataset selection"),
+                                                   datasetSelectionsUpdateUI("selection_standard")
+                                            ),
+                                            column(width = 4,
+                                                   sliderInput("range_year",label = "Cutoff year",min=2001,max = 2020,value=c(2001,2020)),
+                                                   selectizeInput("oa_status_filtered_table","OA status",names(open_cols_fn()),selected = names(open_cols_fn()), multiple = TRUE, 
+                                                                  options = list(maxOptions = 10,placeholder="select oa status",maxItems=10)))
+                                          )
+                                   ))
+                             )) %>% shinyjs::hidden(),
+                         div(id="shinyjsbox_upsetplot",
+                             box(width = NULL, title = "Upsetplot (alternative to Venn Diagram)", collapsible = TRUE, id = "box_upsetplot",
+                                 plotOutput("plot_upset")
+                             )) %>% shinyjs::hidden()
+                  ),
+                  column(
+                    width = 8,
+                    div(id="shinyjsbox_histogram", 
+                        tabBox(width = NULL, title = "Histogram of publications", id = "box_histogram",
+                               tabPanel("Time", value = "box_histogram_panel_time",
+                                        plotlyOutput("plot_selected") %>% 
+                                          shinyhelper::helper(type="markdown",
+                                                              title = "Histogram selection help",
+                                                              content = 'Histogram_selection')),
+                               tabPanel("Citations", value = "box_histogram_panel_citations",
+                                        uiOutput("plot_pubmetric")
+                               )
+                               #          )
+                               # box(width = NULL, title = "Histogram of publications", collapsible = TRUE, id = "box_histogram",
+                               #   plotlyOutput("plot_selected") %>% 
+                               #     shinyhelper::helper(type="markdown",
+                               #                         title = "Histogram selection help",
+                               #                         content = 'Histogram_selection')
+                        )) %>% shinyjs::hidden(),
+                    div(id="shinyjsbox_table", 
+                        box(width = NULL, title = "Table of publications", collapsible = TRUE,  id = "box_table",
+                            sidebar = boxSidebar(startOpen = TRUE, background = "#F0F8FF" , width = "15%", icon = shiny::icon("angle-double-left"),
+                                                 id = "publ_table_box_sidebar",
+                                                 column(width = 12,
+                                                        p("Click on publications in list and press ", style = "color:black"),
+                                                        actionButton(inputId = "apply_DT_selection",label = HTML("Apply <br/> selection")),
+                                                        p("to filter.", style = "color:black"),
+                                                        br(),
+                                                        br(),
+                                                        p("To retrieve all publications press", style = "color:black"),
+                                                        actionButton(inputId = "reset_DT_selection",label = HTML("Reset <br/> selection")),
+                                                        br(),
+                                                        br(),
+                                                        p("Create Bibtex citation list of publications in list by pressing", style = "color:black"),
+                                                        actionButton("create_bibtex",HTML("Bibtex <br/> citation"))
+                                                 ) %>%
+                                                   shinyhelper::helper(type="markdown",
+                                                                       title = "Apply and Reset selection help",
+                                                                       content = 'Apply_and_Reset_selection')
+                            ),
+                            DT::dataTableOutput("table_selected_closed")
+                        )) %>% shinyjs::hidden(),
+                    div(id="shinyjsbox_bibtex", 
+                        box(width = NULL, collapsible = TRUE,  id = "box_bibtex",
+                            downloadButton("bibtex_download", "Download Bibtex citation") %>% 
+                              shinyjs::hidden(),
+                            verbatimTextOutput("bibsummary")
+                        )) %>% shinyjs::hidden(),
+                    div(id="shinyjsbox_pubmetric_table", 
+                        box(width = NULL, collapsible = TRUE,  id = "box_pubmetric_table",
+                            DT::dataTableOutput("table_pubmetric")
+                        )) %>% shinyjs::hidden()
+                  )
+                )
+        ),
+        
+        # Second tab content
+        tabItem(tabName = "Department",
+                fluidRow(
+                  column(width = 3,
+                         box( collapsible = TRUE, width = NULL, title = "Department", 
+                              boxPad(
+                                shinyTree("tree", checkbox = TRUE, search=TRUE, theme="proton", themeIcons = FALSE, themeDots = FALSE),
+                                selectizeInput("publication_type_filtered","Publication types included",
+                                               unique(fac_dep_filt$type),
+                                               selected = "article", multiple = TRUE, 
+                                               options = list(maxOptions = 10,placeholder="select Publication type",maxItems=10)),
+                                actionButton("treeapply",label = "Apply selection")
+                              )
+                         )   
+                  ),
+                  column(width = 9,
+                         boxPad(
+                           box(collapsible = TRUE, width = NULL, title = "Histogram",
+                               uiOutput("plot_dep_fac_year_val_bar")
+                           )   
+                         )
+                  )
+                )
         )
-        )
+      )
     )
-      )
-      ),
-      tabPanel("Department OA explorer",
-               fluidPage(
-                 sidebarLayout(
-                   sidebarPanel(
-                     shinyTree("tree", checkbox = TRUE, search=TRUE, theme="proton", themeIcons = FALSE, themeDots = FALSE),
-                     checkboxGroupInput("publication_type_filtered",
-                                        "Publication types included",
-                                        choices=unique(fac_dep_filt$type),
-                                        selected = "article"),
-                     actionButton("treeapply",label = "Apply selection")
-                   ),
-                   mainPanel(
-                     # plotlyOutput("plot_dep_fac_anim_year",height = "800px",width = "100%"),
-                     # plotlyOutput("plot_dep_fac_dep_year",height = "800px",width = "100%"),
-                     # plotlyOutput("plot_dep_fac_year_val_line",height = "800px",width = "100%"),
-                     # plotlyOutput("plot_dep_fac_year_val_bar",height = "800px",width = "100%")
-                     uiOutput("plot_dep_fac_year_val_bar")
-                 ))
-               )
-      )
-)
-
+  )
+}
 ### Server #####################################################################
 server = function(input, output,session) {
+  # # Save extra values in state$values when we bookmark
+  # onBookmark(function(state) {
+  #   print("d")
+  #   for(nam in names(d)){
+  #     print(nam)
+  #     state$values$d[[nam]] <- d[[nam]]
+  #   }
+  #   print("selection_ls")
+  #   for(nam in names(selection_ls)){
+  #     print(nam)
+  #     state$values$selection_ls[[nam]] <- selection_ls[[nam]]
+  #   }
+  #   print("p_t")
+  #   for(nam in names(p_t)){
+  #     print(nam)
+  #     state$values$p_t[[nam]] <- p_t[[nam]]
+  #   }
+  #   print("df_ls")
+  #   for(i in seq_along(df_ls)){
+  #     state$values$df[[all_poss_datasets[i]]] <- df_ls[[i]]()
+  #   }
+  # })
+  # 
+  # # Read values from state$values when we restore
+  # onRestore(function(state) {
+  #   print("Restore......................")
+  #   print("d")
+  #   for(nam in names(state$values$d)){
+  #     print(nam)
+  #     d[[nam]] <- state$values$d[[nam]]
+  #   }
+  #   print("selection_ls")
+  #   for(nam in names(state$values$selection_ls)){
+  #     print(nam)
+  #     selection_ls[[nam]] <- state$values$selection_ls[[nam]]
+  #   }
+  #   print("p_t")
+  #   for(nam in names(state$values$p_t)){
+  #     print(nam)
+  #     p_t[[nam]] <- state$values$p_t[[nam]]
+  #   }
+  #   print("df")
+  #   for(i in seq_along(state$values$df)){
+  #     df_ls[[i]](state$values$df[[names(state$values$df)[i]]])
+  #   }
+  # })
   
   sps <- reactive(session$clientData$url_hostname)
   # observe({
@@ -376,14 +475,16 @@ server = function(input, output,session) {
       d$do_scholar_match <- TRUE
       # if all merged (including scholar, or scholar not present) get citation metrics
     } else if (length(d$datainmerge) == (sum(d$dataininput))){
-      shiny_print_logs("get pubmetrics", sps)
-      future(seed=NULL,{
-        retrieve_from_pubmed_with_doi(tbl_merge_iso[["doi"]]) %>% 
-          dplyr::right_join(tbl_merge_iso, by= "doi", suffix = c(".pubmetric",""))  %>% 
-          dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
-      }, globals = list(retrieve_from_pubmed_with_doi=retrieve_from_pubmed_with_doi,
-                        tbl_merge_iso=isolate(tbl_merge()))) %...>% 
-        tbl_merge()
+      if(input$retrieve_pubmetric){
+        shiny_print_logs("get pubmetrics", sps)
+        future(seed=NULL,{
+          retrieve_from_pubmed_with_doi(tbl_merge_iso[["doi"]]) %>% 
+            dplyr::right_join(tbl_merge_iso, by= "doi", suffix = c(".pubmetric",""))  %>% 
+            dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
+        }, globals = list(retrieve_from_pubmed_with_doi=retrieve_from_pubmed_with_doi,
+                          tbl_merge_iso=isolate(tbl_merge()))) %...>% 
+          tbl_merge()
+      }
       
       shiny_print_logs("reset attributes", sps)
       for(tmpdf in df_ls){
@@ -397,6 +498,7 @@ server = function(input, output,session) {
       shiny_print_logs("enable show_report", sps)
       shinyjs::enable(NS("show_report","show_report"))
       d$processing <- FALSE
+      updateBox("box_author_input",action = "toggle")
     }
   })
 
@@ -441,12 +543,14 @@ server = function(input, output,session) {
     req(d$m)
     selection_ls$init <- TRUE
     selection_ls$redraw <- TRUE
-    shinyjs::show(id = "in_selection")
-    shinyjs::show(id = "oa_status_filtered_table")
-    shinyjs::show(id = "range_year")
-    shinyjs::show(id = "apply_DT_selection")
-    shinyjs::show(id = "reset_DT_selection")
-    shinyjs::show(id = "create_bibtex")
+    shinyjs::show(id = "shinyjsbox_author_filter")
+    shinyjs::show(id = "shinyjsbox_upsetplot")
+    shinyjs::show(id = "shinyjsbox_histogram")
+    shinyjs::show(id = "shinyjsbox_table")
+    shinyjs::show(id = "shinyjsbox_bibtex")
+    shinyjs::show(id = "shinyjsbox_pubmetric_table")
+    shinyjs::show(id = "shinyjsbox_pubmetric_plot")
+    shinyjs::show(id = "shinyjsbox_oa_perc_time")
     # update and show selections
     # update single selection for plots and tables
     d$all_selection_choices <- colnames(d$m)[grep("in_",colnames(d$m))]
@@ -476,9 +580,45 @@ server = function(input, output,session) {
     # overall_oa_status[is.na(overall_oa_status)] <- "unknown"
     # levels(overall_oa_status) <- names(open_cols_fn())
     output$sub_summary <- renderPrint({
-      print(paste("Total:",length(overall_oa_status)))
       table(overall_oa_status,useNA = "ifany")
     })
+    # total number of publications
+    tmp_total <- ifelse(!is.numeric(length(overall_oa_status)), 0, length(overall_oa_status))
+    # total number of open publications
+    tmp_open <- ifelse(tmp_total != 0, ((tmp_total-sum(overall_oa_status == "closed"))/tmp_total)*100, 0)
+    # total number of open publications without blue
+    tmp_open_blue <- ifelse(tmp_total != 0,((tmp_total-sum(overall_oa_status %in% c("closed","blue")))/tmp_total)*100, 0)
+    # simple summary bar of oa status
+    output$oa_summary_histogram_simple <- renderPlot({
+      simple_oa_summary_histogram(overall_oa_status)
+    },height = 50)
+    
+    output$pgb_closed <- renderUI(
+        boxPad(color = "teal",
+               # to change the color of "teal"
+               tags$style(HTML(".bg-teal {
+           background-color:#F0F8FF!important;
+           color:#000000!important;
+          }")),
+          h4("Summary filtered data"),
+          descriptionBlock(
+            text = verbatimTextOutput("sub_summary")
+          ),
+          plotOutput("oa_summary_histogram_simple",height = 50),
+          descriptionBlock(
+            text = paste("Percentage open:", 
+                         signif(tmp_open,digits=3),
+                         "%")
+          ),
+          shinydashboardPlus::progressBar(value = tmp_open),
+          descriptionBlock(
+            text = paste("Percentage open (without blue):", 
+                         signif(tmp_open_blue,digits=3),
+                         "%")
+          ),
+          shinydashboardPlus::progressBar(value = tmp_open_blue)
+        )
+    )
   })
   
   ## oa status upset plot -----------------------------------------------------
@@ -700,4 +840,4 @@ server = function(input, output,session) {
 }
 
 # Run the application 
-shinyApp(ui = ui, server = server)
+shinyApp(ui = ui, server = server)#, enableBookmarking = "server")

@@ -1,8 +1,7 @@
-# library(dplyr)
-# library(rentrez)
-# library(RefManageR)
-# library(scholar)
-
+#' Check db connection 
+#'
+#' @param con DBI connection object
+#'
 #' @export
 sql_con_cont <- function(con){
   if (!(is(con,"PqConnection") | is(con,"PostgreSQL"))){
@@ -28,10 +27,10 @@ sql_con_cont <- function(con){
 oadoi_fetch_local <- function(dois, con, unpaywalltablename = "unpaywall"){
   sql_con_cont(con)
   dois <- tolower(dois)
-  # if is database connection to mongodb
-  oaf <- tbl(con, unpaywalltablename) %>% filter(doi %in% dois) %>% collect() %>% 
+  oaf <- tbl(con, unpaywalltablename) %>% 
+    filter(doi %in% dois) %>% 
+    collect() %>% 
     mutate(oa_status = factor(stringr::str_trim(oa_status),levels = names(open_cols_fn())))
-    # if is filename, load first
   if(length(oaf)==0){
     return(tibble::tibble(doi=character(),oa_status=factor(levels = names(open_cols_fn()))))
   } else {
@@ -40,7 +39,7 @@ oadoi_fetch_local <- function(dois, con, unpaywalltablename = "unpaywall"){
 }
 
 
-#' key of oa status
+#' key of oa status, defining plot color
 #'
 #' @return list of keypairs
 #' @export
@@ -54,6 +53,7 @@ open_cols_fn <- function(){
     "blue" = "blue", 
     "unknown"="gray90") 
 }
+
 #' @export
 oa_status_order <- function(){
   c("closed", "preprint", "bronze", "blue","hybrid", "green","gold")
@@ -68,6 +68,8 @@ oa_status_order <- function(){
 #' @param authorkeystablename table name
 #' @param eprintstablename table name
 #' @param subjectstablename table name
+#' @param fac_vec character vector of faculties to filter
+#' @param dep_vec character vector of departments to filter
 #'
 #' @return tbl_author
 #' 
@@ -76,25 +78,25 @@ oa_status_order <- function(){
 #' @export
 #'
 #' @examples
-# author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
-# con <- dbConnect(odbc::odbc(), "PostgreSQL")
-# f <- future({
-#   con <- dbConnect(odbc::odbc(), "PostgreSQL")
-#   create_tbl_author(author_vec,con)
-#   },packages = c("uzhOS"), globals = c("sql_con_cont","author_vec")
-#   )
-# value(f)
-# create_tbl_author(author_vec,con, fac_vec = "07 Faculty of Science")
-# create_tbl_author(author_vec,con, dep_vec = "Evolution in Action: From Genomes to Ecosystems" )
+#' author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
+#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#' create_tbl_author(author_vec, con)
+#' # filter faculty
+#' create_tbl_author(author_vec, con, fac_vec = "07 Faculty of Science")
+#' # filter department
+#' create_tbl_author(author_vec,con, dep_vec = "Evolution in Action: From Genomes to Ecosystems" )
 create_tbl_author <- function(author_vec, con, authorstablename = "authors", authorkeystablename = "authorkeys", 
                               eprintstablename = "eprints", subjectstablename = "subjects", fac_vec=NULL, dep_vec=NULL){
   sql_con_cont(con)
+  # author info
   tbl_author <- tbl(con, authorstablename) %>% 
     filter(authorkey_fullname %in% author_vec) %>% 
     select(eprintid,authorkey_fullname)  
   
-    tbl_eprints <- tbl(con, eprintstablename) 
+  # eprints
+  tbl_eprints <- tbl(con, eprintstablename) 
     
+  # combine all
   tbl_author <-
     tbl_author %>%
     dplyr::left_join(tbl_eprints,by="eprintid") %>% 
@@ -103,12 +105,16 @@ create_tbl_author <- function(author_vec, con, authorstablename = "authors", aut
     inner_join(tbl(con, subjectstablename) ,
                by="eprintid") %>%
     collect() %>% 
-    dplyr::mutate(year = as.integer(date), doi = tolower(doi)) %>% 
+    dplyr::mutate(year = as.integer(date),
+                  doi = tolower(doi)) %>% 
       dplyr::group_by(doi) %>% 
-      dplyr::mutate(name=list(name),parent_name=list(parent_name),parent=list(parent),subjects=list(subjects)) %>% 
+      dplyr::mutate(name=list(name), 
+                    parent_name=list(parent_name),
+                    parent=list(parent),
+                    subjects=list(subjects)) %>% 
       unique()
   
-  # filter by department if 'dep_vec' is given
+  # filter by department if 'dep_vec' is given, first create filter expression
   if (!is.null(fac_vec) | !is.null(dep_vec)){
     if(!is.null(fac_vec) & is.null(dep_vec)){
       tmpquo_ls_fac <- lapply(fac_vec, function(fac) expr(!!fac %in% unlist(.data[["parent_name"]])))
@@ -125,10 +131,12 @@ create_tbl_author <- function(author_vec, con, authorstablename = "authors", aut
     } else if (exists("tmpquo_dep")){
       tmpquo <- tmpquo_dep
     }
+    # second, apply filter expression
     tbl_author <- tbl_author %>% filter(!!tmpquo)
   }
   return(tbl_author)
 } 
+
 
 #' @export
 empty_zora <- function(){
@@ -148,7 +156,7 @@ empty_zora <- function(){
     as_tibble_reac(name="zora")
 }
 
-#' create_zora
+#' wraper for create_tbl_author, and add "blue" oa status
 #'
 #' @param author_vec author name
 #' @param con postgresql connection
@@ -187,11 +195,14 @@ create_zora <- function(author_vec, con, authorstablename = "authors", authorkey
   return(zora)
 }
 
-#' create combined data from zora, orcid and unpaywall
+#' create combined data from zora, orcid, pubmed, publons and unpaywall
 #'
-#' @param ws tibble from \code{\link{retrieve_from_orcid}}
-#' @param zora tibble from \code{\link{create_zora}}
-#' @param unpaywall data.frame of reduced unpaywall database
+#' @param df_orcid tibble from \code{\link{retrieve_from_orcid}}
+#' @param df_pubmed tibble from \code{\link{retrieve_from_pubmed}}
+#' @param df_zora tibble from \code{\link{create_zora}}
+#' @param df_publons tibble from \code{\link{retrieve_from_publons}}
+#' @param con postgresql connection
+#' @param unpaywalltablename table name
 #'
 #' @return
 #' 
@@ -199,7 +210,8 @@ create_zora <- function(author_vec, con, authorstablename = "authors", authorkey
 #' @importFrom magrittr %>%
 #'
 #' @examples
-create_combined_data <- function(df_orcid,df_pubmed,df_zora,df_publons,con, unpaywalltablename= "unpaywall"){
+create_combined_data <- function(df_orcid, df_pubmed, df_zora, df_publons, con, unpaywalltablename = "unpaywall"){
+  ## orcid and zora
   # if df_orcid is given
   if (!(is.null(df_orcid) || dim(df_orcid)[1]==0) && !(is.null(df_zora) || dim(df_zora)[1]==0)){
     m <- dplyr::full_join(df_orcid %>% 
@@ -211,8 +223,6 @@ create_combined_data <- function(df_orcid,df_pubmed,df_zora,df_publons,con, unpa
                           by="doi", suffix=c(".orcid",".zora"),
                           na_matches="never")
     m$doi[m$doi=="logical(0)"] <- NA
-    # %>%
-    #   dplyr::filter(doi != "logical(0)")
   } else if(!(is.null(df_orcid) || dim(df_orcid)[1]==0)) {
     m <- df_orcid %>% 
       dplyr::mutate(doi=tolower(doi)) %>% 
@@ -237,6 +247,8 @@ create_combined_data <- function(df_orcid,df_pubmed,df_zora,df_publons,con, unpa
       dplyr::mutate(title.zora=title) %>% 
       dplyr::as_tibble()
   }
+  
+  ## pubmed
   # if df_pubmed is given, join
   if (!(is.null(df_pubmed) || dim(df_pubmed)[1]==0)){
     m <- dplyr::full_join(m, 
@@ -245,14 +257,12 @@ create_combined_data <- function(df_orcid,df_pubmed,df_zora,df_publons,con, unpa
                             dplyr::as_tibble(), 
                           by="doi", suffix = c("", ".pubmed"),
                           na_matches="never")
-    # rename for consistency
-    # if("oa_status" %in% names(m)){
-    #   m <- m %>% dplyr::rename(oa_status.pubmed=oa_status)
-    # }
     if("title" %in% names(m) && !"title.pubmed" %in% names(m)){
       m <- m %>% dplyr::rename(title.pubmed=title)
     }
   }
+  
+  ## publons
   # if df_publons is present, join and rename
   if (!(is.null(df_publons) || dim(df_publons)[1]==0)){
     m <- dplyr::full_join(m, 
@@ -261,13 +271,11 @@ create_combined_data <- function(df_orcid,df_pubmed,df_zora,df_publons,con, unpa
                             dplyr::as_tibble(), 
                           by="doi", suffix = c("", ".publons"),
                           na_matches="never")
-    # if("oa_status" %in% names(m)){
-    #   m <- m %>% dplyr::rename(oa_status.publons=oa_status)
-    # }
     if("title" %in% names(m) && !"title.publons" %in% names(m)){
       m <- m %>% dplyr::rename(title.publons=title)
     }
   }
+  
   if("title.zora" %in% names(m)){
     m <- m %>% dplyr::mutate(title=title.zora)
   } else {
@@ -275,38 +283,45 @@ create_combined_data <- function(df_orcid,df_pubmed,df_zora,df_publons,con, unpa
     m <- m %>% dplyr::mutate(title=tmptitle)
   }
   
+  #### OA Status ---------------------------------------------------------------
   # get oa status from unpaywall
   oaf <- oadoi_fetch_local(unique(na.omit(m$doi)), con, unpaywalltablename)
   m <- m %>% dplyr::full_join(oaf, 
                        by = "doi", suffix=c(".zora", ".unpaywall"))
-  if(!"in_zora" %in% names(m)){
+  if(!("in_zora" %in% names(m))){
     m <- m %>% dplyr::rename(oa_status.unpaywall=oa_status)
   }
   
-  # print(str(m))
-  # print(as_tibble(m))
-  # set overall oa status
+  # overall oa status from unpaywall
+  # m$overall_oa <- factor(m$oa_status.unpaywall, levels = names(open_cols_fn()))
   m$overall_oa <- m$oa_status.unpaywall
-  # print(m %>% select(starts_with("oa"), overall_oa))
   m$overall_oa <- factor(m$overall_oa, levels = names(open_cols_fn()))
   
-  # print(dim(m))
-  # print(m %>% select(starts_with("oa"), overall_oa))
-  # print(m$overall_oa %>% table(useNA = "ifany"))
+  # preprints from orcid
   if (!is.null(df_orcid)){
     m$overall_oa[m$type.orcid=="other"] <- "preprint"
   }
+  
+  # other oa status from zora
   w <- is.na(m$overall_oa)
   if("oa_status.zora" %in% names(m)){
     m$overall_oa[w] <- m$oa_status.zora[w]
   }
+  
+  # if closed but blue in zora: blue overall
   w <- m$overall_oa == "closed" & m$oa_status.zora=="blue"
   m$overall_oa[w] <- "blue"
+  
+  # if not closed in zora and closed in unpaywall, set overall oa to oa from zora
   w <- m$oa_status.zora != "closed" & m$oa_status.unpaywall == "closed"
   w[is.na(w)] <- FALSE
   m$overall_oa[w] <- m$oa_status.zora[w]
+  
+  # set missing oa as "unknown"
   w <- is.na(m$overall_oa)
   m$overall_oa[w] <- "unknown"
+  
+  ####  Other    ---------------------------------------------------------------
   # set title
   w <- is.na(m$title)
   if("title.zora" %in% names(m)){
@@ -349,7 +364,9 @@ create_combined_data <- function(df_orcid,df_pubmed,df_zora,df_publons,con, unpa
 #' @param authorkeystablename table name
 #' @param eprintstablename table name
 #' @param subjectstablename table name
-#'
+#' @param fac_vec character vector of faculties to filter
+#' @param dep_vec character vector of departments to filter
+#' 
 #' @return list of elements "org_unit", "fac" and "author_name",
 #' with author_name a list with elements "family" and "given"
 #' @export
@@ -357,46 +374,35 @@ create_combined_data <- function(df_orcid,df_pubmed,df_zora,df_publons,con, unpa
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-# author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
-# con <- dbConnect(odbc::odbc(), "PostgreSQL")
-# org_unit_fac(author_vec,con)
+#' author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
+#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#' org_unit_fac(author_vec,con)
 org_unit_fac <- function(author_vec, con, authorstablename = "authors", 
                          authorkeystablename = "authorkeys", eprintstablename = "eprints", 
                          subjectstablename = "subjects", fac_vec=NULL, dep_vec=NULL){
   sql_con_cont(con)
-  tbl_author <- create_tbl_author(author_vec, con, authorstablename, authorkeystablename, eprintstablename,subjectstablename, fac_vec, dep_vec)
+  tbl_author <- create_tbl_author(author_vec, con, authorstablename, authorkeystablename, 
+                                  eprintstablename,subjectstablename, fac_vec, dep_vec)
   if (dim(tbl_author)[1] == 0){
     return(list(org_unit=NULL,fac=NULL,author_name=NULL))
   }
-  org_unit <- suppressMessages(tbl_author %>% dplyr::select(name) %>% 
-                                 dplyr::group_by(name) %>% 
-                                 # dplyr::top_n(1) %>% 
-                                 dplyr::pull(name) %>% 
-                                 unlist() %>% 
-                                 tibble::as_tibble() %>% 
-                                 dplyr::group_by(value) %>% 
-                                 dplyr::tally() %>% 
-                                 dplyr::arrange(dplyr::desc(n)) %>% 
-                                 dplyr::rename(dept=value,count=n)) 
-  fac <- suppressMessages(tbl_author %>% dplyr::select(parent_name) %>% 
-                            dplyr::group_by(parent_name) %>% 
-                            dplyr::pull(parent_name) %>% 
-                            unlist() %>% 
-                            tibble::as_tibble() %>% 
-                            dplyr::group_by(value) %>% 
-                            dplyr::tally() %>% 
-                            dplyr::arrange(dplyr::desc(n)) %>% 
-                            dplyr::rename(fac=value,count=n))
-  type <- suppressMessages(tbl_author %>% dplyr::select(type) %>% 
-                             dplyr::group_by(type) %>% 
-                             dplyr::pull(type) %>% 
-                             unlist() %>% 
-                             tibble::as_tibble() %>% 
-                             dplyr::group_by(value) %>% 
-                             dplyr::tally() %>% 
-                             dplyr::arrange(dplyr::desc(n)) %>% 
-                             dplyr::rename(type=value,count=n))
-  return(list(org_unit=org_unit,fac=fac, type=type ,author_name=author_vec))
+  filter_name <- c("name","parent_name","type")
+  name_name <- c("dept", "fac", "type")
+  out_ls <- lapply(seq_len(3), function(i){
+    suppressMessages(tbl_author %>% 
+                       dplyr::select(!!filter_name[i]) %>% 
+                       dplyr::group_by(!!filter_name[i]) %>% 
+                       dplyr::pull(!!filter_name[i]) %>% 
+                       unlist() %>% 
+                       tibble::as_tibble() %>% 
+                       dplyr::group_by(value) %>% 
+                       dplyr::tally() %>% 
+                       dplyr::arrange(dplyr::desc(n)) %>% 
+                       dplyr::rename(!!name_name[i]:=value,count=n))
+  })
+  names(out_ls) <- c("org_unit","fac","type")
+  out_ls[["author_name"]] <- author_vec
+  return(out_ls)
 }
 
 #' affiliation of aliases from author search
@@ -407,16 +413,18 @@ org_unit_fac <- function(author_vec, con, authorstablename = "authors",
 #' @param authorkeystablename table name
 #' @param eprintstablename table name
 #' @param subjectstablename table name
-#'
+#' @param fac_vec character vector of faculties to filter
+#' @param dep_vec character vector of departments to filter
+#' 
 #' @return
 #' @export
 #' @import DBI
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-# authorname <- "robinson mark d"
-# con <- dbConnect(odbc::odbc(), "PostgreSQL")
-# pot_alias_and_affil(authorname,con)
+#' authorname <- "robinson mark d"
+#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#' pot_alias_and_affil(authorname, con)
 pot_alias_and_affil <- function(authorname, con, authorstablename = "authors", 
                                 authorkeystablename = "authorkeys", eprintstablename = "eprints", 
                                 subjectstablename="subjects",fac_vec=NULL, dep_vec=NULL){
@@ -427,12 +435,8 @@ pot_alias_and_affil <- function(authorname, con, authorstablename = "authors",
     org_unit_fac(pot_alias, con, authorstablename, authorkeystablename, eprintstablename, subjectstablename,fac_vec,dep_vec)
   })
   names(pot_affil) <- pot_aliases
-  return(list(pot_aliases=pot_aliases,pot_affil=pot_affil))
+  return(list(pot_aliases=pot_aliases, pot_affil=pot_affil))
 }
-# authorname <- author_vec[1]
-# authorname <- "schaepman michael e"
-# authorname <- "schaepman michael e (orcid: 0000-0002-9627-9565)"
-# pot_alias_and_affil(authorname,tbl_unique_authorkeys_fullname,tbl_subjects,tbl_authorkeys,tbl_eprints)
 
 
 #' Upset selection indexes

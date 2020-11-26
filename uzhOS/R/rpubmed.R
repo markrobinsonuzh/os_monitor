@@ -45,7 +45,6 @@ fix_null <- function(x) {
 #'
 #' @return
 #' @export
-#' @import mongolite
 #' @importFrom magrittr %>% 
 #'
 #' @examples

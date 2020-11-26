@@ -3,6 +3,15 @@
 #' @param request 
 #'
 #' @return
+#' 
+#' @import shiny 
+#' @import stringr 
+#' @import shinyjs 
+#' @import shinyWidgets 
+#' @import shinydashboard 
+#' @import shinydashboardPlus
+#' @importFrom magrittr %>% 
+#' 
 #' @export
 #'
 #' @examples

@@ -5,6 +5,7 @@
 #' @param session 
 #'
 #' @return
+#' @importFrom magrittr %>% 
 #' @export
 #'
 #' @examples
@@ -235,8 +236,8 @@ shiny_zora_server <-  function(con,
       shiny_print_logs(paste("will (or has) merge:", paste(c("df_zora","df_orcid","df_pubmed","df_publons")[success_ls],collapse = ", ")), sps)
       future(seed=NULL,{
         con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
-        create_combined_data(isolate(df_orcid()),isolate(df_pubmed()),isolate(df_zora()),isolate(df_publons()),con) %>%
-          dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))}) %...>%
+        create_combined_data(isolate(df_orcid()),isolate(df_pubmed()),isolate(df_zora()),isolate(df_publons()),con)
+        }) %...>%
         tbl_merge()
       assign_to_reactiveVal(c(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]], "try_to_merge", TRUE)
     }
@@ -269,7 +270,8 @@ shiny_zora_server <-  function(con,
             dplyr::right_join(tbl_merge_iso, by= "doi", suffix = c(".pubmetric",""))  %>% 
             dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
         }, globals = list(retrieve_from_pubmed_with_doi=retrieve_from_pubmed_with_doi,
-                          tbl_merge_iso=isolate(tbl_merge()))) %...>% 
+                          tbl_merge_iso=isolate(tbl_merge()),
+                          '%>%'= magrittr::'%>%')) %...>% 
           tbl_merge()
       }
       
@@ -300,7 +302,7 @@ shiny_zora_server <-  function(con,
           dplyr::mutate(#year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year)),                        ,
             overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),levels = names(open_cols_fn()))) %>% 
           dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
-      }) %...>% 
+      }, globals = list('%>%'= magrittr::'%>%' )) %...>% 
         dplyr::mutate(year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year))) %...>% 
         tbl_merge()
       d$do_scholar_match <- FALSE

@@ -4,6 +4,8 @@
 #' @param sci_hub_base_url base url sci-hub
 #'
 #' @return
+#' @importFrom magrittr %>% 
+#' @import httr
 #' @export
 #'
 #' @examples
@@ -58,18 +60,12 @@ pdf_link_from_scihub <- function(dois, sci_hub_base_url = "https://sci-hub.se/")
 }
 
 
-
-# 
-# links <- pdf_link_from_scihub(closed_dois)
-# 
-# m_sub_sel_closed_pdflink <- tibble::tibble(pdflink=links,doi=closed_dois)
-
-
 #' Title
 #'
 #' @param m_sub_sel_closed_pdflink data.frame
 #'
 #' @return
+#' @importFrom magrittr %>% 
 #' @export
 #'
 #' @examples

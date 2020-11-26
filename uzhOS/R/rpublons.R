@@ -1,3 +1,4 @@
+#' @importFrom magrittr %>% 
 #' @export
 empty_publons <- function(){
   tibble::tibble(doi=character(),

@@ -4,6 +4,7 @@
 #' @param label 
 #'
 #' @return
+#' @import shiny
 #' @export
 #'
 #' @examples
@@ -15,7 +16,6 @@ showReportUI <- function(id, label = "Show Report") {
 }
 #' @export
 #' @import shiny
-#' @import future
 #' 
 showReportValueServer <- function(id, d) {
   moduleServer(
@@ -32,7 +32,6 @@ showReportValueServer <- function(id, d) {
 
 #' @export
 #' @import shiny
-#' @import future
 #' 
 scholarModalServer <- function(id, df_scholar) {
   moduleServer(
@@ -58,6 +57,7 @@ scholarModalServer <- function(id, df_scholar) {
 #'
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
 #' 
 createZoraServer <- function(id, df_zora, sps) {
@@ -72,10 +72,10 @@ createZoraServer <- function(id, df_zora, sps) {
         if (valid_input(df_zora())){
           shiny_print_logs(paste("retrieve zora",input$show_report), sps)
         future(seed=NULL,{
-          con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
+          con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
           create_zora(author_vec, con)
         }, globals = list(empty_zora=empty_zora,
-                          tbl=tbl,
+                          tbl=dplyr::tbl,
                           create_zora=create_zora,
                           author_vec=isolate(input_value(df_zora())))) %...>% 
             to_tibble_reac_template(df_zora()) %...>% 
@@ -94,9 +94,11 @@ createZoraServer <- function(id, df_zora, sps) {
 #'
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
+#' @importFrom magrittr %>% 
 #' 
-createOrcidServer <- function(id, df_orcid, sps) {
+createOrcidServer <- function(id, df_orcid, orcid_access_token, sps) {
   moduleServer(
     id,
     ## Below is the module function
@@ -110,12 +112,12 @@ createOrcidServer <- function(id, df_orcid, sps) {
           assign_to_reactiveVal(df_orcid, "try_to_retrieve", TRUE)
           future(seed=NULL,{
             con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
-            retrieve_from_orcid(orcid) %>%
-              dplyr::mutate(doi = tolower(doi))    
+            dplyr::mutate(retrieve_from_orcid(orcid, orcid_access_token=orcid_access_token), doi = tolower(doi))    
           }, globals = list(empty_orcid=empty_orcid,
-                            tbl=tbl,
+                            tbl=dplyr::tbl,
                             retrieve_from_orcid=retrieve_from_orcid,
-                            orcid=isolate(input_value(df_orcid())))) %...>% 
+                            orcid=isolate(input_value(df_orcid())),
+                            orcid_access_token=orcid_access_token)) %...>% 
             to_tibble_reac_template(df_orcid()) %...>% 
             `retrieval_done<-`(TRUE) %...>% 
             df_orcid()
@@ -124,6 +126,20 @@ createOrcidServer <- function(id, df_orcid, sps) {
     }
   )
 }
+
+
+
+#' Title
+#'
+#' @param id 
+#' @param df_whatever 
+#' @param sps 
+#'
+#' @return
+#' @import shiny
+#' @export
+#'
+#' @examples
 ResultCheckServer <- function(id, df_whatever, sps) {
   moduleServer(
     id,
@@ -150,6 +166,7 @@ ResultCheckServer <- function(id, df_whatever, sps) {
 #'
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
 #' 
 createScholarServer <- function(id, df_scholar, sps) {
@@ -167,7 +184,7 @@ createScholarServer <- function(id, df_scholar, sps) {
           future(seed=NULL,{
             retrieve_from_scholar(scholar)
           }, globals = list(empty_scholar=empty_scholar,
-                            tbl=tbl,
+                            tbl=dplyr::tbl,
                             retrieve_from_scholar=retrieve_from_scholar,
                             scholar=isolate(input_value(df_scholar())))) %...>% 
             to_tibble_reac_template(df_scholar()) %...>% 
@@ -186,6 +203,7 @@ createScholarServer <- function(id, df_scholar, sps) {
 #'
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
 #' 
 createPubmedServer <- function(id, df_pubmed, sps) {
@@ -204,7 +222,7 @@ createPubmedServer <- function(id, df_pubmed, sps) {
             tryCatch({retrieve_from_pubmed(pubmed)},
                      error=function(e) empty_pubmed())
           }, globals = list(empty_pubmed=empty_pubmed,
-                            tbl=tbl,
+                            tbl=dplyr::tbl,
                             retrieve_from_pubmed=retrieve_from_pubmed,
                             pubmed=isolate(input_value(df_pubmed())))) %...>% 
             to_tibble_reac_template(df_pubmed()) %...>% 
@@ -223,6 +241,7 @@ createPubmedServer <- function(id, df_pubmed, sps) {
 #'
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
 #' 
 createPublonsServer <- function(id, df_publons, sps) {
@@ -241,7 +260,7 @@ createPublonsServer <- function(id, df_publons, sps) {
             tryCatch({retrieve_from_publons(publons)},
                      error=function(e) {return(empty_publons())})
             }, globals = list(empty_publons=empty_publons,
-                              tbl=tbl,
+                              tbl=dplyr::tbl,
                               retrieve_from_publons=retrieve_from_publons,
                               publons=isolate(input_value(df_publons())))) %...>% 
             to_tibble_reac_template(df_publons()) %...>% 
@@ -263,6 +282,7 @@ createPublonsServer <- function(id, df_publons, sps) {
 #' @param label 
 #'
 #' @return
+#' @import shiny
 #' @export
 #'
 #' @examples
@@ -281,8 +301,6 @@ ProgressbarUI <- function(id) {
 #'
 #' @export
 #' @import shiny
-#' @import future
-#' 
 ProgressbarCreateServer <- function(id) {
   moduleServer(
     id,
@@ -309,7 +327,6 @@ ProgressbarCreateServer <- function(id) {
 #'
 #' @export
 #' @import shiny
-#' @import future
 #' 
 DeactivateShowReportServer <- function(id, d) {
   moduleServer(
@@ -335,8 +352,9 @@ DeactivateShowReportServer <- function(id, d) {
 #'
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
-#' 
+#' @importFrom magrittr %>% 
 ActivateShowReportServer <- function(id, df_ls, d) {
   moduleServer(
     id,
@@ -365,8 +383,9 @@ ActivateShowReportServer <- function(id, df_ls, d) {
 #'
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
-#' 
+#' @importFrom magrittr %>% 
 ProgressbarUpdateServer <- function(id, df_ls) {
   moduleServer(
     id,

@@ -3,6 +3,7 @@
 #' @param request 
 #'
 #' @return
+#' @importFrom magrittr %>% 
 #' @export
 #'
 #' @examples

@@ -64,7 +64,7 @@ in_selection_bib_Server <- function(id,m) {
       reactive({
         if (!is.null(input$bib_in_selection) & !is.null(input$bib_not_in_selection)){
           ind <- upset_selection(m,input$bib_in_selection,input$bib_not_in_selection)
-          to_update <- m[ind,] %>% dplyr::pull(doi)
+          to_update <-dplyr::pull(m[ind,], doi)
           return(to_update)
         } else {
           return(NULL)

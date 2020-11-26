@@ -3,7 +3,7 @@ check_if_likely_scholar <- function(scholar){
   stringr::str_detect(scholar,"[-_0-9A-Za-z]{12}")
 }
 
-
+#' @importFrom magrittr %>% 
 #' @export
 empty_scholar<- function(){
   tibble::tibble(year = double(),
@@ -23,6 +23,8 @@ empty_scholar<- function(){
 #' @param scholar_id google scholar id
 #'
 #' @return data.frame
+#' 
+#' @importFrom magrittr %>% 
 #' @export
 #'
 #' @examples

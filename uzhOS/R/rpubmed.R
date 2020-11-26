@@ -1,3 +1,4 @@
+#' @importFrom magrittr %>% 
 #' @export
 empty_pubmed <- function(){
   tibble::tibble(pubyear = integer(),
@@ -128,6 +129,7 @@ retrieve_from_pubmed <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, j
 }
 
 
+#' @importFrom magrittr %>% 
 #' @export
 parse_return_html_from_ncbi <- function(pubmed_doi_convert_get){
   # parse
@@ -149,6 +151,7 @@ parse_return_html_from_ncbi <- function(pubmed_doi_convert_get){
 #' @param doi doi
 #'
 #' @return tibble with columns PMID, doi
+#' @importFrom magrittr %>% 
 #' @export
 #'
 #' @examples
@@ -191,6 +194,8 @@ empty_pubmetric <- function(){
 #' @param doi doi
 #'
 #' @return tibble with colums doi, relative_citation_ratio, nih_percentile, citation_count, in_pubmed
+#' 
+#' @importFrom magrittr %>% 
 #' @export
 #'
 #' @examples
@@ -220,6 +225,7 @@ retrieve_from_pubmed_with_doi <- function(doi){
 #' @param tbl_merge combined tibble
 #'
 #' @return shiny.tag object
+#' @importFrom magrittr %>% 
 #' @export
 #'
 #' @examples

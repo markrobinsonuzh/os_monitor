@@ -5,7 +5,6 @@
 #'
 #' @export
 #' @import shiny
-#' @import future
 #' 
 pubmedActivateServer <- function(id, df_zora, df_orcid, df_pubmed, con) {
   moduleServer(
@@ -25,7 +24,7 @@ pubmedActivateServer <- function(id, df_zora, df_orcid, df_pubmed, con) {
                                             orcid = unlist(ifelse(input_value(df_orcid()) == "",list(NULL),input_value(df_orcid()))))
         },error=function(e)"")
         assign_to_reactiveVal(df_pubmed, "input_value", pubmed_value)
-        enable("pubmed")
+        shinyjs::enable("pubmed")
       })
     })}
 
@@ -40,7 +39,6 @@ pubmedActivateServer <- function(id, df_zora, df_orcid, df_pubmed, con) {
 #'
 #' @export
 #' @import shiny
-#' @import future
 #' 
 orcidCheckServer <- function(id, df_orcid) {
   moduleServer(
@@ -70,7 +68,6 @@ orcidCheckServer <- function(id, df_orcid) {
 #'
 #' @export
 #' @import shiny
-#' @import future
 #' 
 pubmedCheckServer <- function(id, df_pubmed) {
   moduleServer(
@@ -94,7 +91,6 @@ pubmedCheckServer <- function(id, df_pubmed) {
 #'
 #' @export
 #' @import shiny
-#' @import future
 #' 
 scholarCheckServer <- function(id, df_scholar) {
   moduleServer(
@@ -124,7 +120,6 @@ scholarCheckServer <- function(id, df_scholar) {
 #'
 #' @export
 #' @import shiny
-#' @import future
 #' 
 publonsCheckServer <- function(id, df_publons) {
   moduleServer(

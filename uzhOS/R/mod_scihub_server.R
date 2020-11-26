@@ -1,4 +1,16 @@
-
+#' Title
+#'
+#' @param id 
+#' @param d 
+#' @param sci_hub_pdf_links 
+#'
+#' @return
+#' @import shiny
+#' @import future
+#' @import promises
+#' @importFrom magrittr %>% 
+#' @export
+#'
 ScihubObserveActionbuttonServer <- function(id, d, sci_hub_pdf_links) {
   moduleServer(
     id,
@@ -24,6 +36,18 @@ ScihubObserveActionbuttonServer <- function(id, d, sci_hub_pdf_links) {
   )
 }
 
+#' Title
+#'
+#' @param id 
+#' @param d 
+#' @param sci_hub_pdf_links 
+#'
+#' @return
+#' @import shiny
+#' @importFrom magrittr %>% 
+#' @export
+#'
+#' @examples
 ScihubObservePdflinksServer <- function(id, d, sci_hub_pdf_links) {
   moduleServer(
     id,
@@ -41,6 +65,16 @@ ScihubObservePdflinksServer <- function(id, d, sci_hub_pdf_links) {
   )
 }
 
+#' Title
+#'
+#' @param id 
+#' @param d 
+#'
+#' @return
+#' @import shiny
+#' @export
+#'
+#' @examples
 ScihubRenderDTServer <- function(id, d) {
   moduleServer(
     id,

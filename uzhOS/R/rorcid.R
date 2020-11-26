@@ -1,3 +1,4 @@
+#' @importFrom magrittr %>% 
 #' @export
 empty_orcid <- function(){
   tibble::tibble(title=character(),
@@ -12,6 +13,8 @@ empty_orcid <- function(){
 #' Retrieve a table of records from orcid.org
 #'
 #' @param orcid ORCID to retrieve records for
+#' @param orcid_access_token Access Token for orcid, 
+#'  See \code{\link[rorcid]{orcid_auth}}
 #' @param exclude what type of ORCID records to exclude from the list
 #'
 #' @return
@@ -20,18 +23,22 @@ empty_orcid <- function(){
 #'
 #' @examples
 #' mr_orcs <- retrieve_from_orcid("0000-0002-3048-5518")
-retrieve_from_orcid <- function(orcid, exclude = "data-set") {
+retrieve_from_orcid <- function(orcid, orcid_access_token="8268867c-bf2c-4841-ab9c-bfeddd582a9c", exclude = "data-set") {
+  Sys.setenv(ORCID_TOKEN=orcid_access_token)
   if(!check_if_likely_orcid(orcid)){
+    print("1")
     return(empty_orcid())
   }
   works <- tryCatch({rorcid::orcid_works(orcid)},error=function(e) {
     return(NA)
   })
   if (is.na(works)){
+    print("2")
     return(empty_orcid())
   }
   works <- works[[1]]$works
   if(nrow(works)==0) {
+    print("3")
     return(empty_orcid())
   }
   works$doi <- sapply(works$`external-ids.external-id`, 

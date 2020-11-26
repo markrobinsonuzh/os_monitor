@@ -1,14 +1,28 @@
-#' Title
+#' server function to be used in \code{\link{shinyApp_general}}
 #'
-#' @param input 
-#' @param output 
-#' @param session 
+#' @param con database connection
+#' @param orcid_access_token Access Token for orcid, 
+#'  See \code{\link[rorcid]{orcid_auth}}
 #'
 #' @return
+#' @import shiny 
+#' @import dplyr 
+#' @import ggplot2 
+#' @import stringr 
+#' @import shinyjs 
+#' @import plotly 
+#' @import DBI 
+#' @import shinyWidgets 
+#' @import promises 
+#' @import future 
+#' @import shinydashboard 
+#' @import shinydashboardPlus
+#' @importFrom magrittr %>% 
+#' 
 #' @export
 #'
 #' @examples
-shiny_general_server <-  function(con){
+shiny_general_server <-  function(con, orcid_access_token){
   function(input, output,session) {
   
   sps <- reactive(session$clientData$url_hostname)
@@ -71,7 +85,7 @@ shiny_general_server <-  function(con){
   # wait for clicking of "show_report", then retrieve all data asynchronously 
   scholarModalServer("show_report", df_scholar)
   
-  createOrcidServer("show_report", df_orcid, sps)
+  createOrcidServer("show_report", df_orcid, orcid_access_token, sps)
   ResultCheckServer("show_report", df_orcid, sps)
   
   createPublonsServer("show_report", df_publons, sps)
@@ -93,8 +107,8 @@ shiny_general_server <-  function(con){
       shiny_print_logs(paste("will (or has) merge:", paste(c("df_zora","df_orcid","df_pubmed","df_publons")[success_ls],collapse = ", ")), sps)
       future(seed=NULL,{
         con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
-        create_combined_data(isolate(df_orcid()),isolate(df_pubmed()),isolate(df_zora()),isolate(df_publons()),con) %>%
-          dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))}) %...>%
+        create_combined_data(isolate(df_orcid()),isolate(df_pubmed()),isolate(df_zora()),isolate(df_publons()),con)
+        }) %...>%
         tbl_merge()
       assign_to_reactiveVal(c(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]], "try_to_merge", TRUE)
     }
@@ -128,7 +142,8 @@ shiny_general_server <-  function(con){
             dplyr::right_join(tbl_merge_iso, by= "doi", suffix = c(".pubmetric",""))  %>% 
             dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
         }, globals = list(retrieve_from_pubmed_with_doi=retrieve_from_pubmed_with_doi,
-                          tbl_merge_iso=isolate(tbl_merge()))) %...>% 
+                          tbl_merge_iso=isolate(tbl_merge()),
+                          '%>%' = magrittr::'%>%')) %...>% 
           tbl_merge()
       }
       
@@ -160,7 +175,7 @@ shiny_general_server <-  function(con){
           dplyr::mutate(#year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year)),                        ,
             overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),levels = names(open_cols_fn()))) %>% 
           dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
-      }) %...>% 
+      },  globals = list('%>%'= magrittr::'%>%' )) %...>% 
         dplyr::mutate(year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year))) %...>% 
         tbl_merge()
       d$do_scholar_match <- FALSE
@@ -231,7 +246,7 @@ shiny_general_server <-  function(con){
       table(overall_oa_status,useNA = "ifany")
     })
     # total number of publications
-    tmp_total <- ifelse(!is.numeric(length(overall_oa_status)), 0, ength(overall_oa_status))
+    tmp_total <- ifelse(!is.numeric(length(overall_oa_status)), 0, length(overall_oa_status))
     # total number of open publications
     tmp_open <- ifelse(tmp_total != 0, ((tmp_total-sum(overall_oa_status == "closed"))/tmp_total)*100, 0)
     # total number of open publications without blue

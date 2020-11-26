@@ -314,6 +314,7 @@ try_to_merge.default <- function(x) attr(x, "try_to_merge")
 #' @param value character, value to give attribute
 #'
 #' @return
+#' @importFrom magrittr %>% 
 #' @export
 #'
 #' @examples

@@ -96,7 +96,7 @@ create_tbl_author <- function(author_vec, con, authorstablename = "authors", aut
   return(tbl_author)
 } 
 
-
+#' @importFrom magrittr %>% 
 #' @export
 empty_zora <- function(){
   tibble::tibble(eprintid = integer(),

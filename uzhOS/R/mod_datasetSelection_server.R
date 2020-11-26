@@ -5,6 +5,7 @@
 #' @param selection_ls reactive value containing input values of selection
 #'
 #' @export
+#' @importFrom magrittr %>% 
 #' @import shiny
 datasetSelectionsServer <- function(id, d,selection_ls) {
   moduleServer(
@@ -61,8 +62,9 @@ datasetSelectionsServer <- function(id, d,selection_ls) {
 #' @param d reactive value containing input
 #' @param selection_ls reactive value containing input values of selection
 #'
-#' @export
 #' @import shiny  
+#' @importFrom magrittr %>% 
+#' @export
 redrawSelectionsServer <- function(id, d,selection_ls) {
   moduleServer(
     id,
@@ -133,8 +135,9 @@ redrawSelectionsServer <- function(id, d,selection_ls) {
 #' @param d reactive value containing input
 #' @param selection_ls reactive value containing input values of selection
 #'
-#' @export
 #' @import shiny  
+#' @importFrom magrittr %>% 
+#' @export
 datasetSelectionsUpdateServer <- function(id, d, selection_ls) {
   moduleServer(
     id,
@@ -189,8 +192,9 @@ datasetSelectionsUpdateServer <- function(id, d, selection_ls) {
 #' @param df_ls list of reactive datasets (e.g. list(df_orcid, ...))
 #' @param max_nr_datasets max number of datasets
 #'
-#' @export
 #' @import shiny  
+#' @importFrom magrittr %>% 
+#' @export
 datasetSelectionsRemoveServer <- function(id, d, selection_ls, df_ls, max_nr_datasets = 6) {
   moduleServer(
     id,
@@ -221,6 +225,7 @@ datasetSelectionsRemoveServer <- function(id, d, selection_ls, df_ls, max_nr_dat
 #' @param id 
 #' @param label 
 #'
+#' @import shiny
 #' @return
 #' @export
 #'

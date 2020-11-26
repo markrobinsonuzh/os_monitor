@@ -5,6 +5,8 @@
 #' @return future, which will return list of bib entries
 #' @export
 #' @import shiny
+#' @import promises 
+#' @import future
 #'
 #' @examples
 #' doi <- "10.1177/000271625529700159"

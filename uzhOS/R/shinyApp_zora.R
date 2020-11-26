@@ -20,10 +20,11 @@
 #' @import future 
 #' @import shinydashboard 
 #' @import shinydashboardPlus
-#'
+#' @import magrittr
+#' @import odbc
 #' @examples
 #' shinyApp_zora()
-shinyApp_zora <- function(con = dbConnect(odbc::odbc(), "PostgreSQL"),
+shinyApp_zora <- function(con = odbc::dbConnect(odbc::odbc(), "PostgreSQL"),
                           fac_dep_filt = NULL){
   plan(multisession)
   require("shinyTree")  

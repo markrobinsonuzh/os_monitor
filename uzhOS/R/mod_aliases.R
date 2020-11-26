@@ -95,7 +95,7 @@ alias_selected_Server <- function(id, author_search, con,authorstablename = "aut
                                            # caption=paste("Author id:",pot_alias_names_ls[[i]]),
                                            cgroup=rbind(c(paste("Author id:",pot_alias_names_ls[[i]]),NA,NA),c("Faculty","Department","Type")),
                                            n.cgroup=rbind(c(6,NA,NA),c(2,2,2))))
-        HTML(paste0(tmp,"<br>"))
+        htmlstools::HTML(paste0(tmp,"<br>"))
         # HTML(paste(pot_aliases_ls[[i]][["author_name"]],"<br>",
         #            paste(pot_aliases_ls[[i]][["org_unit"]],collapse = " - "),"<br>",
         #            paste(pot_aliases_ls[[i]][["fac"]],collapse = " - ")))
@@ -153,9 +153,9 @@ alias_selected_orcid_auth_Server <- function(id) {
     id,
     function(input, output, session) {
       reactive({
-        orcid_ind <- str_which(input$aliases_selected,"([:alnum:]{4}-){3}[:alnum:]{4}")
+        orcid_ind <- stringr::str_which(input$aliases_selected,"([:alnum:]{4}-){3}[:alnum:]{4}")
         if(length(orcid_ind)>=1){
-          orcid <- str_extract_all(input$aliases_selected[orcid_ind][1],"([:alnum:]{4}-){3}[:alnum:]{4}")[[1]]
+          orcid <- stringr::str_extract_all(input$aliases_selected[orcid_ind][1],"([:alnum:]{4}-){3}[:alnum:]{4}")[[1]]
           author_vec <- input$aliases_selected
         } else{
           orcid <- NULL

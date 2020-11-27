@@ -1,5 +1,5 @@
 # testing pubmed_search_string_from_zora_id
-con <- dbConnect(odbc::odbc(), "PostgreSQL")
+con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
 test_that("pubmed_search_string_from_zora_id correct",{
   expect_equal(pubmed_search_string_from_zora_id(author_vec,con),
@@ -8,7 +8,7 @@ test_that("pubmed_search_string_from_zora_id correct",{
                "(robinson mark d[au] or robinson m[au] or robinson md[au]) AND (2019:2020[pdat]) AND (zurich[affiliation])")
   expect_equal(pubmed_search_string_from_zora_id(author_vec,con,cutoff_year = 2019, orcid = "0000-0002-3048-5518"),
                "(robinson mark d[au] or robinson m[au] or robinson md[au]) AND (2019:2020[pdat]) AND (zurich[affiliation]) OR (orcid 0000-0002-3048-5518 [auid])")
-  expect_equal(pubmed_search_string_from_zora_id("",con),"")
+  expect_equal(pubmed_search_string_from_zora_id("",con),"(max muster[au] or max m[au] or Max M[au]) AND (2001:2020[pdat]) AND (zurich[affiliation])")
 })
 
 test_that("pubmed_search_string_from_zora_id correct",{
@@ -26,7 +26,7 @@ test_that("pubmed_search_string_from_zora_id correct",{
 
 
 
-row_names_out <- c("PMID","DOI" )
+row_names_out <- c("doi","pmid" )
 dois <- c("10.1186/1471-2105-3-35","10.1128/MCB.24.12.5534-5547.2004")
 test_that("rec_req_id_converter correct",{
   pub_df <- rec_req_id_converter(dois)
@@ -44,7 +44,7 @@ test_that("rec_req_id_converter correct",{
 
 
 # testing retrieve_from_pubmed_with_doi
-row_names_out <- c("doi","relative_citation_ratio", "nih_percentile","citation_count","in_pubmed" )
+row_names_out <- c("doi","relative_citation_ratio", "nih_percentile","citation_count","in_pubmetric" )
 dois <- c("10.1186/1471-2105-3-35","10.1128/MCB.24.12.5534-5547.2004")
 test_that("retrieve_from_pubmed_with_doi correct",{
   pub_df <- retrieve_from_pubmed_with_doi(dois)

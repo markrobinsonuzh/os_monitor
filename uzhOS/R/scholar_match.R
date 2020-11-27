@@ -2,47 +2,24 @@
 #'
 #' @param tbl_merge tibble with combined data from \code{\link{create_combined_data}}
 #' @param df_scholar tibble from \code{\link{retrieve_from_scholar}}
-#'
+#' @param with_rcrossref logical, get metadata from crossref
+#' 
 #' @return df_scholar with additional column 'doi'
 #' @export
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-# scholar_id <- "XPfrRQEAAAAJ"
-# pri_author <- "robinson m 0000 0002 3048 5518"
-# sec_author <- "robinson m d"
-# full_author <- "robinson mark d"
-# pri_author <- "robinson mark d (orcid: 0000-0002-3048-5518)"
-# sec_author <- "robinson mark d"
-# # sec_author <- ""
-# orcid <- "0000-0002-3048-5518"
-# 
-# pubmed <- pubmed_search_string_from_zora_id(full_author,tbl_unique_authorkeys_fullname,2001)
-# 
-# # tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,pri_author)
-# tbl_author <- create_tbl_author(tbl_authorkeys,tbl_eprints,c(pri_author,sec_author))
-# 
-# zora <- create_zora(c(pri_author,sec_author),tbl_author,tbl_subjects)
-# 
-# df_pubmed <- retrieve_from_pubmed(pubmed)
-# if (!is.null(df_pubmed)){
-#   tmpoadoi <- oadoi_fetch_local(na.omit(df_pubmed$doi),unpaywall)
-#   df_pubmed <- left_join(df_pubmed,tmpoadoi,by="doi")
-# }
-# df_orcid <- tryCatch({retrieve_from_orcid(orcid) %>%
-#     dplyr::mutate(doi = tolower(doi))},
-#     error=function(e) NULL)
-# if (!is.null(df_orcid)){
-#   tmpoadoi <- oadoi_fetch_local(na.omit(df_orcid$doi),unpaywall)
-#   df_orcid <- left_join(df_orcid,tmpoadoi,by="doi")
-# }
-# tbl_merge <- create_combined_data(df_orcid,df_pubmed,zora,NULL,unpaywall)
-# df_scholar_master <- retrieve_from_scholar(scholar_id)
-# df_scholar <- df_scholar_master
-# 
-# df_scholar <- df_scholar_matching(tbl_merge,df_scholar)
-# tbl_merge <- full_join(tbl_merge,df_scholar,by="doi",suffix=c("",".scholar"))
-# tbl_merge <- tbl_merge %>% mutate(across(starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
+#' df_orcid <- retrieve_from_orcid("0000-0002-3048-5518")
+#' df_pubmed <- empty_pubmed()
+#' df_zora <- empty_zora()
+#' df_publons <- empty_publons()
+#' con <-  odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' tbl_merge <- create_combined_data(df_orcid, df_pubmed, df_zora, df_publons, con)
+#' 
+#' df_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
+#' 
+#' df_scholar <- df_scholar_matching(tbl_merge, df_scholar)
+#' 
 df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
   if(dim(df_scholar)[1]==0){
     return(df_scholar %>% dplyr::mutate(doi=character()))

@@ -13,6 +13,8 @@ open_cols_fn <- function(){
     "unknown"="gray90") 
 }
 
+#' Order of OA 
+#' 
 #' @export
 oa_status_order <- function(){
   c("closed", "preprint", "bronze", "blue","hybrid", "green","gold")
@@ -38,7 +40,7 @@ oa_status_order <- function(){
 #'
 #' @examples
 #' author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
-#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 #' create_tbl_author(author_vec, con)
 #' # filter faculty
 #' create_tbl_author(author_vec, con, fac_vec = "07 Faculty of Science")
@@ -96,6 +98,8 @@ create_tbl_author <- function(author_vec, con, authorstablename = "authors", aut
   return(tbl_author)
 } 
 
+#' Empty zora tibble
+#' 
 #' @importFrom magrittr %>% 
 #' @export
 empty_zora <- function(){
@@ -115,7 +119,7 @@ empty_zora <- function(){
     as_tibble_reac(name="zora")
 }
 
-#' wraper for create_tbl_author, and add "blue" oa status
+#' wrapper for create_tbl_author, and add "blue" oa status
 #'
 #' @param author_vec author name
 #' @param con postgresql connection
@@ -124,16 +128,16 @@ empty_zora <- function(){
 #' @param eprintstablename table name
 #' @param subjectstablename table name
 #' 
-#' @return
+#' @return tibble
 #' 
 #' @export
 #' @importFrom magrittr %>%
 #' @import DBI
 #' 
 #' @examples
-# author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
-# con <- dbConnect(odbc::odbc(), "PostgreSQL")
-# create_zora(author_vec,con)
+#' author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' create_zora(author_vec,con)
 create_zora <- function(author_vec, con, authorstablename = "authors", authorkeystablename = "authorkeys", 
                         eprintstablename = "eprints", subjectstablename = "subjects"){
   sql_con_cont(con)
@@ -174,7 +178,7 @@ create_zora <- function(author_vec, con, authorstablename = "authors", authorkey
 #'
 #' @examples
 #' author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
-#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 #' org_unit_fac(author_vec,con)
 org_unit_fac <- function(author_vec, con, authorstablename = "authors", 
                          authorkeystablename = "authorkeys", eprintstablename = "eprints", 
@@ -215,14 +219,14 @@ org_unit_fac <- function(author_vec, con, authorstablename = "authors",
 #' @param fac_vec character vector of faculties to filter
 #' @param dep_vec character vector of departments to filter
 #' 
-#' @return
+#' @return list with elements pot_aliases, pot_affil
 #' @export
 #' @import DBI
 #' @importFrom magrittr %>% 
 #'
 #' @examples
 #' authorname <- "robinson mark d"
-#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 #' pot_alias_and_affil(authorname, con)
 pot_alias_and_affil <- function(authorname, con, authorstablename = "authors", 
                                 authorkeystablename = "authorkeys", eprintstablename = "eprints", 
@@ -248,7 +252,6 @@ pot_alias_and_affil <- function(authorname, con, authorstablename = "authors",
 #' @export
 #' @importFrom magrittr %>% 
 #'
-#' @examples
 upset_selection <- function(tbl_merge,in_selection,not_in_selection){
   ind_1 <- tbl_merge %>%
     dplyr::select(!!!rlang::syms(in_selection)) %>%

@@ -1,10 +1,9 @@
-#' Title
+#' retrieve from scihub server module
 #'
-#' @param id 
-#' @param d 
-#' @param sci_hub_pdf_links 
+#' @param id namespace
+#' @param d reactive values object
+#' @param sci_hub_pdf_links \code{\link[shiny]{reactiveVal}}
 #'
-#' @return
 #' @import shiny
 #' @import future
 #' @import promises
@@ -14,7 +13,6 @@
 ScihubObserveActionbuttonServer <- function(id, d, sci_hub_pdf_links) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent({input$fulltext_download_button},{
         req(input$fulltext_download_button)
@@ -36,18 +34,16 @@ ScihubObserveActionbuttonServer <- function(id, d, sci_hub_pdf_links) {
   )
 }
 
-#' Title
+#' update data on scihub retrieval server module
 #'
-#' @param id 
-#' @param d 
-#' @param sci_hub_pdf_links 
+#' @param id namespace
+#' @param d reactive values object
+#' @param sci_hub_pdf_links \code{\link[shiny]{reactiveVal}}
 #'
-#' @return
 #' @import shiny
 #' @importFrom magrittr %>% 
 #' @export
 #'
-#' @examples
 ScihubObservePdflinksServer <- function(id, d, sci_hub_pdf_links) {
   moduleServer(
     id,
@@ -65,16 +61,14 @@ ScihubObservePdflinksServer <- function(id, d, sci_hub_pdf_links) {
   )
 }
 
-#' Title
+#' render datatable of scihub data server module
 #'
-#' @param id 
-#' @param d 
+#' @param id namespace
+#' @param d reactive values object
 #'
-#' @return
 #' @import shiny
 #' @export
 #'
-#' @examples
 ScihubRenderDTServer <- function(id, d) {
   moduleServer(
     id,

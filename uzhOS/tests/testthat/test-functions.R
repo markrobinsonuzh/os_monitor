@@ -1,8 +1,28 @@
-setwd("../uzhOS/tests/testthat/")
+# setwd("../uzhOS/tests/testthat/")
 Sys.setenv(ORCID_TOKEN="8268867c-bf2c-4841-ab9c-bfeddd582a9c")
 
-con <- dbConnect(odbc::odbc(), "PostgreSQL")
+con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 
+# con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+# testfun <- function(con){
+#   tbl(con,"unpaywall") %>% filter(doi=="10.1038/2211089b0") %>% collect()
+# }
+# 
+# start_db_capturing()
+# con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+# # create_tbl_author(author_vec, con, fac_vec=NULL, dep_vec=NULL)
+# testfun(con)
+# stop_db_capturing()
+# 
+# with_mock_db(
+#   test_that("bla",{
+#     con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#     out <- testfun(con)
+#     expect_equal(out$doi,"10.1038/2211089b0")
+#     # create_tbl_author_out <- create_tbl_author(author_vec, con, fac_vec=NULL, dep_vec=NULL)
+#     # expect_equal(sort(names(create_tbl_author_out)),sort(names_tbl_author))
+#   })
+# )
 
 
 author_vec <- c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)")
@@ -85,7 +105,7 @@ all_combs <- expand.grid(df_orcid=c(TRUE,FALSE),
 
 test_comb <- function(df_orcid,df_zora,df_publons,df_pubmed,title=""){
   test_that(paste("create_combined_data for: ",title),{
-    tbl_merge <- create_combined_data(df_orcid,df_pubmed,df_zora,df_publons,con)
+    tbl_merge <- suppressWarnings(create_combined_data(df_orcid,df_pubmed,df_zora,df_publons,con))
     is(tbl_merge,"data.frame")
     expect_true("doi" %in% names(tbl_merge))
     expect_true("overall_oa" %in% names(tbl_merge))
@@ -118,7 +138,7 @@ for(i in seq_along(all_combs[,1])){
     args_list[["df_pubmed"]] <- slice(df_pubmed,0)
   }
   args_list[["title"]] <- paste0(names(comb_vec)[unlist(comb_vec)],collapse = ",")
-  do.call(test_comb, args = args_list)
+  suppressWarnings(do.call(test_comb, args = args_list))
 }
 
 

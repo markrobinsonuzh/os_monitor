@@ -1,14 +1,16 @@
 #' Title
 #'
-#' @param input 
-#' @param output 
-#' @param session 
+#' @param con db connection function call, e.g. odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' @param unique_authorkeys_processed tibble
+#' @param all_oa_status tibble
+#' @param orgtree tree
+#' @param fac_dep_filt tibble
 #'
-#' @return
+#' @return server
+#' 
 #' @importFrom magrittr %>% 
 #' @export
 #'
-#' @examples
 shiny_zora_server <-  function(con,
                                unique_authorkeys_processed,
                                all_oa_status,
@@ -211,7 +213,7 @@ shiny_zora_server <-  function(con,
   scholarModalServer("show_report", df_scholar)
   tbl_merge <- reactiveVal(NULL)
   
-  createZoraServer("show_report", df_zora, sps)
+  createZoraServer("show_report", df_zora, con_quosure, sps)
   ResultCheckServer("show_report", df_zora, sps)
   
   createOrcidServer("show_report", df_orcid, sps)

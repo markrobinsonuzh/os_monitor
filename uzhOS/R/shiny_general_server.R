@@ -1,10 +1,11 @@
-#' server function to be used in \code{\link{shinyApp_general}}
+#' Server function for \code{\link{shinyApp_general}}
 #'
-#' @param con database connection
+#' @param con db connection function call, e.g. odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 #' @param orcid_access_token Access Token for orcid, 
 #'  See \code{\link[rorcid]{orcid_auth}}
 #'
-#' @return
+#' @return server
+#' 
 #' @import shiny 
 #' @import dplyr 
 #' @import ggplot2 
@@ -21,8 +22,9 @@
 #' 
 #' @export
 #'
-#' @examples
 shiny_general_server <-  function(con, orcid_access_token){
+  con_quosure <- rlang::eval_tidy(rlang::enquo(con))
+  con <- rlang::eval_tidy(con_quosure)
   function(input, output,session) {
   
   sps <- reactive(session$clientData$url_hostname)
@@ -106,9 +108,15 @@ shiny_general_server <-  function(con, orcid_access_token){
       shiny_print_logs(paste("start to merge:", paste(list(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]]() %>% name(),collapse = ", ")), sps)
       shiny_print_logs(paste("will (or has) merge:", paste(c("df_zora","df_orcid","df_pubmed","df_publons")[success_ls],collapse = ", ")), sps)
       future(seed=NULL,{
-        con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
-        create_combined_data(isolate(df_orcid()),isolate(df_pubmed()),isolate(df_zora()),isolate(df_publons()),con)
-        }) %...>%
+        # con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
+        con <- rlang::eval_tidy(con_quosure)
+        create_combined_data(df_orcid, df_pubmed, df_zora, df_publons, con)
+        }, globals=list(con_quosure=con_quosure,
+                        create_combined_data=create_combined_data,
+                        df_orcid=isolate(df_orcid()),
+                        df_pubmed=isolate(df_pubmed()),
+                        df_zora=isolate(df_zora()),
+                        df_publons=isolate(df_publons()))) %...>%
         tbl_merge()
       assign_to_reactiveVal(c(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]], "try_to_merge", TRUE)
     }

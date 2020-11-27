@@ -1,8 +1,8 @@
-#' Title
+#' UI function for \code{\link{shinyApp_general}}
 #'
-#' @param request 
+#' @param request shiny internal stuff
 #'
-#' @return
+#' @return ui
 #' 
 #' @import shiny 
 #' @import stringr 
@@ -13,8 +13,6 @@
 #' @importFrom magrittr %>% 
 #' 
 #' @export
-#'
-#' @examples
 shiny_general_ui <- function(request) {
   dashboardPage(
     preloader = list(

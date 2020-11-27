@@ -1,3 +1,5 @@
+#' Empty publons tibble
+#' 
 #' @importFrom magrittr %>% 
 #' @export
 empty_publons <- function(){

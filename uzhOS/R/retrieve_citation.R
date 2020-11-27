@@ -10,7 +10,7 @@
 #'
 #' @examples
 #' doi <- "10.1177/000271625529700159"
-#' GetBibEntryWithDOI_no_temp(doi,progress=NULL)
+#' GetBibEntryWithDOI_no_temp(doi)
 GetBibEntryWithDOI_no_temp <- function (doi) 
 {
   future(seed=NULL,{

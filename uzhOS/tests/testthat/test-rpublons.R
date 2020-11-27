@@ -12,5 +12,4 @@ testthat::test_that("retrieve_from_publons correct",{
   expect_true(all(names(mr_publons) %in% c("title","doi","date","year","in_publons")))
   expect_equal(typeof(mr_publons$year),"integer")
   expect_equal(typeof(mr_publons$in_publons),"logical")
-  expect_equal(typeof(mr_orcs$in_orcid),"logical")
 })

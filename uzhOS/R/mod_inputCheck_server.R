@@ -1,7 +1,10 @@
 #' create zora module
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
+#' @param df_zora \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_zora}}
+#' @param df_orcid \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_orcid}}
+#' @param df_pubmed \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_pubmed}}
+#' @param con database connection, e.g. odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 #'
 #' @export
 #' @import shiny
@@ -32,10 +35,10 @@ pubmedActivateServer <- function(id, df_zora, df_orcid, df_pubmed, con) {
 
 
 
-#' create zora module
+#' check orcid input module
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
+#' @param df_orcid \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_orcid}}
 #'
 #' @export
 #' @import shiny
@@ -43,7 +46,6 @@ pubmedActivateServer <- function(id, df_zora, df_orcid, df_pubmed, con) {
 orcidCheckServer <- function(id, df_orcid) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(input$orcid,{
         if(check_if_likely_orcid(input$orcid)){
@@ -61,10 +63,11 @@ orcidCheckServer <- function(id, df_orcid) {
         assign_to_reactiveVal(df_orcid, "input_value", input$orcid)
       })})}
 
-#' create zora module
+
+#' ccheck pubmed input module
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
+#' @param df_pubmed \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_pubmed}}
 #'
 #' @export
 #' @import shiny
@@ -72,7 +75,6 @@ orcidCheckServer <- function(id, df_orcid) {
 pubmedCheckServer <- function(id, df_pubmed) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(input$pubmed,{
         if(input$pubmed != ""){
@@ -84,10 +86,10 @@ pubmedCheckServer <- function(id, df_pubmed) {
       })
     })}
 
-#' create zora module
+#' check scholar input module
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
+#' @param df_scholar \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_scholar}}
 #'
 #' @export
 #' @import shiny
@@ -95,7 +97,6 @@ pubmedCheckServer <- function(id, df_pubmed) {
 scholarCheckServer <- function(id, df_scholar) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(input$scholar,{
         if (check_if_likely_scholar(input$scholar)){
@@ -113,10 +114,10 @@ scholarCheckServer <- function(id, df_scholar) {
       })
     })}
 
-#' create zora module
+#' check publons input module
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
+#' @param df_publons \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_publons}}
 #'
 #' @export
 #' @import shiny
@@ -124,7 +125,6 @@ scholarCheckServer <- function(id, df_scholar) {
 publonsCheckServer <- function(id, df_publons) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(input$publons,{
         if(input$publons != ""){

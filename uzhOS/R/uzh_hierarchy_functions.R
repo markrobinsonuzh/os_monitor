@@ -10,7 +10,7 @@
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 #' aou <- all_org_unit_fac(con)
 #' 
 all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablename = "subjects"){
@@ -62,12 +62,11 @@ all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablenam
 #' @param fac_dep_filt tibble, output from \code{\link{all_org_unit_fac}}
 #' @param type one of "fac","dep","fac_dep"
 #'
-#' @return
+#' @return character vector
 #' 
 #' @export
 #' @importFrom magrittr %>% 
 #'
-#' @examples
 unique_fac_dep <- function(fac_dep_filt, type=c("fac","dep","fac_dep")){
   type <- match.arg(type)
   if(type == "fac"){
@@ -96,7 +95,7 @@ unique_fac_dep <- function(fac_dep_filt, type=c("fac","dep","fac_dep")){
 #' @import ggplot2
 #'
 #' @examples
-#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 #' fac_dep_filt <- all_org_unit_fac(con)
 #' vdep <- c("Department of Anthropology","Department of Biochemistry",
 #'           "Department of Chemistry","Department of Molecular Mechanisms of Disease")
@@ -360,11 +359,11 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
 #' @param by_year stratify by year
 #' @param publication_filter what publications to include, default = "all".
 #'
-#' @return
+#' @return tibble
 #' @export
 #'
 #' @examples
-#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 #' fac_dep_filt <- all_org_unit_fac(con)
 #' vdep <- c("Department of Anthropology","Department of Biochemistry",
 #'           "Department of Chemistry","Department of Molecular Mechanisms of Disease")
@@ -394,7 +393,7 @@ preprocess_fac_dep <- function(fac_dep_filt, fac_chosen, col_to_plot ,
 }
 
 #' @examples
-#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 #' fac_dep_filt <- all_org_unit_fac(con)
 #' vdep <- c("Department of Anthropology","Department of Biochemistry",
 #'           "Department of Chemistry","Department of Molecular Mechanisms of Disease")

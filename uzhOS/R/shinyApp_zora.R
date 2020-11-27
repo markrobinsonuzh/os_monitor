@@ -4,7 +4,7 @@
 #' @param fac_dep_filt tibble from \code{\link{all_org_unit_fac}}, if NULL (default), will
 #'  be recomputed which increases startup time
 #'  
-#' @return
+#' @return shiny.appobj
 #' 
 #' @export
 #' @import shiny 
@@ -51,8 +51,8 @@ shinyApp_zora <- function(con = odbc::dbConnect(odbc::odbc(), "PostgreSQL"),
   all_oa_status <- names(open_cols_fn())[mat_oa[ord_oa]]
   
   message("Get faculty hierarchy ...")
-  orgfile <- system.file("data","orgtree.rds", package = "uzhOS")
-  orgtree <- readRDS(orgfile)
+  orgfile <- system.file("data","orgtree.RData", package = "uzhOS")
+  load(file=orgfile)
   options(shinyTree.defaultParser="tree")
   
   message("Start application ...")

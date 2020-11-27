@@ -1,9 +1,10 @@
 #' get fulltext pdflink from sci-hub of doi
 #'
-#' @param doi doic
+#' @param doi doi
 #' @param sci_hub_base_url base url sci-hub
 #'
-#' @return
+#' @return url
+#' 
 #' @importFrom magrittr %>% 
 #' @import httr
 #' @export
@@ -12,8 +13,8 @@
 #' orcid <- "0000-0002-3048-5518"
 #' ws <- retrieve_from_orcid(orcid) %>%
 #'   mutate(doi = tolower(doi))
-#'   closed_dois <- oaf %>% dplyr::slice(2)%>% pull(doi)
-#'   fns <- sapply(closed_dois, pdf_link_from_scihub)
+#'   closed_dois <- oaf %>% dplyr::slice(1)%>% pull(doi)
+#' fns <- pdf_link_from_scihub_singledoi(ws)
 pdf_link_from_scihub_singledoi <- function(doi, sci_hub_base_url = "https://sci-hub.se/") {
   stopifnot(length(doi)==1)
   sci_url <- httr::parse_url(sci_hub_base_url)
@@ -41,12 +42,12 @@ pdf_link_from_scihub_singledoi <- function(doi, sci_hub_base_url = "https://sci-
 }
 
 
-#'  get fulltext pdflink from sci-hub of multiple dois
+#' get fulltext pdflink from sci-hub of multiple dois
 #'
-#' @param doi dois
+#' @param dois dois
 #' @param sci_hub_base_url base url sci-hub
 #'
-#' @return
+#' @return vector of urls
 #' @export
 #'
 #' @examples
@@ -54,21 +55,24 @@ pdf_link_from_scihub_singledoi <- function(doi, sci_hub_base_url = "https://sci-
 #' ws <- retrieve_from_orcid(orcid) %>%
 #'   mutate(doi = tolower(doi))
 #'   closed_dois <- ws %>% dplyr::slice(1:5)%>% pull(doi)
-#'   pdf_link_from_scihub(closed_dois)
+#' pdf_link_from_scihub(closed_dois)
 pdf_link_from_scihub <- function(dois, sci_hub_base_url = "https://sci-hub.se/"){
   sapply(dois, function(doi){pdf_link_from_scihub_singledoi(doi,sci_hub_base_url)} )
 }
 
 
-#' Title
+#' create DT of scihub data
 #'
 #' @param m_sub_sel_closed_pdflink data.frame
 #'
-#' @return
+#' @return \code{\link[DT]{datatable}}
 #' @importFrom magrittr %>% 
 #' @export
 #'
 #' @examples
+#' m_sub_sel_closed_pdflink <- tibble::tibble(pdflink=1:10,
+#'                                            doi=1:10)
+#' uzhOS::sci_hub_datatable(m_sub_sel_closed_pdflink)
 sci_hub_datatable <- function(m_sub_sel_closed_pdflink){
   m_sub_sel_closed_pdflink %>% 
     dplyr::mutate(pdflink = paste0("<a href='",pdflink,"' target='_blank'>", pdflink, "</a>"),
@@ -79,7 +83,3 @@ sci_hub_datatable <- function(m_sub_sel_closed_pdflink){
                                  buttons = list('copy', 'csv', 'excel')),
                   escape = FALSE, rownames = FALSE)
 }
-
-
-
-# pdf_link_from_scihub(c("10.1007/s002850100083","10.1007/s002850100082"))

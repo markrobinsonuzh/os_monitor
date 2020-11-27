@@ -7,10 +7,9 @@
 #' @export
 #' @importFrom magrittr %>% 
 #' @import shiny
-datasetSelectionsServer <- function(id, d,selection_ls) {
+datasetSelectionsServer <- function(id, d, selection_ls) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
     observeEvent({
       purrr::map(seq_len(length(d$all_selection_choices)*3), function(i){input[[paste0("blab",i)]]})
@@ -65,10 +64,9 @@ datasetSelectionsServer <- function(id, d,selection_ls) {
 #' @import shiny  
 #' @importFrom magrittr %>% 
 #' @export
-redrawSelectionsServer <- function(id, d,selection_ls) {
+redrawSelectionsServer <- function(id, d, selection_ls) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent({selection_ls$redraw},{
         if(selection_ls$redraw){
@@ -141,7 +139,6 @@ redrawSelectionsServer <- function(id, d,selection_ls) {
 datasetSelectionsUpdateServer <- function(id, d, selection_ls) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
   observeEvent({
     purrr::map(seq_len(length(d$all_selection_choices)*3), function(i){input[[paste0("blab",i)]]})
@@ -220,16 +217,14 @@ datasetSelectionsRemoveServer <- function(id, d, selection_ls, df_ls, max_nr_dat
 
 
 
-#' Title
+#' dataset selection ui module
 #'
-#' @param id 
-#' @param label 
+#' @param id namespace
 #'
+#' @return tagList
+#' 
 #' @import shiny
-#' @return
 #' @export
-#'
-#' @examples
 datasetSelectionsUpdateUI <- function(id) {
   ns <- NS(id)
   tagList(

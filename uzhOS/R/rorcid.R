@@ -1,3 +1,5 @@
+#' Empty orcid tibble
+#' 
 #' @importFrom magrittr %>% 
 #' @export
 empty_orcid <- function(){
@@ -17,7 +19,7 @@ empty_orcid <- function(){
 #'  See \code{\link[rorcid]{orcid_auth}}
 #' @param exclude what type of ORCID records to exclude from the list
 #'
-#' @return
+#' @return tibble
 #' @export
 #' @importFrom magrittr %>% 
 #'
@@ -71,7 +73,7 @@ retrieve_from_orcid <- function(orcid, orcid_access_token="8268867c-bf2c-4841-ab
 
 #' Check for correct structure of orcid (not if exists!)
 #'
-#' @param orcid Orcid
+#' @param orcid potential Orcid
 #'
 #' @return logical
 #' 

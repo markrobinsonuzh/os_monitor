@@ -1,4 +1,3 @@
-
 #' create combined data from zora, orcid, pubmed, publons and unpaywall
 #'
 #' @param df_orcid tibble from \code{\link{retrieve_from_orcid}}
@@ -8,12 +7,18 @@
 #' @param con postgresql connection
 #' @param unpaywalltablename table name
 #'
-#' @return
+#' @return tibble
 #' 
 #' @export
 #' @importFrom magrittr %>%
 #'
 #' @examples
+#' df_orcid <- empty_orcid()
+#' df_pubmed <- empty_pubmed()
+#' df_zora <- empty_zora()
+#' df_publons <- empty_publons()
+#' con <-  odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' tbl_merge <- create_combined_data(df_orcid, df_pubmed, df_zora, df_publons, con)
 create_combined_data <- function(df_orcid, df_pubmed, df_zora, df_publons, con, unpaywalltablename = "unpaywall"){
   ## orcid and zora
   # if df_orcid is given

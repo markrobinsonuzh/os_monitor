@@ -22,7 +22,7 @@ sql_con_cont <- function(con){
 #' @import DBI
 #'
 #' @examples 
-#' con <- dbConnect(odbc::odbc(), "PostgreSQL")
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 #' oadoi_fetch_local("10.1177/000271625529700159",con)
 oadoi_fetch_local <- function(dois, con, unpaywalltablename = "unpaywall"){
   sql_con_cont(con)

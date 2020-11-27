@@ -1,8 +1,14 @@
+#' Check if input ihas correct scholar id structure
+#' 
+#' @param scholar google scholar id
+#'
 #' @export
 check_if_likely_scholar <- function(scholar){
   stringr::str_detect(scholar,"[-_0-9A-Za-z]{12}")
 }
 
+#' Empty google scholar tibble
+#' 
 #' @importFrom magrittr %>% 
 #' @export
 empty_scholar<- function(){
@@ -67,7 +73,7 @@ split_to_rank <- function(u) {
 #' @param a first title
 #' @param b second title
 #'
-#' @return
+#' @return double
 #' @export
 #'
 #' @examples
@@ -85,7 +91,7 @@ sentence_Dist <- function(a, b) {
 #' @param x first vector of titles
 #' @param y second vector of titles
 #'
-#' @return
+#' @return list of elements dist, rows, cols 
 #' @export
 #'
 #' @examples

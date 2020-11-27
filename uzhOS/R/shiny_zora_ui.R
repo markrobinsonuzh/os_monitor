@@ -1,12 +1,12 @@
 #' Title
 #'
-#' @param request 
+#' @param request shiny internal
+#' @param fac_dep_filt tibble
 #'
-#' @return
+#' @return ui
 #' @importFrom magrittr %>% 
 #' @export
 #'
-#' @examples
 shiny_zora_ui <- function(request, fac_dep_filt) {
   dashboardPage(
     preloader = list(

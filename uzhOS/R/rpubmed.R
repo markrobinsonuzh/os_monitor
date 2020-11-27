@@ -1,3 +1,5 @@
+#' Empty pubmed tibble
+#' 
 #' @importFrom magrittr %>% 
 #' @export
 empty_pubmed <- function(){
@@ -40,17 +42,20 @@ fix_null <- function(x) {
 
 #' Create pubmed search query
 #'
-#' @param authorname author id
-#' @param tbl_unique_authorkeys_fullname mongodb connection of unique authorkeys
+#' @param author_vec author id
+#' @param con db connection function call, e.g. odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' @param authorkeystablename table name
 #' @param cutoff_year year, everything below will be excluded
-#'
-#' @return
+#' @param orcid orcid
+#' 
+#' @return character
 #' @export
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-# pri_author <- "robinson mark d (orcid: 0000-0002-3048-5518)"
-# pubmed_search_string_from_zora_id(pri_author,con)
+#' pri_author <- "robinson mark d (orcid: 0000-0002-3048-5518)"
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' pubmed_search_string_from_zora_id(pri_author,con)
 pubmed_search_string_from_zora_id <- function(author_vec, con, authorkeystablename = "authorkeys", cutoff_year=2001, orcid = NULL){
   scaffold <- "(%s[au] or %s[au] or %s[au]) AND (%i:%i[pdat]) AND (zurich[affiliation])"
   if (is.null(con)){
@@ -84,7 +89,7 @@ pubmed_search_string_from_zora_id <- function(author_vec, con, authorkeystablena
 #' @param just_ids set of PMIDs to just retrieve records for (in this case, `pmid_search`, `pmid_remove`, `pmid_add` are ignored)
 #' @importFrom rentrez entrez_search entrez_summary
 #'
-#' @return
+#' @return tibble
 #' @export
 #'
 #' @examples
@@ -112,8 +117,7 @@ retrieve_from_pubmed <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, j
                authors = fix_null(paste(w$authors$name, collapse = ", ")),
                journal = fix_null(w$source), 
                doi = fix_null(w$articleids$value[w$articleids$idtype == "doi"]),
-               pmid = fix_null(w$articleids$value[w$articleids$idtype == "pubmed"]),
-               stringsAsFactors = FALSE)
+               pmid = fix_null(w$articleids$value[w$articleids$idtype == "pubmed"]))
   })
   summ <- do.call(rbind, summ)
   # bunch of hacks to clean stuff up
@@ -129,6 +133,10 @@ retrieve_from_pubmed <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, j
 }
 
 
+#' parse returned httr content from pubmed
+#' 
+#' @param pubmed_doi_convert_get httr::response
+#' 
 #' @importFrom magrittr %>% 
 #' @export
 parse_return_html_from_ncbi <- function(pubmed_doi_convert_get){
@@ -171,7 +179,7 @@ rec_req_id_converter <- function(doi){
     }) %>% purrr::reduce(rbind))
   # if error and only one doi, return empty tibble
   } else if(httr::http_error(pubmed_doi_convert_get) && length(doi)==1){
-    return(tibble::tibble(PMID=character(),DOI=character()))
+    return(tibble::tibble(doi=character(),pmid=character()))
   # if no error return tibble
   }else {
     # read request
@@ -179,6 +187,8 @@ rec_req_id_converter <- function(doi){
   }
 }
 
+#' Empty pubmetric tibble
+#' 
 #' @export
 empty_pubmetric <- function(){
   tibble::tibble(doi=character(),

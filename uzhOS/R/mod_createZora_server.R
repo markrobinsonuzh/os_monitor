@@ -1,26 +1,29 @@
-#' Title
+#' Action Button 'show_report'
 #'
-#' @param id 
-#' @param label 
+#' @param id namesapce
+#' @param label label
 #'
-#' @return
+#' @import shiny
 #' @export
 #'
-#' @examples
 showReportUI <- function(id, label = "Show Report") {
   ns <- NS(id)
   tagList(
     actionButton(ns("show_report"), label = label),
   )
 }
-#' @export
+
+#' Save 'show_report' in reactive value
+#' 
+#' @param id namespace
+#' @param d reactiveValues
+#' 
 #' @import shiny
-#' @import future
+#' @export
 #' 
 showReportValueServer <- function(id, d) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
         shiny_print_logs(paste("show_report pressed, start retrieval... (pressed",input$show_report,"times)"), sps)
@@ -30,14 +33,17 @@ showReportValueServer <- function(id, d) {
   )
 }
 
-#' @export
+#' Google scholar modal info
+#' 
+#' @param id namespace
+#' @param df_scholar \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_scholar}}
+#' 
 #' @import shiny
-#' @import future
+#' @export
 #' 
 scholarModalServer <- function(id, df_scholar) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
         if(valid_input(df_scholar())){
@@ -54,16 +60,19 @@ scholarModalServer <- function(id, df_scholar) {
 #' create zora module
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
+#' @param df_zora \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_zora}}
+#' @param con database connection quosure, e.g. rlang::quo(odbc::dbConnect(odbc::odbc(), "PostgreSQL"))
+#' @param sps \code{\link{shiny_print_logs}} 'hostname' (for better logs)
 #'
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
 #' 
-createZoraServer <- function(id, df_zora, sps) {
+createZoraServer <- function(id, df_zora, con, sps) {
+  con_quosure <- rlang::eval_tidy(rlang::enquo(con))
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
         assign_to_reactiveVal(df_zora, "try_to_retrieve", FALSE)
@@ -72,10 +81,12 @@ createZoraServer <- function(id, df_zora, sps) {
         if (valid_input(df_zora())){
           shiny_print_logs(paste("retrieve zora",input$show_report), sps)
         future(seed=NULL,{
-          con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
+          # con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+          con <- rlang::eval_tidy(con_quosure)
           create_zora(author_vec, con)
-        }, globals = list(empty_zora=empty_zora,
-                          tbl=tbl,
+        }, globals = list(con_quosure=con_quosure,
+                          # empty_zora=empty_zora,
+                          # tbl=dplyr::tbl,
                           create_zora=create_zora,
                           author_vec=isolate(input_value(df_zora())))) %...>% 
             to_tibble_reac_template(df_zora()) %...>% 
@@ -90,16 +101,20 @@ createZoraServer <- function(id, df_zora, sps) {
 #' create orcid module
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
-#'
+#' @param df_orcid \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_orcid}}
+#' @param orcid_access_token Orcid access token, see \code{\link[rorcid]{orcid_auth}}
+#' @param sps \code{\link{shiny_print_logs}} 'hostname' (for better logs)
+#' 
+#' 
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
+#' @importFrom magrittr %>% 
 #' 
-createOrcidServer <- function(id, df_orcid, sps) {
+createOrcidServer <- function(id, df_orcid, orcid_access_token, sps) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
         assign_to_reactiveVal(df_orcid, "try_to_retrieve", FALSE)
@@ -109,13 +124,13 @@ createOrcidServer <- function(id, df_orcid, sps) {
           shiny_print_logs(paste("retrieve orcid:",input_value(df_orcid())), sps)
           assign_to_reactiveVal(df_orcid, "try_to_retrieve", TRUE)
           future(seed=NULL,{
-            con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
-            retrieve_from_orcid(orcid) %>%
-              dplyr::mutate(doi = tolower(doi))    
-          }, globals = list(empty_orcid=empty_orcid,
-                            tbl=tbl,
+            # con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
+            dplyr::mutate(retrieve_from_orcid(orcid, orcid_access_token=orcid_access_token), doi = tolower(doi))    
+          }, globals = list(# empty_orcid=empty_orcid,
+                            # tbl=dplyr::tbl,
                             retrieve_from_orcid=retrieve_from_orcid,
-                            orcid=isolate(input_value(df_orcid())))) %...>% 
+                            orcid=isolate(input_value(df_orcid())),
+                            orcid_access_token=orcid_access_token)) %...>% 
             to_tibble_reac_template(df_orcid()) %...>% 
             `retrieval_done<-`(TRUE) %...>% 
             df_orcid()
@@ -124,10 +139,20 @@ createOrcidServer <- function(id, df_orcid, sps) {
     }
   )
 }
+
+
+
+#' check results module
+#'
+#' @param id namespace
+#' @param df_whatever reactiveVal of class tibble_reac
+#' @param sps username, etc, 
+#'
+#' @import shiny
+#' @export
 ResultCheckServer <- function(id, df_whatever, sps) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(retrieval_done(df_whatever()),{
         req(input$show_report)
@@ -146,16 +171,17 @@ ResultCheckServer <- function(id, df_whatever, sps) {
 #' create scholar module
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
+#' @param df_scholar \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_scholar}}
+#' @param sps \code{\link{shiny_print_logs}} 'hostname' (for better logs)
 #'
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
 #' 
 createScholarServer <- function(id, df_scholar, sps) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
         assign_to_reactiveVal(df_scholar, "try_to_retrieve", FALSE)
@@ -166,8 +192,8 @@ createScholarServer <- function(id, df_scholar, sps) {
           assign_to_reactiveVal(df_scholar, "try_to_retrieve", TRUE)
           future(seed=NULL,{
             retrieve_from_scholar(scholar)
-          }, globals = list(empty_scholar=empty_scholar,
-                            tbl=tbl,
+          }, globals = list(#empty_scholar=empty_scholar,
+                            # tbl=dplyr::tbl,
                             retrieve_from_scholar=retrieve_from_scholar,
                             scholar=isolate(input_value(df_scholar())))) %...>% 
             to_tibble_reac_template(df_scholar()) %...>% 
@@ -182,16 +208,17 @@ createScholarServer <- function(id, df_scholar, sps) {
 #' create pubmed module
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
+#' @param df_pubmed \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_pubmed}}
+#' @param sps \code{\link{shiny_print_logs}} 'hostname' (for better logs)
 #'
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
 #' 
 createPubmedServer <- function(id, df_pubmed, sps) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
         assign_to_reactiveVal(df_pubmed, "try_to_retrieve", FALSE)
@@ -203,8 +230,8 @@ createPubmedServer <- function(id, df_pubmed, sps) {
           future(seed=NULL,{
             tryCatch({retrieve_from_pubmed(pubmed)},
                      error=function(e) empty_pubmed())
-          }, globals = list(empty_pubmed=empty_pubmed,
-                            tbl=tbl,
+          }, globals = list(#empty_pubmed=empty_pubmed,
+                            # tbl=dplyr::tbl,
                             retrieve_from_pubmed=retrieve_from_pubmed,
                             pubmed=isolate(input_value(df_pubmed())))) %...>% 
             to_tibble_reac_template(df_pubmed()) %...>% 
@@ -219,16 +246,17 @@ createPubmedServer <- function(id, df_pubmed, sps) {
 #' create publons module
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
+#' @param df_publons \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_publons}}
+#' @param sps \code{\link{shiny_print_logs}} 'hostname' (for better logs)
 #'
 #' @export
 #' @import shiny
+#' @import promises 
 #' @import future
 #' 
 createPublonsServer <- function(id, df_publons, sps) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent(input$show_report,{
         req(input$show_report)
@@ -241,7 +269,7 @@ createPublonsServer <- function(id, df_publons, sps) {
             tryCatch({retrieve_from_publons(publons)},
                      error=function(e) {return(empty_publons())})
             }, globals = list(empty_publons=empty_publons,
-                              tbl=tbl,
+                              # tbl=dplyr::tbl,
                               retrieve_from_publons=retrieve_from_publons,
                               publons=isolate(input_value(df_publons())))) %...>% 
             to_tibble_reac_template(df_publons()) %...>% 
@@ -257,15 +285,13 @@ createPublonsServer <- function(id, df_publons, sps) {
 
 
 
-#' Title
+#' Progressbar ui module
 #'
-#' @param id 
-#' @param label 
+#' @param id namespace
 #'
-#' @return
+#' @import shiny
 #' @export
 #'
-#' @examples
 ProgressbarUI <- function(id) {
   ns <- NS(id)
   tagList(
@@ -274,27 +300,21 @@ ProgressbarUI <- function(id) {
 }
 
 
-#' create publons module
+#' progressbar server reset 
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
 #'
 #' @export
 #' @import shiny
-#' @import future
-#' 
 ProgressbarCreateServer <- function(id) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
-      # ProgressbarCreateServer("show_report")
       observeEvent({input$show_report},{
         updateProgressBar(
           session = session,
           id = "pb_data_retrieval",
           value = 0, total = 100
-          # title = paste("Process", trunc(i/10))
         )
         shinyjs::show("pd_data_retrieval")
       })  
@@ -302,50 +322,45 @@ ProgressbarCreateServer <- function(id) {
   )
 }
 
-#' create publons module
+#' show report deactivate server module
+#' 
+#' reset and deactivate various values
 #'
 #' @param id for namespace
 #' @param d reactive value containing input
 #'
 #' @export
 #' @import shiny
-#' @import future
 #' 
 DeactivateShowReportServer <- function(id, d) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
-      # ProgressbarCreateServer("show_report")
       observeEvent({input$show_report},{
         shiny_print_logs("deactivate show report, set data to NULL", d$sps)
-          shinyjs::disable("show_report")
-          d$show_report <- input$show_report
-          d$processing <- TRUE
-          d$m <- d$m_filt <- d$m_filt_sub <-  NULL
+        shinyjs::disable("show_report")
+        d$show_report <- input$show_report
+        d$processing <- TRUE
+        d$m <- d$m_filt <- d$m_filt_sub <-  NULL
       })  
     }
   )
 }
 
-#' create publons module
+#' check for completion of retrieval server
 #'
 #' @param id for namespace
+#' @param df_ls list of reactive values containing dfs, e.g. `list(df_orcid,df_pubmed)`
 #' @param d reactive value containing input
 #'
 #' @export
 #' @import shiny
-#' @import future
-#' 
+#' @importFrom magrittr %>% 
 ActivateShowReportServer <- function(id, df_ls, d) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
-      observeEvent({
-        d$m
-        # purrr::map_lgl(df_ls, ~ retrieval_done(.x()))
-        },{
+      observeEvent({d$m},{
         shiny_print_logs("check activation of show report", d$sps)
         nr_datasets <- purrr::map_lgl(df_ls, ~ retrieval_done(.x())) %>% sum()
         nr_datasets_total <- purrr::map_lgl(df_ls, ~ valid_input(.x())) %>% sum()
@@ -358,19 +373,17 @@ ActivateShowReportServer <- function(id, df_ls, d) {
 }
 
 
-#' create publons module
+#' progressbar update server
 #'
 #' @param id for namespace
-#' @param d reactive value containing input
+#' @param df_ls list of reactive values containing dfs, e.g. `list(df_orcid,df_pubmed)`
 #'
 #' @export
 #' @import shiny
-#' @import future
-#' 
+#' @importFrom magrittr %>% 
 ProgressbarUpdateServer <- function(id, df_ls) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent({purrr::map_lgl(df_ls, ~ retrieval_done(.x()))},{
         nr_datasets <- purrr::map_lgl(df_ls, ~ retrieval_done(.x())) %>% sum()
@@ -379,7 +392,6 @@ ProgressbarUpdateServer <- function(id, df_ls) {
           session = session,
           id = "pb_data_retrieval",
           value = nr_datasets/nr_datasets_total*100, total = 100
-          # title = paste("Process", trunc(i/10))
         )
         if(nr_datasets==nr_datasets_total){
           shinyjs::hide("pd_data_retrieval")

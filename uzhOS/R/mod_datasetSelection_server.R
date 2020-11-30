@@ -5,11 +5,11 @@
 #' @param selection_ls reactive value containing input values of selection
 #'
 #' @export
+#' @importFrom magrittr %>% 
 #' @import shiny
-datasetSelectionsServer <- function(id, d,selection_ls) {
+datasetSelectionsServer <- function(id, d, selection_ls) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
     observeEvent({
       purrr::map(seq_len(length(d$all_selection_choices)*3), function(i){input[[paste0("blab",i)]]})
@@ -61,12 +61,12 @@ datasetSelectionsServer <- function(id, d,selection_ls) {
 #' @param d reactive value containing input
 #' @param selection_ls reactive value containing input values of selection
 #'
-#' @export
 #' @import shiny  
-redrawSelectionsServer <- function(id, d,selection_ls) {
+#' @importFrom magrittr %>% 
+#' @export
+redrawSelectionsServer <- function(id, d, selection_ls) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
       observeEvent({selection_ls$redraw},{
         if(selection_ls$redraw){
@@ -133,12 +133,12 @@ redrawSelectionsServer <- function(id, d,selection_ls) {
 #' @param d reactive value containing input
 #' @param selection_ls reactive value containing input values of selection
 #'
-#' @export
 #' @import shiny  
+#' @importFrom magrittr %>% 
+#' @export
 datasetSelectionsUpdateServer <- function(id, d, selection_ls) {
   moduleServer(
     id,
-    ## Below is the module function
     function(input, output, session) {
   observeEvent({
     purrr::map(seq_len(length(d$all_selection_choices)*3), function(i){input[[paste0("blab",i)]]})
@@ -189,8 +189,9 @@ datasetSelectionsUpdateServer <- function(id, d, selection_ls) {
 #' @param df_ls list of reactive datasets (e.g. list(df_orcid, ...))
 #' @param max_nr_datasets max number of datasets
 #'
-#' @export
 #' @import shiny  
+#' @importFrom magrittr %>% 
+#' @export
 datasetSelectionsRemoveServer <- function(id, d, selection_ls, df_ls, max_nr_datasets = 6) {
   moduleServer(
     id,
@@ -216,15 +217,14 @@ datasetSelectionsRemoveServer <- function(id, d, selection_ls, df_ls, max_nr_dat
 
 
 
-#' Title
+#' dataset selection ui module
 #'
-#' @param id 
-#' @param label 
+#' @param id namespace
 #'
-#' @return
+#' @return tagList
+#' 
+#' @import shiny
 #' @export
-#'
-#' @examples
 datasetSelectionsUpdateUI <- function(id) {
   ns <- NS(id)
   tagList(

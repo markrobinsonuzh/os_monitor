@@ -7,12 +7,14 @@
 #' @param try_to_retrieve attribute, logical
 #' @param retrieval_done attribute, logical
 #' @param successfully_retrieved attribute, logical
+#' @param try_to_merge attribute, logical
 #' @param ... for use with tibble
 #'
 #' @return tibble_reac class (tibble with extra attributes)
 #' @export
 #'
 #' @examples
+#' new_tibble_reac(data.frame(x=1:10,y=1:10))
 new_tibble_reac <- function(data, name="", input_value = "", valid_input = FALSE, 
                             try_to_retrieve = FALSE, retrieval_done = FALSE, 
                             successfully_retrieved = FALSE, try_to_merge=FALSE, ...) {
@@ -33,10 +35,12 @@ new_tibble_reac <- function(data, name="", input_value = "", valid_input = FALSE
 #'
 #' @param x tibble_reac
 #'
-#' @return
+#' @return x
 #' @export
 #'
 #' @examples
+#' tblr <-  new_tibble_reac(data.frame(x=1:10,y=1:10))
+#' validate_tibble_reac(tblr)
 validate_tibble_reac <- function(x) {
   name <- attr(x, "name")
   input_value <- attr(x, "input_value")
@@ -103,28 +107,32 @@ validate_tibble_reac <- function(x) {
 #' @param data tibble or data.frame
 #' @param ... for tibble
 #'
-#' @return
+#' @return tibble_reac
 #' @export
 #'
 #' @examples
+#' dfr <-  data.frame(x=1:10,y=1:10)
+#' tblr <- as_tibble_reac(dfr)
 as_tibble_reac <- function(data, ...) {
   x <- new_tibble_reac(data, ...)
   validate_tibble_reac(x)
 }
 
-#' name methods
+#' name method
 #'
-#' @param x 
+#' @param x tibble_reac
 #'
-#' @return
 #' @export
-#'
-#' @examples
 name <- function(x) {
   UseMethod("name")
 }
 #' @export
 name.tibble_reac <- function(x) attr(x, "name")
+#' name method
+#'
+#' @param x tibble_reac
+#' @param value new value
+#' 
 #' @export
 "name<-" <- function(x, value) {
   UseMethod("name<-")
@@ -137,7 +145,8 @@ name.tibble_reac <- function(x) attr(x, "name")
 }
 
 
-# input_value methods
+#' input_value methods for tibble_reac
+#' @param x tibble_reac
 #' @export
 input_value <- function(x) {
   UseMethod("input_value")
@@ -147,6 +156,9 @@ input_value.tibble_reac <- function(x) attr(x, "input_value")
 #' @export
 input_value.default <- function(x) attr(x, "input_value")
 
+#' input_value methods for tibble_reac
+#' @param x tibble_reac
+#' @param value new value
 #' @export
 "input_value<-" <- function(x, value) {
   UseMethod("input_value<-")
@@ -164,7 +176,8 @@ input_value.default <- function(x) attr(x, "input_value")
   x
 }
 
-# valid_input methods
+#' valid_input methods for tibble_reac
+#' @param x tibble_reac
 #' @export
 valid_input <- function(x) {
   UseMethod("valid_input")
@@ -173,6 +186,9 @@ valid_input <- function(x) {
 valid_input.tibble_reac <- function(x) attr(x, "valid_input")
 #' @export
 valid_input.default <- function(x) attr(x, "valid_input")
+#' valid_input methods for tibble_reac
+#' @param x tibble_reac
+#' @param value new value
 #' @export
 "valid_input<-" <- function(x, value) {
   UseMethod("valid_input<-")
@@ -190,7 +206,8 @@ valid_input.default <- function(x) attr(x, "valid_input")
   x
 }
 
-# try_to_retrieve methods
+#' try_to_retrieve methods for tibble_reac
+#' @param x tibble_reac
 #' @export
 try_to_retrieve <- function(x) {
   UseMethod("try_to_retrieve")
@@ -199,10 +216,14 @@ try_to_retrieve <- function(x) {
 try_to_retrieve.tibble_reac <- function(x) attr(x, "try_to_retrieve")
 #' @export
 try_to_retrieve.default <- function(x) attr(x, "try_to_retrieve")
+#' try_to_retrieve methods for tibble_reac
+#' @param x tibble_reac
+#' @param value new value
 #' @export
 "try_to_retrieve<-" <- function(x, value) {
   UseMethod("try_to_retrieve<-")
 }
+
 #' @export
 "try_to_retrieve<-.default" <- function(x, value) {
   stopifnot(is(value,"logical"))
@@ -222,7 +243,8 @@ try_to_retrieve.default <- function(x) attr(x, "try_to_retrieve")
   x
 }
 
-# retrieval_done methods
+#' retrieval_done methods for tibble_reac
+#' @param x tibble_reac
 #' @export
 retrieval_done <- function(x) {
   UseMethod("retrieval_done")
@@ -231,6 +253,9 @@ retrieval_done <- function(x) {
 retrieval_done.tibble_reac <- function(x) attr(x, "retrieval_done")
 #' @export
 retrieval_done.default <- function(x) attr(x, "retrieval_done")
+#' retrieval_done methods for tibble_reac
+#' @param x tibble_reac
+#' @param value new value
 #' @export
 "retrieval_done<-" <- function(x, value) {
   UseMethod("retrieval_done<-")
@@ -255,7 +280,8 @@ retrieval_done.default <- function(x) attr(x, "retrieval_done")
 }
 
 
-# successfully_retrieved methods
+#' successfully_retrieved methods for tibble_reac
+#' @param x tibble_reac
 #' @export
 successfully_retrieved <- function(x) {
   UseMethod("successfully_retrieved")
@@ -264,6 +290,9 @@ successfully_retrieved <- function(x) {
 successfully_retrieved.tibble_reac <- function(x) attr(x, "successfully_retrieved")
 #' @export
 successfully_retrieved.default <- function(x) attr(x, "successfully_retrieved")
+#' successfully_retrieved methods for tibble_reac
+#' @param x tibble_reac
+#' @param value new value
 #' @export
 "successfully_retrieved<-" <- function(x, value) {
   UseMethod("successfully_retrieved<-")
@@ -281,7 +310,8 @@ successfully_retrieved.default <- function(x) attr(x, "successfully_retrieved")
   x
 }
 
-# try_to_merge methods
+#' try_to_merge methods for tibble_reac
+#' @param x tibble_reac
 #' @export
 try_to_merge <- function(x) {
   UseMethod("try_to_merge")
@@ -290,6 +320,9 @@ try_to_merge <- function(x) {
 try_to_merge.tibble_reac <- function(x) attr(x, "try_to_merge")
 #' @export
 try_to_merge.default <- function(x) attr(x, "try_to_merge")
+#' try_to_merge methods for tibble_reac
+#' @param x tibble_reac
+#' @param value new value
 #' @export
 "try_to_merge<-" <- function(x, value) {
   UseMethod("try_to_merge<-")
@@ -309,14 +342,12 @@ try_to_merge.default <- function(x) attr(x, "try_to_merge")
 
 #' change attribute of reactive value 
 #'
-#' @param x reactiveVal tibble_reac
+#' @param x reactiveVal of class tibble_reac
 #' @param method character, which attribute to change
 #' @param value character, value to give attribute
 #'
-#' @return
+#' @importFrom magrittr %>% 
 #' @export
-#'
-#' @examples
 assign_to_reactiveVal <- function(x, method, value){
   do.call(paste0(method,"<-"), list(x=x(),value=value)) %>% 
     x()
@@ -324,13 +355,11 @@ assign_to_reactiveVal <- function(x, method, value){
 
 #' change class of x to tibble_reac with attributes of tbl_reac
 #'
-#' @param x reactiveVal tibble_reac
-#' @param tbl_reac tibble_reac
+#' @param x reactiveVal of class tibble_reac
+#' @param tbl_reac tibble_reac used as template
 #'
-#' @return
+#' @return tibble_reac
 #' @export
-#'
-#' @examples
 to_tibble_reac_template <- function(x, tbl_reac){
   attr_ls <- attributes(tbl_reac)
   attr_ls <- attr_ls[!(names(attr_ls) %in% c("names","row.names","class"))]
@@ -340,12 +369,9 @@ to_tibble_reac_template <- function(x, tbl_reac){
 
 #' check if data retrieval was successfull and set attribute successfully_retrieved
 #'
-#' @param x reactiveVal tibble_reac
+#' @param x reactiveVal of class tibble_reac
 #'
-#' @return
 #' @export
-#'
-#' @examples
 check_and_set_successfull_retrieval <- function(x){
   if(dim(x())[1] != 0){
     assign_to_reactiveVal(x, "successfully_retrieved", TRUE)

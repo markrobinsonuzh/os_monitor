@@ -39,11 +39,21 @@ retrieve_from_orcid <- function(orcid) {
 }
 
 
-pdf_link_from_scihub <- function(doi) {
-  stub <- "https://sci-hub.tw/"
+pdf_link_from_scihub <- function(doi, sci_hub_base_url = "https://sci-hub.se/") {
   stopifnot(length(doi)==1)
-  z <- read_html(paste0(stub,doi))
-  n <- html_node(z, xpath = '//*[@id="article"]')
+  sci_url <- httr::parse_url(sci_hub_base_url)
+  sci_url$scheme <- "https"
+  sci_url$path <- doi
+  z <- httr::build_url(sci_url) %>% 
+    httr::GET()
+  if (httr::http_error(z)){
+    return("")
+  }
+  z_cont <- httr::content(z)
+  if (is.null(z_cont)){
+    return("")
+  }
+  n <- html_node(z_cont, xpath = '//*[@id="article"]')
   n <- as.character(n)
   
   # hacky parse of html
@@ -51,7 +61,7 @@ pdf_link_from_scihub <- function(doi) {
   fn <- gsub("^https://", "", fn)
   fn <- gsub("^/", "", fn)
   fn <- gsub("^/", "", fn)
-  if(is.na(fn)) return(NA)
+  if(is.na(fn)) return("")
   paste0("https://", fn)
 }
 

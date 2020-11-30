@@ -1,19 +1,29 @@
-#' Barplot zora data
+#' Barplot data
 #'
 #' @param tbl_merge data.frame from \code{\link{create_combined_data}} 
 #' @param cutoff_year year of cutoff for plotting
 #' @param colname column name of year
 #' @param title title of plot
 #' @param oa_status_used column name of oa status 
+#' @param use_plotly logical, if interactive plot with plotly is generated
 #'
-#' @return ggplot
+#' @return ggplot or plotly
 #' @export
 #' @import rlang
 #' @import ggplot2
+#' @import plotly
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-oa_status_time_plot <- function(tbl_merge,cutoff_year=2000,colname=year,title="ZORA OA Status",
+#' tbl_merge <- tibble::tibble(oa_status=rep(c("gold","closed"),10),
+#'                             year=rep(2017:2020,5))
+#' # ggplot
+#' oa_status_time_plot(tbl_merge)
+#' # plotly
+#' oa_status_time_plot(tbl_merge, use_plotly = TRUE)
+#' 
+oa_status_time_plot <- function(tbl_merge, cutoff_year=2000, colname=year, 
+                                title="OA Status",
                                 oa_status_used=oa_status, use_plotly=FALSE){
   q_colname <- enquo(colname)
   q_oa_status_used <- enquo(oa_status_used)
@@ -69,31 +79,32 @@ oa_status_time_plot <- function(tbl_merge,cutoff_year=2000,colname=year,title="Z
   }
 }
 
-#' Table of closed article in Zora
-#'
-#' @param zora data.frame, created from \code{\link{create_zora}}
-#'
-#' @return \code{\link[DT]{datatable}}
-#' @export
-#' @importFrom magrittr %>% 
-#'
-#' @examples
-closed_in_zora_table <- function(zora){
-  z <- zora %>% 
-    dplyr::filter(oa_status == "closed") %>%
-    dplyr::select(doi, eprintid, type, refereed, title, oa_status, year) %>%
-    dplyr::mutate(doi = ifelse(is.na(doi), "", 
-                               paste0("<a href='https://www.doi.org/",
-                                      doi, "' target='_blank'>", doi, "</a>")),
-                  eprintid = paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
-                             eprintid, "' target='_blank'>", eprintid, "</a>")) %>%
-    dplyr::arrange(desc(year))
-  DT::datatable(z, extensions = 'Buttons',
-                options = list(dom = 'Bfrtip',
-                               pageLength = 200,
-                               buttons = list('copy', 'csv', 'excel')),
-                escape = FALSE, rownames = FALSE)
-}
+
+# #' Table of closed article in Zora
+# #'
+# #' @param zora data.frame, created from \code{\link{create_zora}}
+# #'
+# #' @return \code{\link[DT]{datatable}}
+# #' @export
+# #' @importFrom magrittr %>% 
+# #'
+# #' @examples
+# closed_in_zora_table <- function(zora){
+#   z <- zora %>% 
+#     dplyr::filter(oa_status == "closed") %>%
+#     dplyr::select(doi, eprintid, type, refereed, title, oa_status, year) %>%
+#     dplyr::mutate(doi = ifelse(is.na(doi), "", 
+#                                paste0("<a href='https://www.doi.org/",
+#                                       doi, "' target='_blank'>", doi, "</a>")),
+#                   eprintid = paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
+#                              eprintid, "' target='_blank'>", eprintid, "</a>")) %>%
+#     dplyr::arrange(desc(year))
+#   DT::datatable(z, extensions = 'Buttons',
+#                 options = list(dom = 'Bfrtip',
+#                                pageLength = 200,
+#                                buttons = list('copy', 'csv', 'excel')),
+#                 escape = FALSE, rownames = FALSE)
+# }
 
 
 #' Table of percentage open access over time
@@ -106,7 +117,10 @@ closed_in_zora_table <- function(zora){
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-oa_percent_time_table <- function(m,cutoff_year){
+#' tbl_merge <- tibble::tibble(overall_oa=rep(c("gold","closed"),10),
+#'                            year=rep(2017:2020,5))
+#' oa_percent_time_table(tbl_merge, 2001)
+oa_percent_time_table <- function(m, cutoff_year){
   z <- m %>% 
     dplyr::filter(year >= cutoff_year) %>%
     dplyr::group_by(year) %>%
@@ -126,13 +140,18 @@ oa_percent_time_table <- function(m,cutoff_year){
 #' table of closed publications
 #'
 #' @param tbl_merge data.frame from \code{\link{create_combined_data}}
-#' @param cutoff_year year of cutoff for plotting
+#' @param oa_status_zora logical, if zora in tbl_merge
 #'
 #' @return \code{\link[DT]{datatable}}
 #' @export
 #' @importFrom magrittr %>%
 #'
 #' @examples
+#' tbl_merge <- tibble::tibble(overall_oa=rep(c("gold","closed"),10),
+#'                            year=rep(2017:2020,5),
+#'                            doi=paste0("madeupdoi",1:20),
+#'                            oa_status.unpaywall=overall_oa)
+#' overall_closed_table(tbl_merge, FALSE)
 overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
   
   if(oa_status_zora){
@@ -174,6 +193,10 @@ overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
 #' @importFrom magrittr %>% 
 #'
 #' @examples
+#' tbl_merge <- tibble::tibble(overall_oa=rep(c("gold","closed"),10),
+#'                             in_orcid=sample(c(TRUE,FALSE),20,TRUE),
+#'                             in_pubmed=sample(c(TRUE,FALSE),20,TRUE))
+#' uzhOS::upset_plot(tbl_merge)
 upset_plot <- function(tbl_merge){
   if(!requireNamespace("ComplexUpset", quietly = TRUE)){
     tib_plt <- tbl_merge %>%
@@ -184,7 +207,6 @@ upset_plot <- function(tbl_merge){
     tib_plt <- tbl_merge %>% 
     dplyr::select( dplyr::starts_with("in_"), "overall_oa") %>% 
     dplyr::rename_all(stringr::str_replace, pattern = "in_",replacement = "")
-    # dplyr::mutate( dplyr::across( dplyr::starts_with("in_"),~as.integer(.x))) 
     colnam_used <- colnames(tib_plt)
     ComplexUpset::upset(tib_plt, colnam_used[!stringr::str_detect(colnam_used,"overall_oa")],
                         name = "",

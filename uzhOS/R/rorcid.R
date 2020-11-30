@@ -1,3 +1,6 @@
+#' Empty orcid tibble
+#' 
+#' @importFrom magrittr %>% 
 #' @export
 empty_orcid <- function(){
   tibble::tibble(title=character(),
@@ -12,26 +15,32 @@ empty_orcid <- function(){
 #' Retrieve a table of records from orcid.org
 #'
 #' @param orcid ORCID to retrieve records for
+#' @param orcid_access_token Access Token for orcid, 
+#'  See \code{\link[rorcid]{orcid_auth}}
 #' @param exclude what type of ORCID records to exclude from the list
 #'
-#' @return
+#' @return tibble
 #' @export
 #' @importFrom magrittr %>% 
 #'
 #' @examples
 #' mr_orcs <- retrieve_from_orcid("0000-0002-3048-5518")
-retrieve_from_orcid <- function(orcid, exclude = "data-set") {
+retrieve_from_orcid <- function(orcid, orcid_access_token="8268867c-bf2c-4841-ab9c-bfeddd582a9c", exclude = "data-set") {
+  Sys.setenv(ORCID_TOKEN=orcid_access_token)
   if(!check_if_likely_orcid(orcid)){
+    print("1")
     return(empty_orcid())
   }
   works <- tryCatch({rorcid::orcid_works(orcid)},error=function(e) {
     return(NA)
   })
   if (is.na(works)){
+    print("2")
     return(empty_orcid())
   }
   works <- works[[1]]$works
   if(nrow(works)==0) {
+    print("3")
     return(empty_orcid())
   }
   works$doi <- sapply(works$`external-ids.external-id`, 
@@ -62,6 +71,17 @@ retrieve_from_orcid <- function(orcid, exclude = "data-set") {
 }
 
 
+#' Check for correct structure of orcid (not if exists!)
+#'
+#' @param orcid potential Orcid
+#'
+#' @return logical
+#' 
+#' @export
+#'
+#' @examples
+#' check_if_likely_orcid("0000-0002-3048-551X")
+#' check_if_likely_orcid("0000-0002-3048-5511")
 check_if_likely_orcid <- function(orcid){
   splitorc <- stringr::str_split(orcid,"-",simplify = TRUE)
   if(length(splitorc) != 4){
@@ -79,16 +99,6 @@ check_if_likely_orcid <- function(orcid){
     return(FALSE)
   }
 }
-# author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
-# con <- dbConnect(odbc::odbc(), "PostgreSQL")
-# create_tbl_author(author_vec,con)
-# 
-# family_given_names <- tbl(con, "authorkeys") %>% filter(authorkey_fullname==author_vec) %>% 
-#   pull(authorname) %>% stringr::str_split(" ", n=2) %>% unlist()
-# 
-# 
-# rorcid::orcid_search(given_name = family_given_names[2],family_name = family_given_names[1], affiliation_org = "zurich")
-
 
 
 

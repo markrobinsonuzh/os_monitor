@@ -7,7 +7,6 @@
 #' @import shiny
 #' @importFrom magrittr %>% 
 #'
-#' @examples
 alias_selected_UI <- function(id) {
   ns <- NS(id)
   tagList(
@@ -27,18 +26,19 @@ alias_selected_UI <- function(id) {
 #' Server module for 'alias' to find and parse aliases
 #'
 #' @param id for namespace
-#' @param author_search 
-#' @param tbl_unique_authorkeys_fullname
-#' @param tbl_subjects
-#' @param tbl_authorkeys
-#' @param tbl_eprints
-#'
-#' @return
+#' @param author_search author name
+#' @param con db connection function call, e.g. odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' @param authorstablename table name
+#' @param authorkeystablename table name
+#' @param eprintstablename table name
+#' @param subjectstablename table name
+#' @param fac_vec character vector of faculties to filter
+#' @param dep_vec character vector of departments to filter
+#' 
 #' @export
 #' @import shiny
 #'
-#' @examples
-alias_selected_Server <- function(id, author_search, con,authorstablename = "authors",
+alias_selected_Server <- function(id, author_search, con, authorstablename = "authors",
                                   authorkeystablename = "authorkeys", eprintstablename = "eprints",
                                   subjectstablename = "subjects",
                                   fac_vec=NULL,dep_vec=NULL) {
@@ -95,7 +95,7 @@ alias_selected_Server <- function(id, author_search, con,authorstablename = "aut
                                            # caption=paste("Author id:",pot_alias_names_ls[[i]]),
                                            cgroup=rbind(c(paste("Author id:",pot_alias_names_ls[[i]]),NA,NA),c("Faculty","Department","Type")),
                                            n.cgroup=rbind(c(6,NA,NA),c(2,2,2))))
-        HTML(paste0(tmp,"<br>"))
+        htmltools::HTML(paste0(tmp,"<br>"))
         # HTML(paste(pot_aliases_ls[[i]][["author_name"]],"<br>",
         #            paste(pot_aliases_ls[[i]][["org_unit"]],collapse = " - "),"<br>",
         #            paste(pot_aliases_ls[[i]][["fac"]],collapse = " - ")))
@@ -117,13 +117,11 @@ alias_selected_Server <- function(id, author_search, con,authorstablename = "aut
 #' Server module for 'alias' to show or hide input
 #'
 #' @param id for namespace
-#' @param author_search 
+#' @param author_search author name
 #'
-#' @return
 #' @export
 #' @import shiny
 #'
-#' @examples
 alias_selected_show_Server <- function(id,author_search) {
   moduleServer(
     id,
@@ -143,19 +141,17 @@ alias_selected_show_Server <- function(id,author_search) {
 #'
 #' @param id for namespace
 #'
-#' @return
 #' @export
 #' @import shiny
 #'
-#' @examples
 alias_selected_orcid_auth_Server <- function(id) {
   moduleServer(
     id,
     function(input, output, session) {
       reactive({
-        orcid_ind <- str_which(input$aliases_selected,"([:alnum:]{4}-){3}[:alnum:]{4}")
+        orcid_ind <- stringr::str_which(input$aliases_selected,"([:alnum:]{4}-){3}[:alnum:]{4}")
         if(length(orcid_ind)>=1){
-          orcid <- str_extract_all(input$aliases_selected[orcid_ind][1],"([:alnum:]{4}-){3}[:alnum:]{4}")[[1]]
+          orcid <- stringr::str_extract_all(input$aliases_selected[orcid_ind][1],"([:alnum:]{4}-){3}[:alnum:]{4}")[[1]]
           author_vec <- input$aliases_selected
         } else{
           orcid <- NULL

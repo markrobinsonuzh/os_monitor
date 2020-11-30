@@ -1,16 +1,20 @@
 #' Summarised OA status for all departments
 #'
-#' @param tbl_eprints mongodb connection
+#' @param con postgresql connection
+#' @param eprintstablename table name
+#' @param subjectstablename table name
 #'
 #' @return tibble
+#' 
 #' @export
-#' @import mongolite
 #' @importFrom magrittr %>% 
 #'
 #' @examples
-#' 
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' aou <- all_org_unit_fac(con)
 #' 
 all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablename = "subjects"){
+  # eprints joined with subjects
   fac_dep <- tbl(con, eprintstablename) %>% 
     collect()  %>% 
     inner_join(tbl(con, subjectstablename) %>% collect(),
@@ -22,6 +26,7 @@ all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablenam
     mutate(count=as.double(count),
            published_doc = as.logical(published_doc),
            year=as.integer(year))
+  # all expected faculties, departments, etc. to later have complete matrix
   all_expected <- expand.grid(
     dep=unique(fac_dep$dep),
     oa_status=factor(unique(fac_dep$oa_status)),
@@ -29,15 +34,15 @@ all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablenam
     type=unique(fac_dep$type),
     count=0,stringsAsFactors = FALSE) %>% 
     tibble::as_tibble()
-  
+  # left join with existing data
   fac_dep <- left_join(all_expected,fac_dep, by=c("dep","oa_status","year","type"), suffix=c(".all","")) %>% 
-    mutate(count=ifelse(is.na(count),count.all,count)) %>% dplyr::select(-count.all)
-  
-  fac_dep <- fac_dep %>% 
-    dplyr::mutate(published_doc=ifelse(is.na(published_doc),FALSE,published_doc),
+    dplyr::mutate(count = ifelse(is.na(count),count.all,count)) %>% 
+    dplyr::select(-count.all) %>% 
+    dplyr::mutate(published_doc = ifelse(is.na(published_doc),FALSE,published_doc),
                   oa_status = if_else(published_doc & oa_status=="closed","blue",oa_status),
-                  oa_status= factor(oa_status, levels = names(open_cols_fn()))) %>% 
+                  oa_status = factor(oa_status, levels = names(open_cols_fn()))) %>% 
     dplyr::select(-published_doc)
+  # summary statistics different levels
   total_fac_dep_year_type <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep,year,type) %>% dplyr::summarise(fac_dep_year_type_sum=sum(count)))
   total_fac_dep_year <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep,year) %>% dplyr::summarise(fac_dep_year_sum=sum(count)))
   total_fac_dep <- suppressMessages(fac_dep %>% dplyr::group_by(fac,dep) %>% dplyr::summarise(fac_dep_sum=sum(count)))
@@ -48,8 +53,6 @@ all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablenam
                                 dplyr::inner_join(total_dep) %>% 
                                 dplyr::inner_join(total_fac_dep_year) %>% 
                                 dplyr::inner_join(total_fac_dep_year_type))
-  
-  # fac_dep_filt <- fac_dep %>% dplyr::filter(!(stringr::str_detect(fac_dep$fac,"[:digit:]{4}") | stringr::str_detect(fac_dep$dep,"[:digit:]{4}")))
   return(fac_dep)
 }
   
@@ -59,11 +62,11 @@ all_org_unit_fac <- function(con, eprintstablename = "eprints", subjectstablenam
 #' @param fac_dep_filt tibble, output from \code{\link{all_org_unit_fac}}
 #' @param type one of "fac","dep","fac_dep"
 #'
-#' @return
+#' @return character vector
+#' 
 #' @export
 #' @importFrom magrittr %>% 
 #'
-#' @examples
 unique_fac_dep <- function(fac_dep_filt, type=c("fac","dep","fac_dep")){
   type <- match.arg(type)
   if(type == "fac"){
@@ -80,18 +83,32 @@ unique_fac_dep <- function(fac_dep_filt, type=c("fac","dep","fac_dep")){
 
 #' plot faculties or department summary of OA status
 #'
+#' @param fac_filt_wide_hk tibble with plotly 'highlight_key'
 #' @param fac_dep_filt tibble, output from \code{\link{all_org_unit_fac}}
-#' @param fac_chosen Null if comparing faculties, otherwise one of 
-#'   \code{\link{unique_fac_dep}}(fac_dep_filt,"dep")
-#' @param oa_status_filter which OA status to include, default is all: 
-#'   c("closed","hybrid","green","gold","blue")
+#' @param plot_type what plot to return , one of "anim_year","dep_year","year_val_line","year_val_bar"
 #'
-#' @return
+#' @return future of plotly
+#' 
 #' @export
 #' @importFrom magrittr %>% 
+#' @import plotly
 #' @import ggplot2
 #'
 #' @examples
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' fac_dep_filt <- all_org_unit_fac(con)
+#' vdep <- c("Department of Anthropology","Department of Biochemistry",
+#'           "Department of Chemistry","Department of Molecular Mechanisms of Disease")
+#' fac_filt_long <- preprocess_fac_dep(fac_dep_filt,vdep,"dep",by_year = TRUE)
+#' fac_filt_wide_hk <- fac_filt_long %>%
+#'   tidyr::pivot_wider(names_from=type,values_from=value) %>%
+#'   group_by(dep,oa_status) %>%
+#'   summarise(TotalCount=sum(TotalCount),Count=sum(Count)) %>%
+#'   mutate(Proportion=Count/TotalCount,
+#'          dep=factor(dep)) %>%
+#'   highlight_key()
+#' f <- plot_fac_dep(fac_filt_wide_hk, fac_filt_long, "year_val_bar")
+#' value(f)
 plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt, 
                          plot_type=c("anim_year","dep_year","year_val_line","year_val_bar")){
   plot_type <- match.arg(plot_type)
@@ -135,9 +152,7 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                    tmp_base_plt <-  plot_ly(fac_filt_wide_wide,source = "bar_plot") 
                    for(i in seq_along(all_years)){
                      is_visible <- ifelse(all_years[i]==2020,rep(TRUE,5),rep(FALSE,5))
-                     # tmpdat <- dplyr::filter(fac_filt_wide,year==all_years[i]) %>% dplyr::arrange(oa_status,dep)
                      tmp_base_plt <- tmp_base_plt %>% 
-                       # add_bars(#data=tmpdat,#%>% dplyr::arrange(dep),
                        add_trace(type = "bar",
                                 # x = ~!!sym(facetting),
                                 x = as.formula(paste0("~`P", all_years[i],"`")),
@@ -147,19 +162,16 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                                 showlegend=FALSE,
                                 hoverinfo="x+name",
                                 visible=is_visible,
-                                # visible=TRUE,
-                                # inherit=FALSE,
                                 ids = ~dep,
                                 color = ~ oa_status, 
                                 colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))]
-                       ) #%>% layout(barmode = "stack")
+                       ) 
                    }
                    tmp_base_plt%>%
                             layout(barmode = "stack",
                                    title = title,
                                    yaxis=list(title="",categoryorder = "array",categoryarray=all_oa_status),
                                    xaxis=list(title=!!facetting,range = c(0, ifelse(!!facetting=="Proportion",1,
-                                   # xaxis=list(title="Proportion",range = c(0, ifelse("Proportion"=="Proportion",1,
                                                                                     max(fac_filt_wide %>% dplyr::pull(TotalCount))))),
                                    margin = list(l = 300,r = 50,b = 100,t = 100,pad = 20))
                    })))})
@@ -226,13 +238,6 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                list(
                  x = 0.3,
                  y = 1.2,
-                 # buttons = list(
-                 # list(method = "react",
-                 #      args = list(list(x=list((fac_filt_wide_aggr$Proportion[order][4:6]),
-                 #                              (fac_filt_wide_aggr$Proportion[order][1:3])),
-                 #                       y=list((fac_filt_wide_aggr$dep[order][4:6]),
-                 #                              (fac_filt_wide_aggr$dep[order][1:3])))),
-                 #      label = "Scatter"),
                  buttons=lapply(oa_status_in_df, function(order_name){
                    list(
                      label = order_name,
@@ -266,7 +271,6 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
              pc_ls <- lapply(dep_choosen, function(dep_c){
                plt_ls[[i]] %>% filter(dep==dep_c) %>% 
                   add_lines(
-                    # ids = ~dep,
                     color = ~ oa_status, 
                     colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))]
                   ) %>% 
@@ -313,7 +317,6 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                                hovertemplate = ifelse(!!facetting=="Count",
                                                       paste('year: %{x} <br> %{text}: %{y}'),
                                                       paste('year: %{x} <br> %{text}: %{y:.2f}')),
-                               # name= ~ oa_status,
                                legendgroup= ~ oa_status,
                                showlegend=ifelse(dep_c==dep_choosen[1] && !!facetting == "Count",TRUE,FALSE),
                                source = "bar_plot",
@@ -323,9 +326,7 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
                                colors = open_cols_fn()[names(open_cols_fn()) %in% unique(fac_dep_filt %>% pull(oa_status))])  %>% 
                          layout(
                            barmode = "stack",
-                           # autosize=FALSE,
-                           yaxis=list(title=""),#,autosize=FALSE),
-                           # xaxis=list(autosize=FALSE),
+                           yaxis=list(title=""),
                            annotations=list(
                              list(
                                x = -0.1,
@@ -348,34 +349,25 @@ plot_fac_dep <- function(fac_filt_wide_hk,fac_dep_filt,
     })
 
 }
-# value(plot_fac_dep(wide_data_for_plotly_hk,fac_dep_filt,plot_type = "year_val_bar"))
-# 
-# 
-# 
-# wide_data_for_plotly_hk <- preprocess_fac_dep(fac_dep_filt,
-#                                            col_to_plot = "dep",
-#                                            fac_chosen =  vdep[1:3],
-#                                            # oa_status_filter = d_dep$oa_status_filtered,
-#                                            publication_filter = "article",
-#                                            by_year = TRUE) %>%
-#   arrange_fac_dep(type_arr="Count",by_year = TRUE) %>%
-#   tidyr::pivot_wider(names_from=type,values_from=value) %>%
-#   highlight_key(~dep)
 
-
-# dep_chosen <- c("Institute of Medical Genetics","Institute of History","Institute of Mathematics")
-# 
-# plot_fac_dep(fac_dep_filt, fac_chosen = vdep,arrange_by = "gold", use_plotly = TRUE)
-# preprocess_fac_dep(fac_dep_filt, fac_chosen = "Department of Biochemistry","dep",arrange_by = "gold")
-# 
-# tmptib_1 <- preprocess_fac_dep(fac_dep_filt,vdep,"dep")
-# q_oa_status_used <- quo(oa_status)
-
-
-
-
-
-
+#' Title
+#'
+#' @param fac_dep_filt tibble from \code{\link{all_org_unit_fac}}
+#' @param fac_chosen character vector of departments and faculties
+#' @param col_to_plot which column of fac_dep_filt to plot
+#' @param oa_status_filter character vector of oa status to include
+#' @param by_year stratify by year
+#' @param publication_filter what publications to include, default = "all".
+#'
+#' @return tibble
+#' @export
+#'
+#' @examples
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' fac_dep_filt <- all_org_unit_fac(con)
+#' vdep <- c("Department of Anthropology","Department of Biochemistry",
+#'           "Department of Chemistry","Department of Molecular Mechanisms of Disease")
+#' fac_filt_long <- preprocess_fac_dep(fac_dep_filt,vdep,"dep",by_year = TRUE)
 preprocess_fac_dep <- function(fac_dep_filt, fac_chosen, col_to_plot , 
                                oa_status_filter = c("closed","hybrid","green","gold","blue"), 
                                by_year=FALSE,
@@ -400,7 +392,17 @@ preprocess_fac_dep <- function(fac_dep_filt, fac_chosen, col_to_plot ,
     ungroup()
 }
 
-
+#' @examples
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' fac_dep_filt <- all_org_unit_fac(con)
+#' vdep <- c("Department of Anthropology","Department of Biochemistry",
+#'           "Department of Chemistry","Department of Molecular Mechanisms of Disease")
+#' # by year
+#' fac_filt_long <- preprocess_fac_dep(fac_dep_filt,vdep,"dep",by_year = TRUE)
+#' arranged_fac_filt_long <- arrange_fac_dep(fac_filt_long, type_arr = "Count", by_year = TRUE)
+#' # not by year
+#' fac_filt_long <- preprocess_fac_dep(fac_dep_filt,vdep,"dep",by_year = FALSE)
+#' arranged_fac_filt_long <- arrange_fac_dep(fac_filt_long, type_arr = "Count", by_year = FALSE)
 arrange_fac_dep <- function(fac_filt_long, arrange_by="closed",
                             type_arr=c("Count","Proportion"), col_to_plot="dep", by_year=FALSE){
   type_arr <- match.arg(type_arr)
@@ -430,52 +432,4 @@ arrange_fac_dep <- function(fac_filt_long, arrange_by="closed",
   fac_filt_long %>% mutate(!!sym(col_to_plot) := factor(!!sym(col_to_plot),order_fac)) %>% 
     dplyr::mutate(dep=as.character(dep))
 }
-
-
-
-# fac_dep_filt <- all_org_unit_fac(con)
-# dep_chosen <- unique_fac_dep(fac_dep_filt,"fac_dep")
-# plot_fac_dep(fac_dep_filt, fac_chosen = "Department of Biochemistry",arrange_by = "gold")
-# # 
-# vdep <- c("07 Faculty of Science","Department of Anthropology","Department of Biochemistry",
-#           "Department of Chemistry","Department of Molecular Mechanisms of Disease",
-#           "Department of Plant and Microbial Biology","Department of Quantitative Biomedicine",
-#           "Department of Systematic and Evolutionary Botany","Grid Computing Competence Center",
-#           "Institute for Computational Science", "Institute of Evolutionary Biology and Environmental Studies",
-#           "Institute of Geography", "Institute of Mathematics", "Institute of Molecular Cancer Research",
-#           "Institute of Molecular Life Sciences", "Institute of Neuroinformatics",
-#           "Institute of Pharmacology and Toxicology", "Institute of Physiology", "Institute of Zoology (former)",
-#           "Paleontological Institute and Museum", "Physics Institute", "Zurich-Basel Plant Science Center" )
-# fac_filt_long <- preprocess_fac_dep(fac_dep_filt,vdep[1:5],"dep",by_year = TRUE)
-# fac_filt_wide_hk <- fac_filt_long %>%
-#   tidyr::pivot_wider(names_from=type,values_from=value) %>% 
-  # group_by(dep,oa_status) %>% 
-  # summarise(TotalCount=sum(TotalCount),Count=sum(Count)) %>% 
-  # mutate(Proportion=Count/TotalCount,
-  #        dep=factor(dep)) %>% 
-  # highlight_key()
-# fac_filt_long %>% group_by(dep, oa_status) %>% filter(oa_status=="gold",type=="Count") %>% arrange(desc(value))
-# arrange_fac_dep(fac_filt_long,"gold", by_year = TRUE)
-# 
-# vdep <- c("Institute of Medical Genetics","Institute of History","Institute of Mathematics")
-# p <- plot_fac_dep(fac_dep_filt, fac_chosen = "",arrange_by = "gold")
-# df <- preprocess_fac_dep(fac_dep_filt,vdep,"dep")
-# df
-# p %+% df
-# 
-# microbenchmark::microbenchmark(
-#   plot_fac_dep(fac_dep_filt, fac_chosen = vdep,arrange_by = "gold"),
-#   p %+% preprocess_fac_dep(fac_dep_filt,vdep,"dep"),
-#   times = 5
-# )
-# 
-# for(i in 1:100){
-#   preprocess_fac_dep(fac_dep_filt,vdep,"dep")
-# }
-# 
-# microbenchmark::microbenchmark(
-#   fac_filt_long %>% filter(oa_status==arrange_by, type=="Proportion") %>% dplyr::arrange(desc(value)), 
-#   fac_filt_long %>% dplyr::arrange(desc(value)) %>% filter(oa_status==arrange_by, type=="Proportion"),
-#   times = 10
-# )
 

@@ -47,6 +47,7 @@ RUN install2.r \
 	DBI \
 	dbplyr \
 	devtools \
+	DiagrammeR \
 	future \
 	here \
 	htmlTable \
@@ -76,8 +77,9 @@ RUN install2.r \
 RUN R -e "devtools::install_github('krassowski/complex-upset')"
 RUN R -e "devtools::install_github('ropensci/RefManageR')"
 RUN R -e "devtools::install_github('RinteRface/shinydashboardPlus')"
+RUN R -e "devtools::install_github('jkeirstead/scholar')"
 
-
+RUN echo ""
 RUN rm -rf /srv/shiny-server/*
 RUN mkdir /srv/shiny-server/apps
 COPY shiny_app /srv/shiny-server/apps/zora_oa_app
@@ -91,7 +93,9 @@ COPY odbc.ini /etc
 COPY data/orgtree.rds /srv/shiny-server/data/
 COPY data/fac_dep_filt.rds /srv/shiny-server/data/
 
-EXPOSE 3839
+RUN R -e "devtools::install('/srv/shiny-server/uzhOS')"
+
+EXPOSE 3838
 # allow permission
 RUN sudo chown -R shiny:shiny /srv/shiny-server
 

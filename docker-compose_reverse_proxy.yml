@@ -1,0 +1,89 @@
+version: '3.3'
+
+services:
+        proxy:
+                image: jwilder/nginx-proxy
+                restart: always
+                ports:
+                        - 80:80
+                        - 443:443
+                labels:
+                        com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
+                volumes:
+                        - certs:/etc/nginx/certs:ro
+                        - vhost.d:/etc/nginx/vhost.d
+                        - html:/usr/share/nginx/html
+                        - /var/run/docker.sock:/tmp/docker.sock:ro
+                networks:
+                        - proxy-tier
+        
+        letsencrypt-companion:
+                image: jrcs/letsencrypt-nginx-proxy-companion
+                restart: always
+                volumes:
+                        - certs:/etc/nginx/certs
+                        - vhost.d:/etc/nginx/vhost.d
+                        - html:/usr/share/nginx/html
+                        - /var/run/docker.sock:/var/run/docker.sock:ro
+                        - acme:/etc/acme.sh
+                networks:
+                        - proxy-tier
+                environment:
+                        - DEFAULT_EMAIL=retogerber93@gmail.com
+                depends_on:
+                        - proxy
+        db:
+                build:
+                        context: .
+                        dockerfile: Dockerfile_db
+                env_file:
+                        - postgres.env
+                volumes:
+                        - type: volume
+                          source: sql_data_os_monitor
+                          target: /var/lib/postgresql/data
+                          volume:
+                                  nocopy: true
+                networks:
+                        - db-tier
+
+        shiny:
+                build: 
+                        context: .
+                        dockerfile: Dockerfile_shiny
+                ports:
+                        - "3838:3838"
+                environment:
+                        - VIRTUAL_HOST=osmonitor.servebeer.com
+                        - VIRTUAL_PORT=3838
+                        - LETSENCRYPT_HOST=osmonitor.servebeer.com
+                        - LETSENCRYPT_EMAIL=retogerber93@gmail.com
+                        - APPLICATION_LOGS_TO_STDOUT=true
+                volumes:
+                        - type: volume
+                          source: shiny_logs
+                          target: /var/log/shiny-server
+                        - type: volume
+                          source: shiny_bookmarks
+                          target: /var/lib/shiny-server/bookmarks
+                depends_on:
+                        - db
+                networks:
+                        - proxy-tier
+                        - db-tier
+
+
+
+volumes:
+        sql_data_os_monitor:
+                external: true
+        shiny_logs:
+        shiny_bookmarks:
+        certs:
+        vhost.d:
+        html:
+        acme:
+
+networks:
+        proxy-tier:
+        db-tier:

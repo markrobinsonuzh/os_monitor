@@ -13,8 +13,8 @@ services:
                           volume:
                                   nocopy: true
 
-                networks:
-                        osnet_2:
+                                  #                networks:
+                                  #                        osnet_2:
 
 
 
@@ -31,8 +31,8 @@ services:
                         - type: volume
                           source: shiny_bookmarks
                           target: /var/lib/shiny-server/bookmarks
-                networks:
-                        osnet_2:
+                          #                networks:
+                          #                        osnet_2:
                 depends_on:
                         - db
                 environment:
@@ -46,7 +46,7 @@ volumes:
         shiny_bookmarks:
                 external: true
 
-networks:
-        osnet_2:
-                external: true
+                #networks:
+                #        osnet_2:
+                #                external: true
 

@@ -3,7 +3,9 @@
 #' @param con db connection
 #' @param fac_dep_filt tibble from \code{\link{all_org_unit_fac}}, if NULL (default), will
 #'  be recomputed which increases startup time
-#'  
+#' @param orcid_access_token Access Token for orcid, 
+#'  See \code{\link[rorcid]{orcid_auth}}
+#'   
 #' @return shiny.appobj
 #' 
 #' @export
@@ -25,7 +27,9 @@
 #' @examples
 #' shinyApp_zora()
 shinyApp_zora <- function(con = odbc::dbConnect(odbc::odbc(), "PostgreSQL"),
-                          fac_dep_filt = NULL){
+                          fac_dep_filt = NULL,
+                          orcid_access_token = "8268867c-bf2c-4841-ab9c-bfeddd582a9c"){
+  con_quosure <- rlang::enquo(con)
   plan(multisession)
   require("shinyTree")  
 
@@ -57,9 +61,10 @@ shinyApp_zora <- function(con = odbc::dbConnect(odbc::odbc(), "PostgreSQL"),
   
   message("Start application ...")
   shinyApp(ui = shiny_zora_ui(fac_dep_filt=fac_dep_filt), 
-           server = shiny_zora_server(con=con,
+           server = shiny_zora_server(con=con_quosure,
                                       unique_authorkeys_processed=unique_authorkeys_processed,
                                       all_oa_status=all_oa_status,
                                       orgtree=orgtree,
-                                      fac_dep_filt=fac_dep_filt))
+                                      fac_dep_filt=fac_dep_filt,
+                                      orcid_access_token=orcid_access_token))
 }

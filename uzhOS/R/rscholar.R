@@ -27,6 +27,7 @@ empty_scholar<- function(){
 #' Retrieve a table of records from Google Scholar
 #'
 #' @param scholar_id google scholar id
+#' @param flush logical, if TRUE, delete cache
 #'
 #' @return data.frame
 #' 
@@ -35,19 +36,17 @@ empty_scholar<- function(){
 #'
 #' @examples
 #' mr_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
-retrieve_from_scholar <- function(scholar_id) {
-  starts <- seq(0,1000,by=100)
-  scholar_pubs <- lapply(starts, function(u) {
-    scholar::get_publications(scholar_id, cstart = u, pagesize = 100, flush = FALSE)  
-  })
-  scholar_pubs <- do.call(rbind, scholar_pubs) %>% tibble::as_tibble()
+retrieve_from_scholar <- function(scholar_id, flush=FALSE) {
+  # set handle for internal use in scholar::get_publications
+  sink <- httr::GET(paste0("https://scholar.google.com/citations?user=",scholar_id))
+  options("scholar_handle"=sink)
+  scholar_pubs <- scholar::get_publications(scholar_id, cstart = u, pagesize = 100, flush = flush)  %>% 
+    tibble::as_tibble()
   scholar_pubs <- unique(scholar_pubs)
   scholar_pubs$title <- as.character(scholar_pubs$title)
   scholar_pubs$in_scholar <- TRUE
   return(scholar_pubs)
 }
-
-
 
 
 #' Split title into named vector

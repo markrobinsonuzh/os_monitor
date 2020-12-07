@@ -5,17 +5,35 @@
 #' @param all_oa_status tibble
 #' @param orgtree tree
 #' @param fac_dep_filt tibble
-#'
+#' @param orcid_access_token Access Token for orcid, 
+#'  See \code{\link[rorcid]{orcid_auth}}
+#'  
 #' @return server
 #' 
+#' @import shiny 
+#' @import dplyr 
+#' @import ggplot2 
+#' @import stringr 
+#' @import shinyjs 
+#' @import plotly 
+#' @import DBI 
+#' @import shinyWidgets 
+#' @import promises 
+#' @import future 
+#' @import shinydashboard 
+#' @import shinydashboardPlus
 #' @importFrom magrittr %>% 
+#' 
 #' @export
 #'
 shiny_zora_server <-  function(con,
                                unique_authorkeys_processed,
                                all_oa_status,
                                orgtree,
-                               fac_dep_filt){
+                               fac_dep_filt,
+                               orcid_access_token){
+  con_quosure <- rlang::eval_tidy(rlang::enquo(con))
+  con <- rlang::eval_tidy(con_quosure)
   function(input, output,session) {
   # # Save extra values in state$values when we bookmark
   # onBookmark(function(state) {
@@ -77,18 +95,9 @@ shiny_zora_server <-  function(con,
   hideTab("author_plots_tables", "Bibtex")
   hideTab("author_plots_tables", "Upset Plot")
   ### Author ###################################################################
-  observeEvent(input$showSidebar, {
-    shinyjs::show(id = "Sidebar")
-    shinyjs::hide(id="showSidebar")
-    shinyjs::show(id = "hideSidebar")
-  })
-  observeEvent({input$hideSidebar;tbl_merge()}, {
-    shinyjs::hide(id = "Sidebar")
-    shinyjs::show(id="showSidebar")
-    shinyjs::hide(id = "hideSidebar")
-  })
   
-  shinyhelper::observe_helpers(session = session)
+  shinyhelper::observe_helpers(session = session,
+                               help_dir = system.file("data","helpfiles",package = "uzhOS"))
   # data
   d <- reactiveValues(sps=sps, processing = FALSE)
   # input values for selection
@@ -216,7 +225,7 @@ shiny_zora_server <-  function(con,
   createZoraServer("show_report", df_zora, con_quosure, sps)
   ResultCheckServer("show_report", df_zora, sps)
   
-  createOrcidServer("show_report", df_orcid, sps)
+  createOrcidServer("show_report", df_orcid, orcid_access_token, sps)
   ResultCheckServer("show_report", df_orcid, sps)
   
   createPublonsServer("show_report", df_publons, sps)
@@ -237,9 +246,15 @@ shiny_zora_server <-  function(con,
       shiny_print_logs(paste("start to merge:", paste(list(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]]() %>% name(),collapse = ", ")), sps)
       shiny_print_logs(paste("will (or has) merge:", paste(c("df_zora","df_orcid","df_pubmed","df_publons")[success_ls],collapse = ", ")), sps)
       future(seed=NULL,{
-        con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
-        create_combined_data(isolate(df_orcid()),isolate(df_pubmed()),isolate(df_zora()),isolate(df_publons()),con)
-        }) %...>%
+        # con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
+        con <- rlang::eval_tidy(con_quosure)
+        create_combined_data(df_orcid, df_pubmed, df_zora, df_publons, con)
+      }, globals=list(con_quosure=con_quosure,
+                      create_combined_data=create_combined_data,
+                      df_orcid=isolate(df_orcid()),
+                      df_pubmed=isolate(df_pubmed()),
+                      df_zora=isolate(df_zora()),
+                      df_publons=isolate(df_publons()))) %...>%
         tbl_merge()
       assign_to_reactiveVal(c(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]], "try_to_merge", TRUE)
     }
@@ -298,13 +313,12 @@ shiny_zora_server <-  function(con,
     if (d$do_scholar_match && successfully_retrieved(df_scholar())){
       shiny_print_logs("merge scholar", sps)
       future(seed=NULL,{
-        str_length
         tmpscholar <- df_scholar_matching(isolate(tbl_merge()),isolate(df_scholar()))
         dplyr::full_join(isolate(tbl_merge()),tmpscholar,by="doi",suffix=c("",".scholar")) %>% 
-          dplyr::mutate(#year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year)),                        ,
-            overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),levels = names(open_cols_fn()))) %>% 
+          dplyr::mutate(overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),
+                                            levels = names(open_cols_fn()))) %>% 
           dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
-      }, globals = list('%>%'= magrittr::'%>%' )) %...>% 
+      },  globals = list('%>%'= magrittr::'%>%' )) %...>% 
         dplyr::mutate(year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year))) %...>% 
         tbl_merge()
       d$do_scholar_match <- FALSE
@@ -343,6 +357,7 @@ shiny_zora_server <-  function(con,
     shinyjs::show(id = "shinyjsbox_pubmetric_plot")
     shinyjs::show(id = "shinyjsbox_oa_perc_time")
     shinyjs::show(id = "shinyjsbox_fulltext_download")
+    updateBox("box_author_input",action = "toggle")
     # update and show selections
     # update single selection for plots and tables
     d$all_selection_choices <- colnames(d$m)[grep("in_",colnames(d$m))]
@@ -366,52 +381,53 @@ shiny_zora_server <-  function(con,
   })
   
   # update summary when subset changes
-  observeEvent({d$m_sub},{
-    # summary of subset table
-    overall_oa_status <- dplyr::pull(d$m_sub,"overall_oa") %>% as.character()
-    # overall_oa_status[is.na(overall_oa_status)] <- "unknown"
-    # levels(overall_oa_status) <- names(open_cols_fn())
-    output$sub_summary <- renderPrint({
-      table(overall_oa_status,useNA = "ifany")
-    })
-    # total number of publications
-    tmp_total <- ifelse(!is.numeric(length(overall_oa_status)), 0, length(overall_oa_status))
-    # total number of open publications
-    tmp_open <- ifelse(tmp_total != 0, ((tmp_total-sum(overall_oa_status == "closed"))/tmp_total)*100, 0)
-    # total number of open publications without blue
-    tmp_open_blue <- ifelse(tmp_total != 0,((tmp_total-sum(overall_oa_status %in% c("closed","blue")))/tmp_total)*100, 0)
-    # simple summary bar of oa status
-    output$oa_summary_histogram_simple <- renderPlot({
-      simple_oa_summary_histogram(overall_oa_status)
-    },height = 50)
-    
-    output$pgb_closed <- renderUI(
-      boxPad(color = "teal",
-             # to change the color of "teal"
-             tags$style(HTML(".bg-teal {
-           background-color:#F0F8FF!important;
-           color:#000000!important;
-          }")),
-             h4("Summary filtered data"),
-             descriptionBlock(
-               text = verbatimTextOutput("sub_summary")
-             ),
-             plotOutput("oa_summary_histogram_simple",height = 50),
-             descriptionBlock(
-               text = paste("Percentage open:", 
-                            signif(tmp_open,digits=3),
-                            "%")
-             ),
-             shinydashboardPlus::progressBar(value = tmp_open),
-             descriptionBlock(
-               text = paste("Percentage open (without blue):", 
-                            signif(tmp_open_blue,digits=3),
-                            "%")
-             ),
-             shinydashboardPlus::progressBar(value = tmp_open_blue)
-      )
-    )
-  })
+  oaSummaryServer("oa_summary", d)
+  # observeEvent({d$m_sub},{
+  #   # summary of subset table
+  #   overall_oa_status <- dplyr::pull(d$m_sub,"overall_oa") %>% as.character()
+  #   # overall_oa_status[is.na(overall_oa_status)] <- "unknown"
+  #   # levels(overall_oa_status) <- names(open_cols_fn())
+  #   output$sub_summary <- renderPrint({
+  #     table(overall_oa_status,useNA = "ifany")
+  #   })
+  #   # total number of publications
+  #   tmp_total <- ifelse(!is.numeric(length(overall_oa_status)), 0, length(overall_oa_status))
+  #   # total number of open publications
+  #   tmp_open <- ifelse(tmp_total != 0, ((tmp_total-sum(overall_oa_status == "closed"))/tmp_total)*100, 0)
+  #   # total number of open publications without blue
+  #   tmp_open_blue <- ifelse(tmp_total != 0,((tmp_total-sum(overall_oa_status %in% c("closed","blue")))/tmp_total)*100, 0)
+  #   # simple summary bar of oa status
+  #   output$oa_summary_histogram_simple <- renderPlot({
+  #     simple_oa_summary_histogram(overall_oa_status)
+  #   },height = 50)
+  #   
+  #   output$pgb_closed <- renderUI(
+  #     boxPad(color = "teal",
+  #            # to change the color of "teal"
+  #            tags$style(HTML(".bg-teal {
+  #          background-color:#F0F8FF!important;
+  #          color:#000000!important;
+  #         }")),
+  #            h4("Summary filtered data"),
+  #            descriptionBlock(
+  #              text = verbatimTextOutput("sub_summary")
+  #            ),
+  #            plotOutput("oa_summary_histogram_simple",height = 50),
+  #            descriptionBlock(
+  #              text = paste("Percentage open:", 
+  #                           signif(tmp_open,digits=3),
+  #                           "%")
+  #            ),
+  #            shinydashboardPlus::progressBar(value = tmp_open),
+  #            descriptionBlock(
+  #              text = paste("Percentage open (without blue):", 
+  #                           signif(tmp_open_blue,digits=3),
+  #                           "%")
+  #            ),
+  #            shinydashboardPlus::progressBar(value = tmp_open_blue)
+  #     )
+  #   )
+  # })
   
   ## oa status upset plot -----------------------------------------------------
   p_t$upset_plot <- reactive({tryCatch({upset_plot(d$m)},error=function(e) {print(e);ggplot() + geom_blank()})})
@@ -499,102 +515,22 @@ shiny_zora_server <-  function(con,
     p_t$oa_percent_time_table()
   })
   
-  ### Bibtex  ------------------------------------------------------------------
-  # # bibtex creation
-  # bib_reac <- in_selection_bib_Server("bib",d$m)
-  # observe({
-  #   d$to_update <- bib_reac()
-  #   output$bibtex_summary <- renderPrint({paste("Total number of entries to download:", length(d$to_update))})
-  # })
-  observeEvent(input$create_bibtex,{
-    if (!is.null(d$m_sub_sel$doi) && length(d$m_sub_sel$doi) > 0){
-      shinyWidgets::ask_confirmation(
-        inputId = "create_bibtex_confirmation",
-        title = "Confirm Bibtex retrieval",
-        text = paste("You are about to retrieve the bibtex entries of ",
-                     length(d$m_sub_sel$doi), "publications. This will take approximately",
-                     lubridate::seconds(length(d$m_sub_sel$doi)*0.5)," and will run in the background."
-        )
-      )
-    } else {
-      show_alert(
-        title = "Bibtex retrieval error",
-        text = "No valid doi's selected from Table. (The Table is likely empty)",
-        type = "error"
-      )
-    }
-    
-  })
+  ### bibtex  ------------------------------------------------------------------
   
   bibtex_ls <- reactiveVal()
-  observeEvent(input$create_bibtex_confirmation,{
-    if(input$create_bibtex_confirmation){
-      shinyjs::disable("create_bibtex")
-      to_update <- d$m_sub_sel$doi
-      if(length(to_update) > 0) {
-        GetBibEntryWithDOI_no_temp(to_update) %...>% 
-          bibtex_ls()
-      }
-    }
-  })
-  observeEvent(bibtex_ls(),{
-    print(bibtex_ls())
-    req(bibtex_ls())
-    shinyjs::enable("create_bibtex")
-    output$bibsummary <-  renderText(bibtex_ls())
-    shinyjs::show("bibtex_download")
-    updateTabsetPanel(session, "author_plots_tables", selected = "Bibtex")
-  })
-  
-  output$bibtex_download <- downloadHandler(
-    filename = function() {paste0("BIBTEX_FOR_",d$author_vec[1], ".bib")},
-    content = function(file){
-      writeLines( paste(bibtex_ls(),collapse = "\n"),file)
-    }
-  )
+  BibtexConfirmationServer("bibtex", d)
+  BibtexRetrieveServer("bibtex", d, bibtex_ls)
+  BibtexObserveResultServer("bibtex", d, bibtex_ls)
+  BibtexDownloadButtonServer("bibtex", bibtex_ls)
   
   
   ### sci-hub  -----------------------------------------------------------------
   
   sci_hub_pdf_links <- reactiveVal()
+  ScihubConfirmationServer("scihub", d)
   ScihubObserveActionbuttonServer("scihub", d, sci_hub_pdf_links)
   ScihubObservePdflinksServer("scihub", d, sci_hub_pdf_links)
   ScihubRenderDTServer("scihub", d)
-  
-  
-  output$report <- downloadHandler(
-    # For PDF output, change this to "report.pdf"
-    filename = "report.html",
-    content = function(file) {
-      # d$pri_author <- input$author_search[1]
-      # d$sec_author <- input$author_search[2]
-      # Copy the report file to a temporary directory before processing it, in
-      # case we don't have write permissions to the current working dir (which
-      # can happen when deployed).
-      tempReport <- file.path(tempdir(), "report.Rmd")
-      file.copy("report.Rmd", tempReport, overwrite = TRUE)
-      
-      # Set up parameters to pass to Rmd document
-      params <- list(pri_author = d$pri_author,
-                     sec_author = d$sec_author,
-                     orcid = d$orcid,
-                     cutoff_year = input$range_year,
-                     tbl_subjects=tbl_subjects,
-                     tbl_authorkeys=tbl_authorkeys,
-                     tbl_eprints=tbl_eprints,
-                     unpaywall=unpaywall,
-                     zora=d$zora,
-                     m=d$m)
-      
-      # Knit the document, passing in the `params` list, and eval it in a
-      # child of the global environment (this isolates the code in the document
-      # from the code in this app).
-      rmarkdown::render(tempReport, output_file = file,
-                        params = params,
-                        envir = new.env(parent = globalenv())
-      )
-    }
-  )
   
   ### Department ###############################################################
   
@@ -607,6 +543,7 @@ shiny_zora_server <-  function(con,
   
   
   observeEvent(input$treeapply,{
+    shinyjs::disable("treeapply")
     d_dep$chosen_orgs <- lapply(get_selected(input$tree), function(i) {
       if(attr(i,"stselected")){
         i
@@ -629,12 +566,19 @@ shiny_zora_server <-  function(con,
       highlight_key(~dep)
   })
   
+  p_t$dep_plot <- reactive({tryCatch({plot_fac_dep(d_dep$wide_data_for_plotly,fac_dep_filt,plot_type = "year_val_bar")},
+                                    error=function(e) ggplot() + geom_blank())})
+  
   output$plot_dep_fac_year_val_bar_unsized <- renderPlotly({
-    req(d_dep$wide_data_for_plotly)
-    plot_fac_dep(d_dep$wide_data_for_plotly,fac_dep_filt,plot_type = "year_val_bar")
+    req(p_t$dep_plot())
+    p_t$dep_plot()
   })
   output$plot_dep_fac_year_val_bar <- renderUI({
     plotlyOutput(outputId = "plot_dep_fac_year_val_bar_unsized")
+  })
+  
+  observeEvent(p_t$dep_plot(),{
+    shinyjs::enable("treeapply")
   })
   
   }

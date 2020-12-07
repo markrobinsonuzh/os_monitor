@@ -19,6 +19,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
         # Service containers to run with `runner-job`
+    defaults:
+      run:
+        shell: bash
+        working-directory: uzhOS
     services:
       # Label used to access the service container
       postgres:

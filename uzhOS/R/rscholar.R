@@ -40,7 +40,7 @@ retrieve_from_scholar <- function(scholar_id, flush=FALSE) {
   # set handle for internal use in scholar::get_publications
   sink <- httr::GET(paste0("https://scholar.google.com/citations?user=",scholar_id))
   options("scholar_handle"=sink)
-  scholar_pubs <- scholar::get_publications(scholar_id, cstart = u, pagesize = 100, flush = flush)  %>% 
+  scholar_pubs <- scholar::get_publications(scholar_id, cstart = 0, pagesize = 100, flush = flush)  %>% 
     tibble::as_tibble()
   scholar_pubs <- unique(scholar_pubs)
   scholar_pubs$title <- as.character(scholar_pubs$title)

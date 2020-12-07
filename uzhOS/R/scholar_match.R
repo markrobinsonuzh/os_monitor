@@ -155,23 +155,25 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
     qrows <- df_scholar[doi_is_na,]
     Sys.setenv(crossref_email="retogerber93@gmail.com")
     out <- lapply(seq_along(doi_is_na),function(i){
-      sq <- rcrossref::cr_works(flq=list(query.bibliographic=paste(qrows$title[i],qrows$year[i], qrows$journal[i]),
-                              query.author=qrows$author[i]),limit = 3)
-      if(!is.null(sq$data)){
-        sq$data <-
-          sq$data %>% dplyr::mutate(score=as.numeric(score))
-          
-        if(dim(sq$data)[1] > 1){
+      tryCatch({
+        sq <- rcrossref::cr_works(flq=list(query.bibliographic=paste(qrows$title[i],qrows$year[i], qrows$journal[i]),
+                                query.author=qrows$author[i]),limit = 3)
+        if(!is.null(sq$data)){
           sq$data <-
-            sq$data %>% dplyr::filter(.data[["score"]]/c(.data[["score"]][-1],.data[["score"]][length(.data[["score"]][-1])]) > 1.5)
+            sq$data %>% dplyr::mutate(score=as.numeric(score))
+            
+          if(dim(sq$data)[1] > 1){
+            sq$data <-
+              sq$data %>% dplyr::filter(.data[["score"]]/c(.data[["score"]][-1],.data[["score"]][length(.data[["score"]][-1])]) > 1.5)
+          }
+          sq$data %>% 
+            dplyr::filter(score > 70) %>% 
+            dplyr::slice(1) %>% 
+            dplyr::select(doi,container.title,published.print,title)
+        } else{
+          tibble::tibble(doi=character(),container.title=character(),published.print=character(),title=character())
         }
-        sq$data %>% 
-          dplyr::filter(score > 70) %>% 
-          dplyr::slice(1) %>% 
-          dplyr::select(doi,container.title,published.print,title)
-      } else{
-        tibble::tibble(doi=character(),container.title=character(),published.print=character(),title=character())
-      }
+      }, error=function(e) tibble::tibble(doi=character(),container.title=character(),published.print=character(),title=character()))
     })
     empty_r <- sapply(seq_along(out), function(i) nrow(out[[i]])>0)
     out_tib <- out %>% purrr::reduce(rbind)

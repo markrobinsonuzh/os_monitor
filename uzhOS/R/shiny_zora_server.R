@@ -313,12 +313,16 @@ shiny_zora_server <-  function(con,
     if (d$do_scholar_match && successfully_retrieved(df_scholar())){
       shiny_print_logs("merge scholar", sps)
       future(seed=NULL,{
-        tmpscholar <- df_scholar_matching(isolate(tbl_merge()),isolate(df_scholar()))
-        dplyr::full_join(isolate(tbl_merge()),tmpscholar,by="doi",suffix=c("",".scholar")) %>% 
-          dplyr::mutate(overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),
-                                            levels = names(open_cols_fn()))) %>% 
-          dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
-      },  globals = list('%>%'= magrittr::'%>%' )) %...>% 
+        tmpscholar <- df_scholar_matching(tbl_merge_iso, df_scholar_iso)
+        dplyr::full_join(tbl_merge_iso,tmpscholar,by="doi",suffix=c("",".scholar"))
+      },  globals = list('%>%'= magrittr::'%>%',
+                         df_scholar_matching=df_scholar_matching,
+                         df_scholar_iso=isolate(df_scholar()),
+                         tbl_merge_iso=isolate(tbl_merge())
+      ))  %...>% 
+        dplyr::mutate(overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),
+                                          levels = names(open_cols_fn()))) %...>% 
+        dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x))) %...>% 
         dplyr::mutate(year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year))) %...>% 
         tbl_merge()
       d$do_scholar_match <- FALSE
@@ -374,8 +378,8 @@ shiny_zora_server <-  function(con,
     m_filt <- d$m_sub_all_oa %>% 
       dplyr::mutate(year=as.integer(year)) %>% 
       dplyr::filter(overall_oa %in% input$oa_status_filtered_table,
-                    year >= input$range_year[1],
-                    year <= input$range_year[2])
+                    year >= input$range_year[1] | is.na(year),
+                    year <= input$range_year[2] | is.na(year))
     d$m_sub <- m_filt
     d$m_sub_sel <- m_filt
   })

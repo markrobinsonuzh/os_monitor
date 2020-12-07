@@ -62,6 +62,8 @@ jobs:
         run: |
           install.packages(c("remotes", "rcmdcheck"))
           remotes::install_deps(dependencies = TRUE)
+          remotes::install_github("krassowski/complex-upset")
+          remotes::install_github("RinteRface/shinydashboardPlus")
         shell: Rscript {0}
       - name: Connect to PostgreSQL
         # Runs a script that creates a PostgreSQL client, populates

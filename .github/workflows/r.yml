@@ -61,7 +61,7 @@ jobs:
       - name: Install dependencies
         run: |
           install.packages(c("remotes", "rcmdcheck"))
-          remotes::install_deps(dependencies = TRUE)
+          remotes::install_deps(dependencies = NA)
           remotes::install_github("krassowski/complex-upset")
           remotes::install_github("RinteRface/shinydashboardPlus")
         shell: Rscript {0}

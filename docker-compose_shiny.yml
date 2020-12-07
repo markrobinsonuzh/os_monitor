@@ -13,6 +13,9 @@ services:
                           volume:
                                   nocopy: true
 
+                networks:
+                        osnet_2:
+
 
 
         shiny:
@@ -21,28 +24,29 @@ services:
                         dockerfile: Dockerfile_shiny
                 ports:
                         - "3839:3839"
-#        ganglia:
-#                image: kurthuwig/ganglia:latest
-#                ports:
-#                        - "172.23.38.46:80:80"
-#                        - "8649:8649"
-#                        - "8649:8649/udp"
-#                volumes:
-#                        - type: volume
-#                          source: ganglia_conf_os_monitor
-#                          target: /etc/ganglia
-#                          volume:
-#                                  nocopy: true
-#                        - type: volume
-#                          source: ganglia_data_os_monitor
-#                          target: /var/lib/ganglia
-#                          volume:
-#                                  nocopy: true
+                volumes:
+                        - type: volume
+                          source: shiny_logs
+                          target: /var/log/shiny-server
+                        - type: volume
+                          source: shiny_bookmarks
+                          target: /var/lib/shiny-server/bookmarks
+                networks:
+                        osnet_2:
+                depends_on:
+                        - db
+                environment:
+                        - APPLICATION_LOGS_TO_STDOUT=true
 
 volumes:
         sql_data_os_monitor:
                 external: true
-#        ganglia_conf_os_monitor:
-#                external: true
-#        ganglia_data_os_monitor:
-#                external: true
+        shiny_logs:
+                external: true
+        shiny_bookmarks:
+                external: true
+
+networks:
+        osnet_2:
+                external: true
+

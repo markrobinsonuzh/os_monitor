@@ -4,7 +4,7 @@
 #'
 #' @export
 sql_con_cont <- function(con){
-  if (!(is(con,"PqConnection") | is(con,"PostgreSQL"))){
+  if (!(is(con,"PqConnection") | is(con,"PostgreSQL") | is(con, "DBIMockConnection"))){
     stop("'con' is no valid connection of type 'RPostgres::`PqConnection-class` or 'OdbcConnection PostgreSQL'.", .call=FALSE)
   }
 }

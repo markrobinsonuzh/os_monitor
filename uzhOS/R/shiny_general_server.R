@@ -30,22 +30,25 @@ shiny_general_server <-  function(con, orcid_access_token){
   sps <- reactive(session$clientData$url_hostname)
   
   # have some tabs hidden at the start
-  hideTab("author_plots_tables", "Bibtex")
-  hideTab("author_plots_tables", "Upset Plot")
+  # hideTab("author_plots_tables", "Bibtex")
+  # hideTab("author_plots_tables", "Upset Plot")
   ### Author ###################################################################
-  observeEvent(input$showSidebar, {
-    shinyjs::show(id = "Sidebar")
-    shinyjs::hide(id="showSidebar")
-    shinyjs::show(id = "hideSidebar")
-  })
+  # observeEvent(input$showSidebar, {
+  #   shinyjs::show(id = "Sidebar")
+  #   shinyjs::hide(id="showSidebar")
+  #   shinyjs::show(id = "hideSidebar")
+  # })
   tbl_merge <- reactiveVal(NULL)
-  observeEvent({input$hideSidebar;tbl_merge()}, {
-    shinyjs::hide(id = "Sidebar")
-    shinyjs::show(id="showSidebar")
-    shinyjs::hide(id = "hideSidebar")
-  })
+  # observeEvent({input$hideSidebar;tbl_merge()}, {
+  #   shinyjs::hide(id = "Sidebar")
+  #   shinyjs::show(id="showSidebar")
+  #   shinyjs::hide(id = "hideSidebar")
+  # })
   
-  shinyhelper::observe_helpers(session = session)
+  shinyhelper::observe_helpers(session = session,
+                               help_dir = system.file("data","helpfiles",package = "uzhOS"))
+  # oa help
+  oa_diagram_Server("oa_diag")
   # data
   d <- reactiveValues(sps=sps, processing = FALSE)
   
@@ -177,11 +180,10 @@ shiny_general_server <-  function(con, orcid_access_token){
     if (d$do_scholar_match && successfully_retrieved(df_scholar())){
       shiny_print_logs("merge scholar", sps)
       future(seed=NULL,{
-        str_length
         tmpscholar <- df_scholar_matching(isolate(tbl_merge()),isolate(df_scholar()))
         dplyr::full_join(isolate(tbl_merge()),tmpscholar,by="doi",suffix=c("",".scholar")) %>% 
-          dplyr::mutate(#year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year)),                        ,
-            overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),levels = names(open_cols_fn()))) %>% 
+          dplyr::mutate(overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),
+                                            levels = names(open_cols_fn()))) %>% 
           dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
       },  globals = list('%>%'= magrittr::'%>%' )) %...>% 
         dplyr::mutate(year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year))) %...>% 
@@ -221,6 +223,7 @@ shiny_general_server <-  function(con, orcid_access_token){
     shinyjs::show(id = "shinyjsbox_pubmetric_table")
     shinyjs::show(id = "shinyjsbox_pubmetric_plot")
     shinyjs::show(id = "shinyjsbox_oa_perc_time")
+    shinyjs::show(id = "shinyjsbox_fulltext_download")
     updateBox("box_author_input",action = "toggle")
     # update and show selections
     # update single selection for plots and tables
@@ -245,52 +248,53 @@ shiny_general_server <-  function(con, orcid_access_token){
   })
   
   # update summary when subset changes
-  observeEvent({d$m_sub},{
-    # summary of subset table
-    overall_oa_status <- dplyr::pull(d$m_sub,"overall_oa") %>% as.character()
-    # overall_oa_status[is.na(overall_oa_status)] <- "unknown"
-    # levels(overall_oa_status) <- names(open_cols_fn())
-    output$sub_summary <- renderPrint({
-      table(overall_oa_status,useNA = "ifany")
-    })
-    # total number of publications
-    tmp_total <- ifelse(!is.numeric(length(overall_oa_status)), 0, length(overall_oa_status))
-    # total number of open publications
-    tmp_open <- ifelse(tmp_total != 0, ((tmp_total-sum(overall_oa_status == "closed"))/tmp_total)*100, 0)
-    # total number of open publications without blue
-    tmp_open_blue <- ifelse(tmp_total != 0,((tmp_total-sum(overall_oa_status %in% c("closed","blue")))/tmp_total)*100, 0)
-    # simple summary bar of oa status
-    output$oa_summary_histogram_simple <- renderPlot({
-      simple_oa_summary_histogram(overall_oa_status)
-    },height = 50)
-    
-    output$pgb_closed <- renderUI(
-      boxPad(color = "teal",
-             # to change the color of "teal"
-             tags$style(HTML(".bg-teal {
-           background-color:#F0F8FF!important;
-           color:#000000!important;
-          }")),
-             h4("Summary filtered data"),
-             descriptionBlock(
-               text = verbatimTextOutput("sub_summary")
-             ),
-             plotOutput("oa_summary_histogram_simple",height = 50),
-             descriptionBlock(
-               text = paste("Percentage open:", 
-                            signif(tmp_open,digits=3),
-                            "%")
-             ),
-             shinydashboardPlus::progressBar(value = tmp_open),
-             descriptionBlock(
-               text = paste("Percentage open (without blue):", 
-                            signif(tmp_open_blue,digits=3),
-                            "%")
-             ),
-             shinydashboardPlus::progressBar(value = tmp_open_blue)
-      )
-    )
-  })
+  oaSummaryServer("oa_summary", d)
+  # observeEvent({d$m_sub},{
+  #   # summary of subset table
+  #   overall_oa_status <- dplyr::pull(d$m_sub,"overall_oa") %>% as.character()
+  #   # overall_oa_status[is.na(overall_oa_status)] <- "unknown"
+  #   # levels(overall_oa_status) <- names(open_cols_fn())
+  #   output$sub_summary <- renderPrint({
+  #     table(overall_oa_status,useNA = "ifany")
+  #   })
+  #   # total number of publications
+  #   tmp_total <- ifelse(!is.numeric(length(overall_oa_status)), 0, length(overall_oa_status))
+  #   # total number of open publications
+  #   tmp_open <- ifelse(tmp_total != 0, ((tmp_total-sum(overall_oa_status == "closed"))/tmp_total)*100, 0)
+  #   # total number of open publications without blue
+  #   tmp_open_blue <- ifelse(tmp_total != 0,((tmp_total-sum(overall_oa_status %in% c("closed","blue")))/tmp_total)*100, 0)
+  #   # simple summary bar of oa status
+  #   output$oa_summary_histogram_simple <- renderPlot({
+  #     simple_oa_summary_histogram(overall_oa_status)
+  #   },height = 50)
+  #   
+  #   output$pgb_closed <- renderUI(
+  #     boxPad(color = "teal",
+  #            # to change the color of "teal"
+  #            tags$style(HTML(".bg-teal {
+  #          background-color:#F0F8FF!important;
+  #          color:#000000!important;
+  #         }")),
+  #            h4("Summary filtered data"),
+  #            descriptionBlock(
+  #              text = verbatimTextOutput("sub_summary")
+  #            ),
+  #            plotOutput("oa_summary_histogram_simple",height = 50),
+  #            descriptionBlock(
+  #              text = paste("Percentage open:", 
+  #                           signif(tmp_open,digits=3),
+  #                           "%")
+  #            ),
+  #            shinydashboardPlus::progressBar(value = tmp_open),
+  #            descriptionBlock(
+  #              text = paste("Percentage open (without blue):",
+  #                           signif(tmp_open_blue,digits=3),
+  #                           "%")
+  #            ),
+  #            shinydashboardPlus::progressBar(value = tmp_open_blue)
+  #     )
+  #   )
+  # })
   
   ## oa status upset plot -----------------------------------------------------
   p_t$upset_plot <- reactive({tryCatch({upset_plot(d$m)},error=function(e) {print(e);ggplot() + geom_blank()})})
@@ -379,88 +383,22 @@ shiny_general_server <-  function(con, orcid_access_token){
     p_t$oa_percent_time_table()
   })
   
-  observeEvent(input$create_bibtex,{
-    if (!is.null(d$m_sub_sel$doi) && length(d$m_sub_sel$doi) > 0){
-      shinyWidgets::ask_confirmation(
-        inputId = "create_bibtex_confirmation",
-        title = "Confirm Bibtex retrieval",
-        text = paste("You are about to retrieve the bibtex entries of ",
-                     length(d$m_sub_sel$doi), "publications. This will take approximately",
-                     lubridate::seconds(length(d$m_sub_sel$doi)*0.5)," and will run in the background."
-        )
-      )
-    } else {
-      show_alert(
-        title = "Bibtex retrieval error",
-        text = "No valid doi's selected from Table. (The Table is likely empty)",
-        type = "error"
-      )
-    }
-    
-  })
+  ### bibtex  ------------------------------------------------------------------
   
   bibtex_ls <- reactiveVal()
-  observeEvent(input$create_bibtex_confirmation,{
-    if(input$create_bibtex_confirmation){
-      shinyjs::disable("create_bibtex")
-      to_update <- d$m_sub_sel$doi
-      if(length(to_update) > 0) {
-        GetBibEntryWithDOI_no_temp(to_update) %...>% 
-          bibtex_ls()
-      }
-    }
-  })
-  observeEvent(bibtex_ls(),{
-    print(bibtex_ls())
-    req(bibtex_ls())
-    showTab("author_plots_tables", "Bibtex")
-    shinyjs::enable("create_bibtex")
-    output$bibsummary <-  renderText(bibtex_ls())
-    shinyjs::show("bibtex_download")
-    updateTabsetPanel(session, "author_plots_tables", selected = "Bibtex")
-  })
+  BibtexConfirmationServer("bibtex", d)
+  BibtexRetrieveServer("bibtex", d, bibtex_ls)
+  BibtexObserveResultServer("bibtex", d, bibtex_ls)
+  BibtexDownloadButtonServer("bibtex", bibtex_ls)
+    
+  ### sci-hub  -----------------------------------------------------------------
   
-  output$bibtex_download <- downloadHandler(
-    filename = function() {paste0("BIBTEX_FOR_",d$author_vec[1], ".bib")},
-    content = function(file){
-      writeLines( paste(bibtex_ls(),collapse = "\n"),file)
-    }
-  )
+  sci_hub_pdf_links <- reactiveVal()
+  ScihubConfirmationServer("scihub", d)
+  ScihubObserveActionbuttonServer("scihub", d, sci_hub_pdf_links)
+  ScihubObservePdflinksServer("scihub", d, sci_hub_pdf_links)
+  ScihubRenderDTServer("scihub", d)
   
-  
-  output$report <- downloadHandler(
-    # For PDF output, change this to "report.pdf"
-    filename = "report.html",
-    content = function(file) {
-      # d$pri_author <- input$author_search[1]
-      # d$sec_author <- input$author_search[2]
-      # Copy the report file to a temporary directory before processing it, in
-      # case we don't have write permissions to the current working dir (which
-      # can happen when deployed).
-      tempReport <- file.path(tempdir(), "report.Rmd")
-      file.copy("report.Rmd", tempReport, overwrite = TRUE)
-      
-      # Set up parameters to pass to Rmd document
-      params <- list(pri_author = d$pri_author,
-                     sec_author = d$sec_author,
-                     orcid = d$orcid,
-                     cutoff_year = input$range_year,
-                     tbl_subjects=tbl_subjects,
-                     tbl_authorkeys=tbl_authorkeys,
-                     tbl_eprints=tbl_eprints,
-                     unpaywall=unpaywall,
-                     zora=d$zora,
-                     m=d$m)
-      
-      # Knit the document, passing in the `params` list, and eval it in a
-      # child of the global environment (this isolates the code in the document
-      # from the code in this app).
-      rmarkdown::render(tempReport, output_file = file,
-                        params = params,
-                        envir = new.env(parent = globalenv())
-      )
-    }
-  )
   
   ### Department ###############################################################
   

@@ -10,8 +10,8 @@ con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 # 
 # start_db_capturing()
 # con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
-# # create_tbl_author(author_vec, con, fac_vec=NULL, dep_vec=NULL)
-# testfun(con)
+# create_tbl_author_out <- create_tbl_author(author_vec, con, fac_vec=NULL, dep_vec=NULL)
+# odbc::dbDisconnect(con)
 # stop_db_capturing()
 # 
 # with_mock_db(
@@ -62,8 +62,8 @@ test_that("org_unit_fac correct",{
 
 
 test_that("create_zora correct",{
-  col_names <- c("eprintid","authorkey","authorname", 
-                 "authorkey_fullname","date","doi","title", 
+  col_names <- c("eprintid","authorkey","authorname",
+                 "authorkey_fullname","date","doi","title",
                  "type","refereed","institution","oa_status","published_doc","year","in_zora")
   # tbl_author <- create_tbl_author(author_vec, con,fac_vec=NULL, dep_vec=NULL)
   create_zora_out <- create_zora(author_vec, con)
@@ -77,10 +77,10 @@ test_that("create_zora correct",{
 test_that("oadoi_fetch_local correct",{
   oaf <- oadoi_fetch_local("10.1177/000271625529700159",con)
   expect_equal(names(oaf),c("doi","oa_status"))
-  expect_equal(dim(oaf),c(1,2))  
+  expect_equal(dim(oaf),c(1,2))
   oaf <- oadoi_fetch_local("asdfasdf",con)
   expect_equal(names(oaf),c("doi","oa_status"))
-  expect_equal(dim(oaf),c(0,2))  
+  expect_equal(dim(oaf),c(0,2))
   oaf <- oadoi_fetch_local(c("10.1177/000271625529700159","10.1177/000271625529700159"),con)
   expect_equal(names(oaf),c("doi","oa_status"))
   expect_equal(dim(oaf),c(1,2))
@@ -88,7 +88,7 @@ test_that("oadoi_fetch_local correct",{
   expect_equal(names(oaf),c("doi","oa_status"))
   expect_equal(dim(oaf),c(1,2))
 })
-  
+
 
 # test_that("create_combined_data compute all needed dfs",{
 df_zora <- create_zora(author_vec, con)
@@ -147,21 +147,21 @@ for(i in seq_along(all_combs[,1])){
 tbl_merge <- create_combined_data(df_orcid,df_pubmed,df_zora,df_publons,con)
 test_that("df_scholar_matching correct",{
   df_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
-  
+
   df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=FALSE)
   expect_equal(dim(df_scholar)[1],dim(df_scholar_matched)[1])
   expect_equal(dim(df_scholar)[2],dim(df_scholar_matched)[2]-1)
   expect_true(all(names(df_scholar) %in% names(df_scholar_matched)))
   expect_true("doi" %in% names(df_scholar_matched))
-  
+
   # df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=TRUE)
   # expect_equal(dim(df_scholar)[1],dim(df_scholar_matched)[1])
   # expect_equal(dim(df_scholar)[2],dim(df_scholar_matched)[2]-1)
   # expect_true(all(names(df_scholar) %in% names(df_scholar_matched)))
   # expect_true("doi" %in% names(df_scholar_matched))
-  
+
   df_scholar <- retrieve_from_scholar("noresult")
-  
+
   df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=FALSE)
   expect_equal(dim(df_scholar)[1],dim(df_scholar_matched)[1])
   expect_equal(dim(df_scholar)[2],dim(df_scholar_matched)[2]-1)

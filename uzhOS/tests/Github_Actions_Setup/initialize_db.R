@@ -5,7 +5,7 @@ library(magrittr)
 
 con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 
-sample_tbls <- readRDS("data/sample_tbls.rds")
+sample_tbls <- readRDS("tests/Github_Actions_Setup/sample_tbls.rds")
 
 authorstablename = "authors"
 authorkeystablename = "authorkeys"

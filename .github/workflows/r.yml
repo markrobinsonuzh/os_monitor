@@ -51,7 +51,7 @@ jobs:
       - name: copy odbc.ini to /etc
         run: sudo cp tests/Github_Actions_Setup/odbc.ini /etc
       - name: install dependencies
-        run: sudo apt-get install -y odbc-postgresql 
+        run: sudo bash tests/Github_Actions_Setup/install_system_dependencies.sh
       - name: copy odbcinst
         run: sudo cp tests/Github_Actions_Setup/odbcinst.ini /etc
       - name: Set up R ${{ matrix.r-version }}

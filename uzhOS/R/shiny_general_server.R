@@ -181,16 +181,18 @@ shiny_general_server <-  function(con, orcid_access_token){
       shiny_print_logs("merge scholar", sps)
       future(seed=NULL,{
         tmpscholar <- df_scholar_matching(tbl_merge_iso, df_scholar_iso)
-        dplyr::full_join(tbl_merge_iso,tmpscholar,by="doi",suffix=c("",".scholar"))
+        merge_scholar_into_tbl_merge(tbl_merge_iso, tmpscholar)
+        # dplyr::full_join(tbl_merge_iso,tmpscholar,by="doi",suffix=c("",".scholar"))
       },  globals = list('%>%'= magrittr::'%>%',
                          df_scholar_matching=df_scholar_matching,
                          df_scholar_iso=isolate(df_scholar()),
-                         tbl_merge_iso=isolate(tbl_merge())
+                         tbl_merge_iso=isolate(tbl_merge()),
+                         merge_scholar_into_tbl_merge=merge_scholar_into_tbl_merge
                          ))  %...>% 
-        dplyr::mutate(overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),
-                                          levels = names(open_cols_fn()))) %...>% 
-        dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x))) %...>% 
-        dplyr::mutate(year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year))) %...>% 
+        # dplyr::mutate(overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),
+        #                                   levels = names(open_cols_fn()))) %...>% 
+        # dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x))) %...>% 
+        # dplyr::mutate(year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year))) %...>% 
         tbl_merge()
       d$do_scholar_match <- FALSE
     }

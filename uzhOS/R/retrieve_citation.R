@@ -14,7 +14,7 @@
 GetBibEntryWithDOI_no_temp <- function (doi) 
 {
   future(seed=NULL,{
-    bibout <- sapply(seq_along(doi), function(i){
+    sapply(seq_along(doi), function(i){
       temp <- httr::GET(httr::modify_url("https://data.crossref.org/", path = doi[i]), 
                         config = list(followlocation = TRUE), httr::add_headers(Accept = "application/x-bibtex", mailto = "retogerber93@gmail.com"))
       return(httr::content(temp, as = "text", encoding = "UTF-8"))

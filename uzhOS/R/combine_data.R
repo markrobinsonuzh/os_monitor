@@ -138,6 +138,11 @@ create_combined_data <- function(df_orcid, df_pubmed, df_zora, df_publons, con, 
   } else {
     m$title[w] <- m %>% dplyr::select(dplyr::starts_with("title.")[1]) %>% filter(w) %>% pull()
   }
+  m <- m %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(title = na.omit(unique(c_across(starts_with("title"))))[1]) %>% 
+    dplyr::ungroup()
+  
   # set overall year
   if("year.zora" %in% names(m)){
     m <- m %>% dplyr::mutate(year=year.zora)

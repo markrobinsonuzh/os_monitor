@@ -1,6 +1,8 @@
 library(odbc)
 library(DBI)
 library(dplyr)
+if (!requireNamespace("dbplyr", quietly = TRUE))
+  install.packages("dbplyr")
 library(dbplyr)
 library(magrittr)
 

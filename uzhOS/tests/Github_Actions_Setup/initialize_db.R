@@ -1,6 +1,7 @@
 library(odbc)
 library(DBI)
 library(dplyr)
+library(dbplyr)
 library(magrittr)
 
 con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
@@ -13,12 +14,24 @@ eprintstablename = "eprints"
 subjectstablename = "subjects"
 unpaywalltablename = "unpaywall"
 
-dbWriteTable(con, authorstablename, sample_tbls$tbl_author)
-dbWriteTable(con, authorkeystablename, sample_tbls$tbl_authorkeys)
-dbWriteTable(con, eprintstablename, sample_tbls$tbl_eprints)
-dbWriteTable(con, subjectstablename, sample_tbls$tbl_subjects)
-dbWriteTable(con, unpaywalltablename, sample_tbls$tbl_unpaywall)
+print(authorstablename)
+dbWriteTable(con, authorstablename, sample_tbls$tbl_author, overwrite=TRUE)
+tbl(con, authorstablename)
 
-print(tbl(con, unpaywalltablename) %>% collect())
+print(authorkeystablename)
+dbWriteTable(con, authorkeystablename, sample_tbls$tbl_authorkeys, overwrite=TRUE)
+tbl(con, authorkeystablename)
+
+print(eprintstablename)
+dbWriteTable(con, eprintstablename, sample_tbls$tbl_eprints, overwrite=TRUE)
+tbl(con, eprintstablename)
+
+print(subjectstablename)
+dbWriteTable(con, subjectstablename, sample_tbls$tbl_subjects, overwrite=TRUE)
+tbl(con, subjectstablename)
+
+print(unpaywalltablename)
+dbWriteTable(con, unpaywalltablename, sample_tbls$tbl_unpaywall, overwrite=TRUE)
+tbl(con, unpaywalltablename)
 # Disconnect from the database
 dbDisconnect(con)

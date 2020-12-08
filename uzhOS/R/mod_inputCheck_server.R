@@ -128,12 +128,23 @@ publonsCheckServer <- function(id, df_publons) {
     function(input, output, session) {
       observeEvent(input$publons,{
         if(input$publons != ""){
-          assign_to_reactiveVal(df_publons, "valid_input", in_publons(input$publons))
-          shinyFeedback::feedbackWarning(
-            "publons", 
-            !valid_input(df_publons()),
-            "Please select a valid ResearcherID!"
-          )
+          ID_in_publons <- in_publons(input$publons)
+          if(is.null(ID_in_publons)){
+            shinyFeedback::feedbackWarning(
+              "publons", 
+              TRUE,
+              "Publons API blocked. Try again later."
+            )
+            ID_in_publons <- FALSE
+          } else {
+            shinyFeedback::feedbackWarning(
+              "publons", 
+              !ID_in_publons,
+              "Please select a valid ResearcherID!"
+            )
+          }
+          assign_to_reactiveVal(df_publons, "valid_input", ID_in_publons)
+
         }
         assign_to_reactiveVal(df_publons, "input_value", input$publons)
       })

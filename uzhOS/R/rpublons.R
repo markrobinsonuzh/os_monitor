@@ -104,7 +104,11 @@ get_ids_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db8
 in_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db8b38"){
   auth_header <- httr::add_headers(Authorization = paste0("Token ", token))
   publget <- httr::GET(url=paste0("https://publons.com/api/v2/academic/",id),auth_header)
-  return(!httr::http_error(publget))
+  if(httr::status_code(publget)==429){
+    return(NULL)
+  } else {
+    return(!httr::http_error(publget))
+  }
 }
 
 

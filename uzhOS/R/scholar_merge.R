@@ -43,12 +43,14 @@
 #' @examples
 connect_multiple_publications_with_scholar <- function(tbl_merge_new){
   ld <- adist(toupper(tbl_merge_new$title),toupper(tbl_merge_new$title))
+  ld_y <-  adist(tbl_merge_new$year.scholar,tbl_merge_new$year.scholar)
   ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/stringr::str_length(tbl_merge_new$title[i]))
-  m3 <- lapply(seq_len(dim(ld_rel)[1]), function(x) {which(ld_rel[x,] < 0.1 )})
+  m3 <- lapply(seq_len(dim(ld_rel)[1]), function(x) {which(ld_rel[x,] < 0.1 & ld_y[x, ]<=1)})
     
   # copy for in place changes
   tbl_merge_update <- tbl_merge_new
   for(i in seq_along(m3)){
+    # print(i)
     if(!tbl_merge_new[i,"in_scholar"]){
       tmpmatch <- m3[[i]]
       if(length(tmpmatch) != 1){

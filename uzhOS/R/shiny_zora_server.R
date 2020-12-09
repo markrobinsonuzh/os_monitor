@@ -97,7 +97,7 @@ shiny_zora_server <-  function(con,
   ### Author ###################################################################
   
   shinyhelper::observe_helpers(session = session,
-                               help_dir = system.file("data","helpfiles",package = "uzhOS"))
+                               help_dir = system.file("inst","extdata","helpfiles",package = "uzhOS"))
   # data
   d <- reactiveValues(sps=sps, processing = FALSE)
   # input values for selection

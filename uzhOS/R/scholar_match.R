@@ -28,8 +28,26 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
   if ("title.orcid" %in% names(tbl_merge)){
     doi_is_na <- which(is.na(df_scholar$doi))
     m1 <- match(toupper(df_scholar$title[doi_is_na]), toupper(tbl_merge$title.orcid))
-    if (any(!is.na(m1))){
-      df_scholar$doi[doi_is_na] <- tbl_merge$doi[m1]
+    m1_nona <- m1[!is.na(m1)]
+    m1_cp <- m1
+    # check if some entries match to the same entry of tbl_merge
+    doublets <- table(m1_nona)[table(m1_nona)!=1]
+    for(i in seq_along(doublets)){
+      doublet_ind_m1 <- which(m1==as.integer(names(doublets[i])))
+      # if year differs
+      if(length(unique(df_scholar$year[doublet_ind_m1])) != 1){
+        m1_tmp <- match(toupper(paste(df_scholar$title[doublet_ind_m1], df_scholar$year[doublet_ind_m1])), 
+              toupper(paste(tbl_merge$title.orcid,tbl_merge$year.orcid)))
+        # if still no match, just randomly choose matches...
+        if(length(unique(m1_tmp)) != length(m1_tmp)){
+          m1_tmp <- c(unique(m1_tmp), rep(NA, length(m1_tmp) - length(unique(m1_tmp))))
+        }
+        m1_cp[doublet_ind_m1] <- m1_tmp
+      }
+    }
+    # m1 <- match(toupper(df_scholar$title[doi_is_na]), toupper(tbl_merge$title.orcid))
+    if (any(!is.na(m1_cp))){
+      df_scholar$doi[doi_is_na] <- tbl_merge$doi[m1_cp]
     }
   }
   if ("title.pubmed" %in% names(tbl_merge)){

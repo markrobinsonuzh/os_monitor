@@ -46,7 +46,7 @@ shiny_general_server <-  function(con, orcid_access_token){
   # })
   
   shinyhelper::observe_helpers(session = session,
-                               help_dir = system.file("data","helpfiles",package = "uzhOS"))
+                               help_dir = system.file("inst","extdata","helpfiles",package = "uzhOS"))
   # oa help
   oa_diagram_Server("oa_diag")
   # data

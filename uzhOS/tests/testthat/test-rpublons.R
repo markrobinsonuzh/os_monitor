@@ -1,4 +1,4 @@
-
+skip_on_ci()
 testthat::test_that("retrieve_from_publons correct",{
   mr_publons <- retrieve_from_publons("0000-0002-3048-5518")
   expect_true(all(names(mr_publons) %in% c("title","doi","date","year","in_publons")))

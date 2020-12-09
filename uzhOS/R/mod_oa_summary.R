@@ -33,7 +33,9 @@ oaSummaryServer <- function(id, d) {
           table(overall_oa_status,useNA = "ifany")
         })
         # total number of publications
-        tmp_total <- ifelse(!is.numeric(length(overall_oa_status)), 0, length(overall_oa_status))
+        tmp_total <- ifelse(!is.numeric(length(overall_oa_status)), 
+                            0, 
+                            length(overall_oa_status[overall_oa_status!="unknown"]))
         # total number of open publications
         tmp_open <- ifelse(tmp_total != 0, ((tmp_total-sum(overall_oa_status == "closed"))/tmp_total)*100, 0)
         # total number of open publications without blue

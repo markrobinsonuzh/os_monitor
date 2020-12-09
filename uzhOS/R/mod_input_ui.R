@@ -11,7 +11,7 @@ inputOrcidUI <- function(id) {
               label = a("Orcid",
                         href="https://orcid.org",
                         target="_blank"), 
-              value="0000-0002-3048-5518")
+              value="")
   )
 }
 

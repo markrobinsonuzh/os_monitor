@@ -159,11 +159,10 @@ overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
       dplyr::select(doi, eprintid, overall_oa, oa_status.zora,oa_status.unpaywall, year, dplyr::starts_with("title"))
   } else {
     z <- tbl_merge %>%
-      dplyr::select(doi,oa_status.unpaywall, year, dplyr::starts_with("title"))
+      dplyr::select(doi,oa_status.unpaywall, title, year, dplyr::starts_with("title."))
   }
   
   z <- z %>%
-    dplyr::arrange(desc(year)) %>%
     dplyr::mutate(oa_status.unpaywall = ifelse(is.na(oa_status.unpaywall), "",
                                                paste0("<a href='https://api.unpaywall.org/v2/",
                                                doi,"?email=YOUR_EMAIL' target='_blank'>",
@@ -175,11 +174,24 @@ overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
                                     paste0("<a href='https://www.zora.uzh.ch/id/eprint/",
                                            eprintid, "' target='_blank'>", eprintid, "</a>")))
   }
+  if("in_scholar" %in% names(tbl_merge)){
+    z <- z %>% dplyr::mutate(cid = tbl_merge$cid,
+                             cid = ifelse(is.na(cid), "",
+                                          paste0("<a href='https://scholar.google.com/scholar?oi=bibs&hl=de&cluster=",
+                                                 cid, "' target='_blank'>", cid, "</a>"))) %>% 
+      dplyr::select(doi,oa_status.unpaywall, title, year, cid, dplyr::starts_with("title."))
+  }
+  z <- z %>%
+    dplyr::arrange(desc(year))
   colns <- stringr::str_replace_all(colnames(z),"\\."," ")
-  DT::datatable(z, extensions = 'Buttons',colnames = colns,
+  DT::datatable(z, 
+                extensions = c('ColReorder','Buttons', 'Responsive'),
+                colnames = colns,
                 options = list(dom = 'Blfrtip',
                                # pageLength = 200,
-                               buttons = list('copy', 'csv', 'excel')),
+                               # keys=TRUE,
+                               colReorder = TRUE,
+                               buttons = list('copy', 'csv', 'pdf')),
                 escape = FALSE, rownames = FALSE)
 }
 

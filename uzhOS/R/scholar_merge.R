@@ -36,7 +36,7 @@
 #'
 #' @param tbl_merge_new tbl_merge merged with df_scholar
 #'
-#' @return
+#' @return tbl_merge_new with some changed entries
 #' @importFrom magrittr %>% 
 #' @export
 #'
@@ -72,7 +72,7 @@ connect_multiple_publications_with_scholar <- function(tbl_merge_new){
 #' @param tbl_merge tbl_merge from \code{\link{create_combined_data}}
 #' @param df_scholar_matched df_scholar from \code{\link{df_scholar_matching}}
 #'
-#' @return
+#' @return tibble full join of tbl_merge and df_scholar_matched
 #' @importFrom magrittr %>% 
 #' @export
 #'

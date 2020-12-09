@@ -2,7 +2,6 @@
 #'
 #' @param id namespace
 #' @param d reactive values object
-#' @param sci_hub_pdf_links \code{\link[shiny]{reactiveVal}}
 #'
 #' @import shiny
 #' @import future

@@ -90,84 +90,94 @@ test_that("oadoi_fetch_local correct",{
 })
 
 
-# test_that("create_combined_data compute all needed dfs",{
-df_zora <- create_zora(author_vec, con)
-df_orcid <- retrieve_from_orcid("0000-0002-3048-5518")
-search_string <- pubmed_search_string_from_zora_id(author_vec,con)
-df_pubmed <- retrieve_from_pubmed(search_string)
-df_publons <- retrieve_from_publons("0000-0002-3048-5518")
-# })
 
-all_combs <- expand.grid(df_orcid=c(TRUE,FALSE),
-            df_zora=c(TRUE,FALSE),
-            df_publons=c(TRUE,FALSE),
-            df_pubmed=c(TRUE,FALSE))
 
+# test function for combining data and testing merge with scholar
 test_comb <- function(df_orcid,df_zora,df_publons,df_pubmed,title=""){
+  tbl_merge <- suppressWarnings(create_combined_data(df_orcid,df_pubmed,df_zora,df_publons,con))
   test_that(paste("create_combined_data for: ",title),{
-    tbl_merge <- suppressWarnings(create_combined_data(df_orcid,df_pubmed,df_zora,df_publons,con))
     is(tbl_merge,"data.frame")
     expect_true("doi" %in% names(tbl_merge))
     expect_true("overall_oa" %in% names(tbl_merge))
     expect_true("title" %in% names(tbl_merge))
     expect_true("year" %in% names(tbl_merge))
   })
+  df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=FALSE)
+  test_that(paste("df_scholar_matching correct for tbl_merge:",title),{
+    # with full scholar
+    expect_equal(dim(df_scholar)[1],dim(df_scholar_matched)[1])
+    expect_equal(dim(df_scholar)[2],dim(df_scholar_matched)[2]-1)
+    expect_true(all(names(df_scholar) %in% names(df_scholar_matched)))
+    expect_true("doi" %in% names(df_scholar_matched))
+  })
+
+  test_that(paste("merge scholar into tbl_merge with:",title),{
+    tbl_merge_comb <- merge_scholar_into_tbl_merge(tbl_merge, df_scholar_matched)
+    suppressWarnings(expect_equal(sum(tbl_merge$in_orcid), sum(tbl_merge_comb$in_orcid)))
+    suppressWarnings(expect_equal(sum(tbl_merge$in_pubmed), sum(tbl_merge_comb$in_pubmed)))
+    suppressWarnings(expect_equal(sum(tbl_merge$in_zora),  sum(tbl_merge_comb$in_zora)))
+    suppressWarnings(expect_equal(sum(tbl_merge$in_publons),  sum(tbl_merge_comb$in_publons)))
+    suppressWarnings(expect_true(sum(tbl_merge_comb$in_scholar) >= sum(df_scholar_matched$in_scholar)))
+    expect_true(all(names(tbl_merge) %in% names(tbl_merge_comb)))
+    expect_true(all(names(df_scholar_matched) %in% names(tbl_merge_comb)))
+    suppressWarnings(expect_true(dim(tbl_merge_comb)[1] >= dim(df_scholar_matched)[1]))
+  })
+  
+  test_that(paste("df_scholar_matching correct with empty scholar for tbl_merge:",title),{
+    # with empty scholar
+    df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar_nores, with_rcrossref=FALSE)
+    expect_equal(dim(df_scholar_nores)[1],dim(df_scholar_matched)[1])
+    expect_equal(dim(df_scholar_nores)[2],dim(df_scholar_matched)[2]-1)
+    expect_true(all(names(df_scholar_nores) %in% names(df_scholar_matched)))
+    expect_true("doi" %in% names(df_scholar_matched))
+  })
 }
 
+# prepare single dataframes
+df_zora <- create_zora(author_vec, con)
+df_orcid <- retrieve_from_orcid("0000-0002-3048-5518")
+search_string <- pubmed_search_string_from_zora_id(author_vec,con)
+df_pubmed <- retrieve_from_pubmed(search_string)
+df_publons <- retrieve_from_publons("0000-0002-3048-5518")
+df_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
+df_scholar_nores <- retrieve_from_scholar("noresult")
+
+# define all combinations
+all_combs <- expand.grid(df_orcid=c(TRUE,FALSE),
+                         df_zora=c(TRUE,FALSE),
+                         df_publons=c(TRUE,FALSE),
+                         df_pubmed=c(TRUE,FALSE))
+# prepare arguments
 for(i in seq_along(all_combs[,1])){
   comb_vec <- all_combs[i,]
   args_list <- list()
   if(comb_vec$df_orcid){
     args_list[["df_orcid"]] <- df_orcid
   } else {
-    args_list[["df_orcid"]] <- slice(df_orcid,0)
+    args_list[["df_orcid"]] <- dplyr::slice(df_orcid,0)
   }
   if(comb_vec$df_zora){
     args_list[["df_zora"]] <- df_zora
   }else {
-    args_list[["df_zora"]] <- slice(df_zora,0)
+    args_list[["df_zora"]] <- dplyr::slice(df_zora,0)
   }
   if(comb_vec$df_publons){
     args_list[["df_publons"]] <- df_publons
   }else {
-    args_list[["df_publons"]] <- slice(df_publons,0)
+    args_list[["df_publons"]] <- dplyr::slice(df_publons,0)
   }
   if(comb_vec$df_pubmed){
     args_list[["df_pubmed"]] <- df_pubmed
   }else {
-    args_list[["df_pubmed"]] <- slice(df_pubmed,0)
+    args_list[["df_pubmed"]] <- dplyr::slice(df_pubmed,0)
   }
   args_list[["title"]] <- paste0(names(comb_vec)[unlist(comb_vec)],collapse = ",")
+  # run test function
   suppressWarnings(do.call(test_comb, args = args_list))
 }
 
 
 
-
-tbl_merge <- create_combined_data(df_orcid,df_pubmed,df_zora,df_publons,con)
-test_that("df_scholar_matching correct",{
-  df_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
-
-  df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=FALSE)
-  expect_equal(dim(df_scholar)[1],dim(df_scholar_matched)[1])
-  expect_equal(dim(df_scholar)[2],dim(df_scholar_matched)[2]-1)
-  expect_true(all(names(df_scholar) %in% names(df_scholar_matched)))
-  expect_true("doi" %in% names(df_scholar_matched))
-
-  # df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=TRUE)
-  # expect_equal(dim(df_scholar)[1],dim(df_scholar_matched)[1])
-  # expect_equal(dim(df_scholar)[2],dim(df_scholar_matched)[2]-1)
-  # expect_true(all(names(df_scholar) %in% names(df_scholar_matched)))
-  # expect_true("doi" %in% names(df_scholar_matched))
-
-  df_scholar <- retrieve_from_scholar("noresult")
-
-  df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=FALSE)
-  expect_equal(dim(df_scholar)[1],dim(df_scholar_matched)[1])
-  expect_equal(dim(df_scholar)[2],dim(df_scholar_matched)[2]-1)
-  expect_true(all(names(df_scholar) %in% names(df_scholar_matched)))
-  expect_true("doi" %in% names(df_scholar_matched))
-  })
 
 
 

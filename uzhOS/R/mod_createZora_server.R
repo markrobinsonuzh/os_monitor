@@ -37,16 +37,17 @@ showReportValueServer <- function(id, d) {
 #' 
 #' @param id namespace
 #' @param df_scholar \code{\link[shiny]{reactiveVal}} of format \code{\link{empty_scholar}}
+#' @param scholar_matching_with_crossref logical, show modal if TRUE
 #' 
 #' @import shiny
 #' @export
 #' 
-scholarModalServer <- function(id, df_scholar) {
+scholarModalServer <- function(id, df_scholar, scholar_matching_with_crossref = TRUE) {
   moduleServer(
     id,
     function(input, output, session) {
       observeEvent(input$show_report,{
-        if(valid_input(df_scholar())){
+        if(valid_input(df_scholar()) && scholar_matching_with_crossref){
           showModal(modalDialog("Retrieving and matching entries from Google scholar usually takes a few minutes. 
                                 The plots and tables will update automatically on successfull completion.",
                                 title = "Google scholar info", size="s",easyClose = TRUE))

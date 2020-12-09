@@ -40,6 +40,7 @@ Imports:
   scholar,
   shiny,
   shinydashboard,
+	shinydashboardPlus,
   shinyFeedback,
   shinyhelper,
   shinyjs,
@@ -55,5 +56,4 @@ Imports:
   xml2
 RoxygenNote: 7.1.1
 Suggests: 
-	ComplexUpset,
-	shinydashboardPlus
+	ComplexUpset

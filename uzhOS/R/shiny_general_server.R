@@ -85,10 +85,16 @@ shiny_general_server <-  function(con, orcid_access_token){
   pubmedCheckServer("input_check", df_pubmed)
   publonsCheckServer("input_check", df_publons)
   scholarCheckServer("input_check", df_scholar)
-  
+  observeEvent(input$scholar_matching_with_crossref,{
+    shinyFeedback::feedback(
+      "scholar_matching_with_crossref", 
+      !input$scholar_matching_with_crossref,
+      "Possibly less publications from Google scholar will be matched to other sources."
+    )
+  })
   
   # wait for clicking of "show_report", then retrieve all data asynchronously 
-  scholarModalServer("show_report", df_scholar)
+  scholarModalServer("show_report", df_scholar, input$scholar_matching_with_crossref)
   
   createOrcidServer("show_report", df_orcid, orcid_access_token, sps)
   ResultCheckServer("show_report", df_orcid, sps)
@@ -180,19 +186,15 @@ shiny_general_server <-  function(con, orcid_access_token){
     if (d$do_scholar_match && successfully_retrieved(df_scholar())){
       shiny_print_logs("merge scholar", sps)
       future(seed=NULL,{
-        tmpscholar <- df_scholar_matching(tbl_merge_iso, df_scholar_iso)
+        tmpscholar <- df_scholar_matching(tbl_merge_iso, df_scholar_iso, scholar_matching_with_crossref)
         merge_scholar_into_tbl_merge(tbl_merge_iso, tmpscholar)
-        # dplyr::full_join(tbl_merge_iso,tmpscholar,by="doi",suffix=c("",".scholar"))
       },  globals = list('%>%'= magrittr::'%>%',
                          df_scholar_matching=df_scholar_matching,
                          df_scholar_iso=isolate(df_scholar()),
+                         scholar_matching_with_crossref=input$scholar_matching_with_crossref,
                          tbl_merge_iso=isolate(tbl_merge()),
                          merge_scholar_into_tbl_merge=merge_scholar_into_tbl_merge
                          ))  %...>% 
-        # dplyr::mutate(overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),
-        #                                   levels = names(open_cols_fn()))) %...>% 
-        # dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x))) %...>% 
-        # dplyr::mutate(year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year))) %...>% 
         tbl_merge()
       d$do_scholar_match <- FALSE
     }

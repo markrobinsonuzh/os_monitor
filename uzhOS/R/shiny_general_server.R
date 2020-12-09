@@ -251,6 +251,11 @@ shiny_general_server <-  function(con, orcid_access_token){
       dplyr::filter(overall_oa %in% input$oa_status_filtered_table,
                     (year >= input$range_year[1]) | is.na(year),
                     year <= input$range_year[2] | is.na(year))
+    d$m_upsetplot <-  d$m %>% 
+      dplyr::mutate(year=as.integer(year)) %>% 
+      dplyr::filter(overall_oa %in% input$oa_status_filtered_table,
+                    (year >= input$range_year[1]) | is.na(year),
+                    year <= input$range_year[2] | is.na(year))
     d$m_sub <- m_filt
     d$m_sub_sel <- m_filt
   })
@@ -306,7 +311,7 @@ shiny_general_server <-  function(con, orcid_access_token){
 
   
   ## oa status upset plot -----------------------------------------------------
-  p_t$upset_plot <- reactive({tryCatch({upset_plot(d$m)},error=function(e) {print(e);ggplot() + geom_blank()})})
+  p_t$upset_plot <- reactive({tryCatch({upset_plot(d$m_upsetplot)},error=function(e) {print(e);ggplot() + geom_blank()})})
   output$plot_upset <- renderPlot({
     # req(d$m_sub)
     p_t$upset_plot()

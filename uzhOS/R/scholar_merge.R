@@ -42,10 +42,21 @@
 #'
 #' @examples
 connect_multiple_publications_with_scholar <- function(tbl_merge_new){
-  ld <- adist(toupper(tbl_merge_new$title),toupper(tbl_merge_new$title))
-  ld_y <-  adist(tbl_merge_new$year.scholar,tbl_merge_new$year.scholar)
+  # ld <- adist(toupper(tbl_merge_new$title),toupper(tbl_merge_new$title))
+  # ld_y <-  as.matrix(dist(tbl_merge_new$year, diag=TRUE, upper = TRUE, method = "manhattan"))
+  # ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/stringr::str_length(tbl_merge_new$title[i]))
+  # m3 <- lapply(seq_len(dim(ld_rel)[1]), function(x) {
+  #   which(ld_rel[x,] < 0.1 & ld_y[x, ]<=2)
+  #   })
+  
+  # assume scholar lists titles beginning with 'Correction:' with the original publication.
+  replaced_titles <- toupper(stringr::str_replace(tbl_merge_new$title,"Correction:",""))
+  ld <- adist(replaced_titles,replaced_titles)
+  ld_y <-  as.matrix(dist(tbl_merge_new$year, diag=TRUE, upper = TRUE, method = "manhattan"))
   ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/stringr::str_length(tbl_merge_new$title[i]))
-  m3 <- lapply(seq_len(dim(ld_rel)[1]), function(x) {which(ld_rel[x,] < 0.1 & ld_y[x, ]<=1)})
+  m3 <- lapply(seq_len(dim(ld_rel)[1]), function(x) {
+    which(ld_rel[x,] < 0.1 & ld_y[x, ]<=2)
+  })
     
   # copy for in place changes
   tbl_merge_update <- tbl_merge_new

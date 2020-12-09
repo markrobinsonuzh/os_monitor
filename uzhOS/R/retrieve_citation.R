@@ -14,11 +14,17 @@
 GetBibEntryWithDOI_no_temp <- function (doi) 
 {
   future(seed=NULL,{
-    sapply(seq_along(doi), function(i){
-      temp <- httr::GET(httr::modify_url("https://data.crossref.org/", path = doi[i]), 
+    outls <- sapply(seq_along(doi), function(i){
+      temp <- httr::GET(httr::modify_url("https://data.crossref.org/", path = doi[i]),
                         config = list(followlocation = TRUE), httr::add_headers(Accept = "application/x-bibtex", mailto = "retogerber93@gmail.com"))
-      return(httr::content(temp, as = "text", encoding = "UTF-8"))
+      if(httr::status_code(temp) == 404){
+        return(NULL)
+      } else {
+        return(httr::content(temp, as = "text", encoding = "UTF-8"))
+      }
     })
+    unlist(outls[!sapply(outls,is.null)])
+    # RefManageR::GetBibEntryWithDOI(doi)
   })
 }
 

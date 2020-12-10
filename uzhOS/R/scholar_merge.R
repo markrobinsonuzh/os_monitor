@@ -3,10 +3,7 @@
 # author_vec <- c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)")
 # df_zora <- create_zora(author_vec, con)
 # df_orcid <- retrieve_from_orcid("0000-0002-3048-5518")
-# search_string <- pubmed_search_string_from_zora_id(author_vec,con)
-# df_pubmed <- retrieve_from_pubmed(search_string)
-# tbl_merge <- create_combined_data(df_orcid,df_pubmed,df_zora,empty_publons(),con)
-# 
+# tbl_merge <- create_combined_data(df_orcid,empty_pubmed(),df_zora,empty_publons(),con)
 # 
 # df_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
 # df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=FALSE)
@@ -41,6 +38,22 @@
 #' @export
 #'
 #' @examples
+#'   con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#'   author_vec <- c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)")
+#'   df_zora <- create_zora(author_vec, con)
+#'   df_orcid <- retrieve_from_orcid("0000-0002-3048-5518")
+#'   tbl_merge <- create_combined_data(df_orcid,empty_pubmed(),df_zora,empty_publons(),con)
+#'   
+#'   df_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
+#'   df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=FALSE)
+#'   
+#'   tbl_merge_new <- dplyr::full_join(tbl_merge,df_scholar_matched,by="doi",suffix=c("",".scholar")) %>%
+#'     dplyr::mutate(overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),
+#'                                       levels = names(open_cols_fn()))) %>%
+#'     dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x))) %>%
+#'     dplyr::mutate(year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year)))
+#'   
+#'   connect_multiple_publications_with_scholar(tbl_merge_new)
 connect_multiple_publications_with_scholar <- function(tbl_merge_new){
   # ld <- adist(toupper(tbl_merge_new$title),toupper(tbl_merge_new$title))
   # ld_y <-  as.matrix(dist(tbl_merge_new$year, diag=TRUE, upper = TRUE, method = "manhattan"))
@@ -90,6 +103,16 @@ connect_multiple_publications_with_scholar <- function(tbl_merge_new){
 #' @export
 #'
 #' @examples
+#'   con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#'   author_vec <- c("robinson mark d","robinson mark d (orcid: 0000-0002-3048-5518)")
+#'   df_zora <- create_zora(author_vec, con)
+#'   df_orcid <- retrieve_from_orcid("0000-0002-3048-5518")
+#'   tbl_merge <- create_combined_data(df_orcid,empty_pubmed(),df_zora,empty_publons(),con)
+#'   
+#'   df_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
+#'   df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=FALSE)
+#'   
+#'   merge_scholar_into_tbl_merge(tbl_merge, df_scholar_matched)
 merge_scholar_into_tbl_merge <- function(tbl_merge, df_scholar_matched){
   dplyr::full_join(tbl_merge,df_scholar_matched,by="doi",suffix=c("",".scholar")) %>% 
     dplyr::mutate(overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),

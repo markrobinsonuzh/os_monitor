@@ -1,4 +1,4 @@
-
+skip_on_ci()
 test_that("Bibtex citation retrieval works",{
   doi <- "10.1177/000271625529700159"
   bibfut <- GetBibEntryWithDOI_no_temp(doi)

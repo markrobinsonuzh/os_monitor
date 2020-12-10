@@ -96,8 +96,11 @@ redrawSelectionsServer <- function(id, d, selection_ls) {
           return(ret_sele %>% stringr::str_replace_all("in_","") %>% unlist())
         }
         
-        list_all_choices <- purrr::map(seq_len(ceiling(total_not_null_needed/3)), function(i){filter_all_selection_choices((i*3)-1,d$all_selection_choices)})
-          
+        # list_all_choices <- purrr::map(seq_len(ceiling(total_not_null_needed/3)), function(i){filter_all_selection_choices((i*3)-1,d$all_selection_choices)})
+        list_all_choices <- purrr::map(seq_len(ceiling(total_not_null_needed/3)), function(i){
+          d$all_selection_choices %>% stringr::str_replace_all("in_","") %>% unlist()
+          })
+        
         selection_ls$redraw <- FALSE
         # redraw UI
         output$selection_rules <- renderUI({

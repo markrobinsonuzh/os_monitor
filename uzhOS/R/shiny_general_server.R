@@ -130,6 +130,18 @@ shiny_general_server <-  function(con, orcid_access_token){
       assign_to_reactiveVal(c(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]], "try_to_merge", TRUE)
     }
   })
+  # check if all except scholar are merged (mainly used for progressbar)
+  observeEvent({tbl_merge()},{
+    req(tbl_merge())
+    shiny_print_logs("check if df in tbl_merge", sps)
+    datainmerge <- tbl_merge() %>% 
+      dplyr::select(starts_with("in_")) %>% 
+      names() %>% 
+      stringr::str_replace("^in_","")
+    for(tmpdf in df_ls[all_poss_datasets %in% datainmerge]){
+      assign_to_reactiveVal(tmpdf,"successfully_merged", TRUE)
+    }
+  })
   
   # check if all except scholar are merged, then give signal to merge scholar as well
   observeEvent({tbl_merge(); df_scholar()},{

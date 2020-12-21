@@ -13,6 +13,8 @@
 #' @importFrom magrittr %>% 
 #' 
 #' @export
+#' @example 
+#'  shiny::shinyApp(ui=shiny_general_ui,server = function(input, output) { })
 shiny_general_ui <- function(request) {
   dashboardPage(
     preloader = list(
@@ -20,8 +22,20 @@ shiny_general_ui <- function(request) {
       duration = 1
     ),
     title =  "Open access monitor",
-    dashboardHeader(leftUi = tagList(
-      h4("Open access monitor"))),
+    dashboardHeader(
+      leftUi = tagList(h4("Open access monitor")),
+      dropdownMenu(type="tasks",
+                   icon=icon("info fa-1g"),
+                   badgeStatus=NULL,
+                   headerText="Additional information",
+                   tags$li(a(tags$i(class="fab fa-github text-primary"), 
+                             "Source code",
+                             href= "https://github.com/markrobinsonuzh/os_monitor",target="_blank")),
+                   tags$li(a(tags$i(class="fa fa-bug text-primary"), 
+                             "Bug report",
+                             href= "https://github.com/markrobinsonuzh/os_monitor/issues",target="_blank"))
+      )
+      ),
     dashboardSidebar(collapsed = TRUE,
                      sidebarMenu(id="menu",
                                  menuItem("Author", tabName = "Author", icon = icon("user"))

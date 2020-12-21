@@ -24,37 +24,44 @@ empty_publons <- function(){
 #' orcid <- "0000-0002-3048-5518"
 #' publonsid <- "A-6432-2015"
 #' retrieve_from_publons(orcid)
-retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db8b38"){
-  if (in_publons(id,token)){
-    auth_header <- httr::add_headers(Authorization = paste0("Token ", token))
-    
-    publget <- httr::GET(url=paste0("https://publons.com/api/v2/academic/publication/?academic=",id),auth_header)
-    httr::stop_for_status(publget)
-    df_publons <- tibble::tibble(doi=character(),
-                             title=character(),
-                             date=character())
-    publls <- httr::content(publget, encoding = "UTF-8")
-    while (TRUE) {
-      tmp_df_publons <- lapply(publls[[3]], function(x) 
-        data.frame(doi=x$publication$ids$doi,
-                   title=x$publication$title,
-                   date=x$publication$date_published)) %>% 
-        purrr::reduce(rbind)
-      df_publons <- rbind(df_publons,tmp_df_publons)
-      if (is.null(publls[["next"]])) break
-      publget <- httr::GET(url=publls[["next"]],auth_header)
+retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db8b38", flush=FALSE){
+  
+  cache.dir <- file.path(tempdir(), "r-publons")
+  R.cache::setCacheRootPath(cache.dir)
+  if (flush) 
+    R.cache::saveCache(NULL, key = list(id))
+  df_publons <- R.cache::loadCache(list(id))
+  if (is.null(df_publons)) {
+    if (in_publons(id,token)){
+      auth_header <- httr::add_headers(Authorization = paste0("Token ", token))
+      
+      publget <- httr::GET(url=paste0("https://publons.com/api/v2/academic/publication/?academic=",id),auth_header)
       httr::stop_for_status(publget)
+      df_publons <- tibble::tibble(doi=character(),
+                               title=character(),
+                               date=character())
       publls <- httr::content(publget, encoding = "UTF-8")
+      while (TRUE) {
+        tmp_df_publons <- lapply(publls[[3]], function(x) 
+          data.frame(doi=x$publication$ids$doi,
+                     title=x$publication$title,
+                     date=x$publication$date_published)) %>% 
+          purrr::reduce(rbind)
+        df_publons <- rbind(df_publons,tmp_df_publons)
+        if (is.null(publls[["next"]])) break
+        publget <- httr::GET(url=publls[["next"]],auth_header)
+        httr::stop_for_status(publget)
+        publls <- httr::content(publget, encoding = "UTF-8")
+      }
+      
+      df_publons$year <- stringr::str_extract(df_publons$date,"[:digit:]{4}") %>% 
+        as.integer()
+      df_publons$in_publons <- TRUE
+      return(tibble::as_tibble(df_publons))
+    } else {
+      return(empty_publons())
     }
-    
-    df_publons$year <- stringr::str_extract(df_publons$date,"[:digit:]{4}") %>% 
-      as.integer()
-    df_publons$in_publons <- TRUE
-    return(tibble::as_tibble(df_publons))
-  } else {
-    return(empty_publons())
   }
-
 }
 
 
@@ -101,14 +108,22 @@ get_ids_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db8
 #' @examples
 #' orcid <- "0000-0002-3048-5518"
 #' in_publons(orcid)
-in_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db8b38"){
-  auth_header <- httr::add_headers(Authorization = paste0("Token ", token))
-  publget <- httr::GET(url=paste0("https://publons.com/api/v2/academic/",id),auth_header)
-  if(httr::status_code(publget)==429){
-    return(NULL)
-  } else {
-    return(!httr::http_error(publget))
+in_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db8b38", flush=FALSE){
+  cache.dir <- file.path(tempdir(), "r-in-publons")
+  R.cache::setCacheRootPath(cache.dir)
+  if (flush) 
+    R.cache::saveCache(NULL, key = list(id))
+  is_in_publons <- R.cache::loadCache(list(id))
+  if(is.null(is_in_publons)){
+    auth_header <- httr::add_headers(Authorization = paste0("Token ", token))
+    publget <- httr::GET(url=paste0("https://publons.com/api/v2/academic/",id),auth_header)
+    if(httr::status_code(publget)==429){
+      is_in_publons <- NULL
+    } else {
+      is_in_publons <- !httr::http_error(publget)
+    }
   }
+  is_in_publons
 }
 
 

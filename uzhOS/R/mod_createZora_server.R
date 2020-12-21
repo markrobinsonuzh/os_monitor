@@ -386,8 +386,8 @@ ProgressbarUpdateServer <- function(id, df_ls) {
   moduleServer(
     id,
     function(input, output, session) {
-      observeEvent({purrr::map_lgl(df_ls, ~ retrieval_done(.x()))},{
-        nr_datasets <- purrr::map_lgl(df_ls, ~ retrieval_done(.x())) %>% sum()
+      observeEvent({purrr::map_lgl(df_ls, ~ successfully_merged(.x()))},{
+        nr_datasets <- purrr::map_lgl(df_ls, ~ successfully_merged(.x())) %>% sum()
         nr_datasets_total <- purrr::map_lgl(df_ls, ~ valid_input(.x())) %>% sum()
         updateProgressBar(
           session = session,

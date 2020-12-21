@@ -8,6 +8,7 @@
 #' @param retrieval_done attribute, logical
 #' @param successfully_retrieved attribute, logical
 #' @param try_to_merge attribute, logical
+#' @param successfully_merged attribute, logical
 #' @param ... for use with tibble
 #'
 #' @return tibble_reac class (tibble with extra attributes)
@@ -17,7 +18,8 @@
 #' new_tibble_reac(data.frame(x=1:10,y=1:10))
 new_tibble_reac <- function(data, name="", input_value = "", valid_input = FALSE, 
                             try_to_retrieve = FALSE, retrieval_done = FALSE, 
-                            successfully_retrieved = FALSE, try_to_merge=FALSE, ...) {
+                            successfully_retrieved = FALSE, try_to_merge=FALSE,
+                            successfully_merged = FALSE, ...) {
   stopifnot(is.data.frame(data))
   data <-  tibble::new_tibble(data, ..., nrow = nrow(data), class = "tibble_reac")
   attributes(data) <- c(attributes(data), 
@@ -27,7 +29,9 @@ new_tibble_reac <- function(data, name="", input_value = "", valid_input = FALSE
                         list(try_to_retrieve=try_to_retrieve),
                         list(retrieval_done=retrieval_done),
                         list(successfully_retrieved=successfully_retrieved),
-                        list(try_to_merge=try_to_merge))
+                        list(try_to_merge=try_to_merge),
+                        list(successfully_merged=successfully_merged)
+  )
   data
 }
 
@@ -49,6 +53,7 @@ validate_tibble_reac <- function(x) {
   retrieval_done <- attr(x, "retrieval_done")
   successfully_retrieved <- attr(x, "successfully_retrieved")
   try_to_merge <- attr(x, "try_to_merge")
+  successfully_merged <- attr(x, "successfully_merged")
   if (!is(name,"character")) {
     stop(
       "name must be character",
@@ -83,6 +88,12 @@ validate_tibble_reac <- function(x) {
   if (!is(try_to_merge,"logical")) {
     stop(
       "try_to_merge must be logical",
+      call. = FALSE
+    )
+  }
+  if (!is(successfully_merged,"logical")) {
+    stop(
+      "successfully_merged must be logical.",
       call. = FALSE
     )
   }
@@ -339,6 +350,38 @@ try_to_merge.default <- function(x) attr(x, "try_to_merge")
   attr(x, "try_to_merge") <- value
   x
 }
+
+#' successfully_merged methods for tibble_reac
+#' @param x tibble_reac
+#' @export
+successfully_merged <- function(x) {
+  UseMethod("successfully_merged")
+}
+#' @export
+successfully_merged.tibble_reac <- function(x) attr(x, "successfully_merged")
+#' @export
+successfully_merged.default <- function(x) attr(x, "successfully_merged")
+#' successfully_merged methods for tibble_reac
+#' @param x tibble_reac
+#' @param value new value
+#' @export
+"successfully_merged<-" <- function(x, value) {
+  UseMethod("successfully_merged<-")
+}
+#' @export
+"successfully_merged<-.default" <- function(x, value) {
+  stopifnot(is(value,"logical"))
+  attr(x, "successfully_merged") <- value
+  x
+}
+#' @export
+"successfully_merged<-.tibble_reac" <- function(x, value) {
+  stopifnot(is(value,"logical"))
+  attr(x, "successfully_merged") <- value
+  x
+}
+
+
 
 #' change attribute of reactive value 
 #'

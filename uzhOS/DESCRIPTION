@@ -30,6 +30,7 @@ Imports:
   plotly,
   promises,
   purrr,
+  R.cache,
   rcrossref,
   rentrez,
   RefManageR,

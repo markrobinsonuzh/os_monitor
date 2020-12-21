@@ -61,6 +61,8 @@ retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db
     } else {
       return(empty_publons())
     }
+  } else {
+    return(tibble::as_tibble(df_publons))
   }
 }
 

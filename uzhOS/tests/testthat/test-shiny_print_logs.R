@@ -1,0 +1,10 @@
+testthat::test_that("shiny_print_logs correct",{
+  expect_message(shiny_print_logs(),format(Sys.time(), "%F"))
+  expect_message(shiny_print_logs(x = "asdf"),format(Sys.time(), "%F"))
+  expect_message(shiny_print_logs(x = "", userData=function(x) list(userid = "asdf", col_nr=1)),format(Sys.time(), "%F"))
+  expect_message(shiny_print_logs(x = "asdf", userData=function(x) list(userid = "asdf", col_nr=1)),format(Sys.time(), "%F"))
+  expect_message(shiny_print_logs(x = "asdf", userData=function(x) list(userid = "asdf", col_nr=2)),format(Sys.time(), "%F"))
+  expect_message(shiny_print_logs(x = "asdf", userData=function(x) list(userid = "asdf", col_nr=88)),format(Sys.time(), "%F"))
+  expect_message(shiny_print_logs(x = "asdf", userData=function(x) list(userid = "asdf", col_nr="88")),format(Sys.time(), "%F"))
+  expect_message(shiny_print_logs(x = "asdf", userData=function(x) list(userid = "asdf", col_nr="")),format(Sys.time(), "%F"))
+})

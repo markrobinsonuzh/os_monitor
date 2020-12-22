@@ -27,23 +27,13 @@ shiny_general_server <-  function(con, orcid_access_token){
   con <- rlang::eval_tidy(con_quosure)
   function(input, output,session) {
   
-  sps <- reactive(session$clientData$url_hostname)
+  # somewhat random user id
+  session$userData <- list()
+  session$userData$userid <- paste0("userID-",as.integer(Sys.time())%%99999)
+  session$userData$col_nr <- sample(seq_len(6),1)
+  sps <- reactive(session$userData)
   
-  # have some tabs hidden at the start
-  # hideTab("author_plots_tables", "Bibtex")
-  # hideTab("author_plots_tables", "Upset Plot")
-  ### Author ###################################################################
-  # observeEvent(input$showSidebar, {
-  #   shinyjs::show(id = "Sidebar")
-  #   shinyjs::hide(id="showSidebar")
-  #   shinyjs::show(id = "hideSidebar")
-  # })
   tbl_merge <- reactiveVal(NULL)
-  # observeEvent({input$hideSidebar;tbl_merge()}, {
-  #   shinyjs::hide(id = "Sidebar")
-  #   shinyjs::show(id="showSidebar")
-  #   shinyjs::hide(id = "hideSidebar")
-  # })
   
   shinyhelper::observe_helpers(session = session,
                                help_dir = system.file("inst","extdata","helpfiles",package = "uzhOS"))

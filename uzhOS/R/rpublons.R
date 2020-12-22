@@ -32,7 +32,8 @@ retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db
     R.cache::saveCache(NULL, key = list(id))
   df_publons <- R.cache::loadCache(list(id))
   if (is.null(df_publons)) {
-    if (in_publons(id,token)){
+    is_in_publons <- in_publons(id,token)
+    if (!is.null(is_in_publons) && is_in_publons){
       auth_header <- httr::add_headers(Authorization = paste0("Token ", token))
       
       publget <- httr::GET(url=paste0("https://publons.com/api/v2/academic/publication/?academic=",id),auth_header)
@@ -57,12 +58,14 @@ retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db
       df_publons$year <- stringr::str_extract(df_publons$date,"[:digit:]{4}") %>% 
         as.integer()
       df_publons$in_publons <- TRUE
-      return(tibble::as_tibble(df_publons))
+      df_publons <- tibble::as_tibble(df_publons)
+      R.cache::saveCache(df_publons, key = list(id))
+      return(df_publons)
     } else {
       return(empty_publons())
     }
   } else {
-    return(tibble::as_tibble(df_publons))
+    return(df_publons)
   }
 }
 
@@ -124,6 +127,7 @@ in_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db8b38", flus
     } else {
       is_in_publons <- !httr::http_error(publget)
     }
+    R.cache::saveCache(is_in_publons, key = list(id))
   }
   is_in_publons
 }

@@ -82,7 +82,11 @@ shiny_zora_server <-  function(con,
   #   }
   # })
   
-  sps <- reactive(session$clientData$url_hostname)
+  # somewhat random user id
+  session$userData <- list()
+  session$userData$userid <- paste0("userID-",as.integer(Sys.time())%%99999)
+  session$userData$col_nr <- sample(seq_len(6),1)
+  sps <- reactive(session$userData)
   # observe({
   #   req(input$histogram_click, d$m_sub)
   #   print(input$histogram_click)

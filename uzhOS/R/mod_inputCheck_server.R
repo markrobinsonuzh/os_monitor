@@ -43,19 +43,20 @@ pubmedActivateServer <- function(id, df_zora, df_orcid, df_pubmed, con) {
 #' @export
 #' @import shiny
 #' 
-orcidCheckServer <- function(id, df_orcid) {
+orcidCheckServer <- function(id, df_orcid, con) {
   moduleServer(
     id,
     function(input, output, session) {
       observeEvent(input$orcid,{
         inp_orcid <- stringr::str_trim(input$orcid)
-        if(check_if_likely_orcid(inp_orcid)){
-          assign_to_reactiveVal(df_orcid, 
-                                "valid_input",
-                                any(tryCatch(rorcid::as.orcid(x = inp_orcid),error=function(e) "") != ""))
-        } else {
-          assign_to_reactiveVal(df_orcid, "valid_input", FALSE)
-        }
+        assign_to_reactiveVal(df_orcid, "valid_input", in_orcid(inp_orcid, con))
+        # if(check_if_likely_orcid(inp_orcid)){
+        #   assign_to_reactiveVal(df_orcid, 
+        #                         "valid_input",
+        #                         any(tryCatch(rorcid::as.orcid(x = inp_orcid),error=function(e) "") != ""))
+        # } else {
+        #   assign_to_reactiveVal(df_orcid, "valid_input", FALSE)
+        # }
         shinyFeedback::feedbackWarning(
           "orcid", 
           (inp_orcid != "" && !valid_input(df_orcid())),

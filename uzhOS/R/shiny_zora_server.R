@@ -216,7 +216,7 @@ shiny_zora_server <-  function(con,
   })
   
   # check for valid inputs
-  orcidCheckServer("input_check", df_orcid)
+  orcidCheckServer("input_check", df_orcid, con)
   pubmedCheckServer("input_check", df_pubmed)
   publonsCheckServer("input_check", df_publons)
   scholarCheckServer("input_check", df_scholar)
@@ -335,7 +335,7 @@ shiny_zora_server <-  function(con,
   
   # progress bar
   ProgressbarCreateServer("show_report")
-  ProgressbarUpdateServer("show_report", df_ls)
+  ProgressbarUpdateServer("show_report", d)
   
   # save 'tbl_merge' in 'm' for downstream analysis
   observeEvent({tbl_merge()},{

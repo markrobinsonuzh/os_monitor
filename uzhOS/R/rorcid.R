@@ -100,5 +100,65 @@ check_if_likely_orcid <- function(orcid){
   }
 }
 
+#' check if orcid is in local db
+#'
+#' @param orcid orcid
+#' @param con db connection
+#'
+#' @return
+#' @importFrom magrittr %>% 
+#' @import DBI
+#' 
+#' @export
+#'
+#' @examples
+#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+#' in_orcid_local("0000-0002-3048-5518",con)
+in_orcid_local <- function(orcid, con = NULL){
+  if(is.null(con)){
+    return(FALSE)
+  } else{
+    sql_con_cont(con)
+    dplyr::tbl(con, "orcids") %>% 
+      dplyr::filter(orcid %in% !!orcid) %>% 
+      dplyr::collect() %>% 
+      nrow() %>% 
+      as.logical()
+  }
+}
+
+# microbenchmark::microbenchmark(
+#   check_if_likely_orcid("0000-0002-3048-5518"),
+#   in_orcid_local("0000-0002-3048-5518",con),
+#   any(tryCatch(rorcid::as.orcid(x = "0000-0002-3048-5518"),error=function(e) "") != "")
+# )
+
+# microbenchmark::microbenchmark(
+#   in_orcid("0000-0002-3048-55189", con),
+#   in_orcid("0000-0002-3048-5518", con),
+#   in_orcid("1000-0002-3048-5518", con)
+# )
+
+
+#' check if orcid exists
+#'
+#' @param orcid orcid
+#' @param con db connection
+#'
+#' @return
+#' @export
+#'
+#' @examples
+in_orcid <- function(orcid, con=NULL){
+  if(check_if_likely_orcid(orcid)){
+    if(in_orcid_local(orcid, con)){
+      return(TRUE)
+    } else{
+      return(any(tryCatch(rorcid::as.orcid(x = orcid),error=function(e) "") != ""))
+    }
+  } else{
+    return(FALSE)
+  }
+}
 
 

@@ -93,7 +93,7 @@ COPY odbc.ini /etc
 COPY data/orgtree.rds /srv/shiny-server/data/
 COPY data/fac_dep_filt.rds /srv/shiny-server/data/
 
-RUN R -e "devtools::install('/srv/shiny-server/uzhOS')"
+RUN R -e "devtools::install('/srv/shiny-server/uzhOS', upgrade = 'never')"
 
 EXPOSE 3838
 # allow permission

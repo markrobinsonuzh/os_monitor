@@ -48,19 +48,20 @@ orcidCheckServer <- function(id, df_orcid) {
     id,
     function(input, output, session) {
       observeEvent(input$orcid,{
-        if(check_if_likely_orcid(input$orcid)){
+        inp_orcid <- stringr::str_trim(input$orcid)
+        if(check_if_likely_orcid(inp_orcid)){
           assign_to_reactiveVal(df_orcid, 
                                 "valid_input",
-                                any(tryCatch(rorcid::as.orcid(x = input$orcid),error=function(e) "") != ""))
+                                any(tryCatch(rorcid::as.orcid(x = inp_orcid),error=function(e) "") != ""))
         } else {
           assign_to_reactiveVal(df_orcid, "valid_input", FALSE)
         }
         shinyFeedback::feedbackWarning(
           "orcid", 
-          (input$orcid != "" && !valid_input(df_orcid())),
+          (inp_orcid != "" && !valid_input(df_orcid())),
           "Please select a valid Orcid!"
         ) 
-        assign_to_reactiveVal(df_orcid, "input_value", input$orcid)
+        assign_to_reactiveVal(df_orcid, "input_value", inp_orcid)
       })})}
 
 
@@ -99,17 +100,18 @@ scholarCheckServer <- function(id, df_scholar) {
     id,
     function(input, output, session) {
       observeEvent(input$scholar,{
-        if (check_if_likely_scholar(input$scholar)){
-          assign_to_reactiveVal(df_scholar, "valid_input", any(tryCatch(scholar::get_profile(input$scholar),error=function(e) "") != ""))
+        inp_scholar <- stringr::str_trim(input$scholar)
+        if (check_if_likely_scholar(inp_scholar)){
+          assign_to_reactiveVal(df_scholar, "valid_input", any(tryCatch(scholar::get_profile(inp_scholar),error=function(e) "") != ""))
         } else {
           assign_to_reactiveVal(df_scholar, "valid_input", FALSE)
         }
         shinyFeedback::feedbackWarning(
           "scholar", 
-          (input$scholar != "" && !valid_input(df_scholar())),
+          (inp_scholar != "" && !valid_input(df_scholar())),
           "Please select a valid Google scholar id!"
         )
-        assign_to_reactiveVal(df_scholar, "input_value", input$scholar)
+        assign_to_reactiveVal(df_scholar, "input_value", inp_scholar)
         
       })
     })}
@@ -127,8 +129,9 @@ publonsCheckServer <- function(id, df_publons) {
     id,
     function(input, output, session) {
       observeEvent(input$publons,{
-        if(input$publons != ""){
-          ID_in_publons <- in_publons(input$publons)
+        inp_publons <- stringr::str_trim(input$publons)
+        if(inp_publons != ""){
+          ID_in_publons <- in_publons(inp_publons)
           if(is.null(ID_in_publons)){
             shinyFeedback::feedbackWarning(
               "publons", 
@@ -146,6 +149,6 @@ publonsCheckServer <- function(id, df_publons) {
           assign_to_reactiveVal(df_publons, "valid_input", ID_in_publons)
 
         }
-        assign_to_reactiveVal(df_publons, "input_value", input$publons)
+        assign_to_reactiveVal(df_publons, "input_value", inp_publons)
       })
       })}

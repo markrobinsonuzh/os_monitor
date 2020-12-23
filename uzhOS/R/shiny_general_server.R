@@ -213,20 +213,18 @@ shiny_general_server <-  function(con, orcid_access_token){
     d$m_sub <- tbl_merge()
     d$m_sub_sel <- tbl_merge()
     # hide upset plot if only one dataset available
-    if (length(d$datainmerge) < 2){
-      hideTab("author_plots_tables", "Upset Plot")
+    tmp_datainmerge <-  tbl_merge() %>% dplyr::select(starts_with("in_")) %>% 
+      names()
+    if (length(tmp_datainmerge) < 2){
+      shinyjs::hide(id = "shinyjsbox_upsetplot")
     } else {
-      showTab("author_plots_tables", "Upset Plot")
+      shinyjs::show(id = "shinyjsbox_upsetplot")
     }
-  })
-  
-  # activate some stuff and preparation
-  observeEvent(d$m,{
-    req(d$m)
+    # activate some stuff and preparation
     selection_ls$init <- TRUE
     selection_ls$redraw <- TRUE
     shinyjs::show(id = "shinyjsbox_author_filter")
-    shinyjs::show(id = "shinyjsbox_upsetplot")
+    # shinyjs::show(id = "shinyjsbox_upsetplot")
     shinyjs::show(id = "shinyjsbox_histogram")
     shinyjs::show(id = "shinyjsbox_table")
     shinyjs::show(id = "shinyjsbox_bibtex")

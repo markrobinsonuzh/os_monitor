@@ -29,8 +29,8 @@ retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db
   cache.dir <- file.path(tempdir(), "r-publons")
   R.cache::setCacheRootPath(cache.dir)
   if (flush) 
-    R.cache::saveCache(NULL, key = list(id))
-  df_publons <- R.cache::loadCache(list(id))
+    R.cache::saveCache(NULL, key = list(id, "df"))
+  df_publons <- R.cache::loadCache(list(id, "df"))
   if (is.null(df_publons)) {
     is_in_publons <- in_publons(id,token)
     if (!is.null(is_in_publons) && is_in_publons){
@@ -59,7 +59,7 @@ retrieve_from_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db
         as.integer()
       df_publons$in_publons <- TRUE
       df_publons <- tibble::as_tibble(df_publons)
-      R.cache::saveCache(df_publons, key = list(id))
+      R.cache::saveCache(df_publons, key = list(id, "df"))
       return(df_publons)
     } else {
       return(empty_publons())
@@ -117,8 +117,8 @@ in_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db8b38", flus
   cache.dir <- file.path(tempdir(), "r-in-publons")
   R.cache::setCacheRootPath(cache.dir)
   if (flush) 
-    R.cache::saveCache(NULL, key = list(id))
-  is_in_publons <- R.cache::loadCache(list(id))
+    R.cache::saveCache(NULL, key = list(id, "check"))
+  is_in_publons <- R.cache::loadCache(list(id, "check"))
   if(is.null(is_in_publons)){
     auth_header <- httr::add_headers(Authorization = paste0("Token ", token))
     publget <- httr::GET(url=paste0("https://publons.com/api/v2/academic/",id),auth_header)
@@ -127,7 +127,7 @@ in_publons <- function(id,token="a8850f6014654476058d29dbf5a42b2b20db8b38", flus
     } else {
       is_in_publons <- !httr::http_error(publget)
     }
-    R.cache::saveCache(is_in_publons, key = list(id))
+    R.cache::saveCache(is_in_publons, key = list(id, "check"))
   }
   is_in_publons
 }

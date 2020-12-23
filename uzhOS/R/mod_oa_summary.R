@@ -8,7 +8,23 @@
 oaSummaryUI <- function(id) {
   ns <- NS(id)
   tagList(
-    uiOutput(ns("pgb_closed"))
+    # uiOutput(ns("pgb_closed"))
+    boxPad(color = "teal",
+           # to change the color of "teal"
+           tags$style(HTML(".bg-teal {
+                     background-color:#F0F8FF!important;
+                     color:#000000!important;
+                    }")),
+           h4("Summary filtered data"),
+           descriptionBlock(
+             text = verbatimTextOutput(ns("sub_summary"))
+           ),
+           plotOutput(ns("oa_summary_histogram_simple"),height = 50),
+           descriptionBlock(
+             text = verbatimTextOutput(ns("percentage_open_text"))
+           )
+           # shinydashboardPlus::progressBar(value = tmp_open)#,
+    )
   )
 }
 
@@ -32,19 +48,26 @@ oaSummaryServer <- function(id, d) {
           output$sub_summary <- renderPrint({
             "No publications in selection."
           })
-          output$pgb_closed <- renderUI(
-            boxPad(color = "teal",
-                   # to change the color of "teal"
-                   tags$style(HTML(".bg-teal {
-                   background-color:#F0F8FF!important;
-                   color:#000000!important;
-                  }")),
-                   h4("Summary filtered data"),
-                   descriptionBlock(
-                     text = verbatimTextOutput(NS(id, "sub_summary"))
-                   )
-            )
-          )
+          output$oa_summary_histogram_simple <- renderPlot({
+            ggplot2::ggplot() + ggplot2::geom_blank()
+          },height = 50)
+          output$percentage_open_text <- renderPrint({
+            cat(" ")
+          })
+          
+          # output$pgb_closed <- renderUI(
+          #   boxPad(color = "teal",
+          #          # to change the color of "teal"
+          #          tags$style(HTML(".bg-teal {
+          #          background-color:#F0F8FF!important;
+          #          color:#000000!important;
+          #         }")),
+          #          h4("Summary filtered data"),
+          #          descriptionBlock(
+          #            text = verbatimTextOutput(NS(id, "sub_summary"))
+          #          )
+          #   )
+          # )
         } else {
           # summary of subset table
           overall_oa_status <- dplyr::pull(d$m_sub,"overall_oa") %>% as.character()
@@ -65,33 +88,35 @@ oaSummaryServer <- function(id, d) {
             simple_oa_summary_histogram(overall_oa_status)
           },height = 50)
           
-        
-          output$pgb_closed <- renderUI(
-            boxPad(color = "teal",
-                   # to change the color of "teal"
-                   tags$style(HTML(".bg-teal {
-                     background-color:#F0F8FF!important;
-                     color:#000000!important;
-                    }")),
-                   h4("Summary filtered data"),
-                   descriptionBlock(
-                     text = verbatimTextOutput(NS(id, "sub_summary"))
-                   ),
-                   plotOutput(NS(id, "oa_summary_histogram_simple"),height = 50),
-                   descriptionBlock(
-                     text = paste("Percentage open:", 
-                                  signif(tmp_open,digits=3),
-                                  "%")
-                   ),
-                   shinydashboardPlus::progressBar(value = tmp_open)#,
-                   # descriptionBlock(
-                   #   text = paste("Percentage open (without blue):",
-                   #                signif(tmp_open_blue,digits=3),
-                   #                "%")
-                   # ),
-                   # shinydashboardPlus::progressBar(value = tmp_open_blue)
-            )
-          )
+          output$percentage_open_text <- renderPrint({
+            cat("Percentage open:",signif(tmp_open,digits=3),"%")
+            })
+          # output$pgb_closed <- renderUI(
+          #   boxPad(color = "teal",
+          #          # to change the color of "teal"
+          #          tags$style(HTML(".bg-teal {
+          #            background-color:#F0F8FF!important;
+          #            color:#000000!important;
+          #           }")),
+          #          h4("Summary filtered data"),
+          #          descriptionBlock(
+          #            text = verbatimTextOutput(NS(id, "sub_summary"))
+          #          ),
+          #          plotOutput(NS(id, "oa_summary_histogram_simple"),height = 50),
+          #          descriptionBlock(
+          #            text = paste("Percentage open:", 
+          #                         signif(tmp_open,digits=3),
+          #                         "%")
+          #          ),
+          #          shinydashboardPlus::progressBar(value = tmp_open)#,
+          #          # descriptionBlock(
+          #          #   text = paste("Percentage open (without blue):",
+          #          #                signif(tmp_open_blue,digits=3),
+          #          #                "%")
+          #          # ),
+          #          # shinydashboardPlus::progressBar(value = tmp_open_blue)
+          #   )
+          # )
         }
       })
     }

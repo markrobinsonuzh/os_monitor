@@ -71,7 +71,7 @@ shiny_general_server <-  function(con, orcid_access_token){
   })
   
   # check for valid inputs
-  orcidCheckServer("input_check", df_orcid)
+  orcidCheckServer("input_check", df_orcid, con)
   pubmedCheckServer("input_check", df_pubmed)
   publonsCheckServer("input_check", df_publons)
   scholarCheckServer("input_check", df_scholar)
@@ -204,7 +204,7 @@ shiny_general_server <-  function(con, orcid_access_token){
   
   # progress bar
   ProgressbarCreateServer("show_report")
-  ProgressbarUpdateServer("show_report", df_ls)
+  ProgressbarUpdateServer("show_report", d)
   
   # save 'tbl_merge' in 'm' for downstream analysis
   observeEvent({tbl_merge()},{
@@ -232,7 +232,7 @@ shiny_general_server <-  function(con, orcid_access_token){
     shinyjs::show(id = "shinyjsbox_pubmetric_plot")
     shinyjs::show(id = "shinyjsbox_oa_perc_time")
     shinyjs::show(id = "shinyjsbox_fulltext_download")
-    updateBox("box_author_input",action = "toggle")
+    # updateBox("box_author_input",action = "toggle")
     # update and show selections
     # update single selection for plots and tables
     d$all_selection_choices <- colnames(d$m)[grep("in_",colnames(d$m))]

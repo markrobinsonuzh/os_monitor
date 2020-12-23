@@ -317,7 +317,7 @@ ProgressbarCreateServer <- function(id) {
           id = "pb_data_retrieval",
           value = 0, total = 100
         )
-        shinyjs::show("pd_data_retrieval")
+        # shinyjs::show("pd_data_retrieval")
       })  
     }
   )
@@ -377,22 +377,22 @@ ActivateShowReportServer <- function(id, df_ls, d) {
 #' progressbar update server
 #'
 #' @param id for namespace
-#' @param df_ls list of reactive values containing dfs, e.g. `list(df_orcid,df_pubmed)`
+#' @param d reactiveValues
 #'
 #' @export
 #' @import shiny
 #' @importFrom magrittr %>% 
-ProgressbarUpdateServer <- function(id, df_ls) {
+ProgressbarUpdateServer <- function(id, d) {
   moduleServer(
     id,
     function(input, output, session) {
-      observeEvent({purrr::map_lgl(df_ls, ~ successfully_merged(.x()))},{
-        nr_datasets <- purrr::map_lgl(df_ls, ~ successfully_merged(.x())) %>% sum()
-        nr_datasets_total <- purrr::map_lgl(df_ls, ~ valid_input(.x())) %>% sum()
+      observeEvent({d$datainmerge; d$dataininput},{
+        # nr_datasets <- purrr::map_lgl(df_ls, ~ successfully_merged(.x())) %>% sum()
+        # nr_datasets_total <- purrr::map_lgl(df_ls, ~ valid_input(.x())) %>% sum()
         updateProgressBar(
           session = session,
           id = "pb_data_retrieval",
-          value = nr_datasets/nr_datasets_total*100, total = 100
+          value = length(d$datainmerge)/sum(d$dataininput)*100, total = 100
         )
         #if(nr_datasets==nr_datasets_total){
         #  shinyjs::hide("pd_data_retrieval")

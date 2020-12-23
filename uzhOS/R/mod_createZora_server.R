@@ -394,9 +394,9 @@ ProgressbarUpdateServer <- function(id, df_ls) {
           id = "pb_data_retrieval",
           value = nr_datasets/nr_datasets_total*100, total = 100
         )
-        if(nr_datasets==nr_datasets_total){
-          shinyjs::hide("pd_data_retrieval")
-        }
+        #if(nr_datasets==nr_datasets_total){
+        #  shinyjs::hide("pd_data_retrieval")
+        #}
       })  
     }
   )

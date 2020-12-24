@@ -96,8 +96,8 @@ shiny_zora_server <-  function(con,
   #   })
   
   # have some tabs hidden at the start
-  hideTab("author_plots_tables", "Bibtex")
-  hideTab("author_plots_tables", "Upset Plot")
+  # hideTab("author_plots_tables", "Bibtex")
+  # hideTab("author_plots_tables", "Upset Plot")
   ### Author ###################################################################
   
   shinyhelper::observe_helpers(session = session,
@@ -203,7 +203,7 @@ shiny_zora_server <-  function(con,
   })
   
   # deactivate 'show_report' button while processing and set show_report in d (d$show_report)
-  DeactivateShowReportServer("show_report", d)
+  DeactivateShowReportServer("show_report", d, df_ls, tbl_merge)
   
   # remove input of dynamic UI for selection ("in_zora", etc.)
   datasetSelectionsRemoveServer("selection_standard", d, selection_ls, df_ls, length(all_poss_datasets)+1)
@@ -223,7 +223,7 @@ shiny_zora_server <-  function(con,
   
   
   # wait for clicking of "show_report", then retrieve all data asynchronously 
-  scholarModalServer("show_report", df_scholar)
+  scholarModalServer("show_report", df_scholar, input$scholar_matching_with_crossref)
   tbl_merge <- reactiveVal(NULL)
   
   createZoraServer("show_report", df_zora, con_quosure, sps)
@@ -244,71 +244,92 @@ shiny_zora_server <-  function(con,
   # df_pubmetric <- reactiveVal(empty_pubmetric())
   # merge results when they become available
   observeEvent({purrr::map(df_ls, ~ .x())},{
-    success_ls <- purrr::map_lgl(c(df_zora,df_orcid,df_pubmed,df_publons), ~successfully_retrieved(.x()))
-    merged_ls <- purrr::map_lgl(c(df_zora,df_orcid,df_pubmed,df_publons), ~try_to_merge(.x()))
-    if (any(success_ls & !merged_ls)){
-      shiny_print_logs(paste("start to merge:", paste(list(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]]() %>% name(),collapse = ", ")), sps)
-      shiny_print_logs(paste("will (or has) merge:", paste(c("df_zora","df_orcid","df_pubmed","df_publons")[success_ls],collapse = ", ")), sps)
-      future(seed=NULL,{
-        # con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
-        con <- rlang::eval_tidy(con_quosure)
-        create_combined_data(df_orcid, df_pubmed, df_zora, df_publons, con)
-      }, globals=list(con_quosure=con_quosure,
-                      create_combined_data=create_combined_data,
-                      df_orcid=isolate(df_orcid()),
-                      df_pubmed=isolate(df_pubmed()),
-                      df_zora=isolate(df_zora()),
-                      df_publons=isolate(df_publons()))) %...>%
-        tbl_merge()
-      assign_to_reactiveVal(c(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]], "try_to_merge", TRUE)
+    if(!is.null(d$processing) && d$processing){
+      success_ls <- purrr::map_lgl(c(df_zora,df_orcid,df_pubmed,df_publons), ~successfully_retrieved(.x()))
+      merged_ls <- purrr::map_lgl(c(df_zora,df_orcid,df_pubmed,df_publons), ~try_to_merge(.x()))
+      if (any(success_ls & !merged_ls)){
+        shiny_print_logs(paste("start to merge:", paste(list(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]]() %>% name(),collapse = ", ")), sps)
+        shiny_print_logs(paste("will (or has) merge:", paste(c("df_zora","df_orcid","df_pubmed","df_publons")[success_ls],collapse = ", ")), sps)
+        future(seed=NULL,{
+          # con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
+          con <- rlang::eval_tidy(con_quosure)
+          create_combined_data(df_orcid, df_pubmed, df_zora, df_publons, con)
+        }, globals=list(con_quosure=con_quosure,
+                        create_combined_data=create_combined_data,
+                        df_orcid=isolate(df_orcid()),
+                        df_pubmed=isolate(df_pubmed()),
+                        df_zora=isolate(df_zora()),
+                        df_publons=isolate(df_publons()))) %...>%
+          tbl_merge()
+        assign_to_reactiveVal(c(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]], "try_to_merge", TRUE)
+      }
+    }
+  })
+  
+  # check if all except scholar are merged (mainly used for progressbar)
+  observeEvent({tbl_merge()},{
+    req(tbl_merge())
+    shiny_print_logs("check if df in tbl_merge", sps)
+    datainmerge <- tbl_merge() %>% 
+      dplyr::select(starts_with("in_")) %>% 
+      names() %>% 
+      stringr::str_replace("^in_","")
+    for(tmpdf in df_ls[all_poss_datasets %in% datainmerge]){
+      assign_to_reactiveVal(tmpdf,"successfully_merged", TRUE)
     }
   })
   
   # check if all except scholar are merged, then give signal to merge scholar as well
   observeEvent({tbl_merge(); df_scholar()},{
-    req(tbl_merge())
-    d$datainmerge <- tbl_merge() %>% dplyr::select(starts_with("in_")) %>% names() %>% stringr::str_replace("in_","")
-    d$dataininput <- purrr::map_lgl(all_poss_datasets, function(df){
-      if (valid_input(eval(sym(paste0("df_",df)))())){
-        if (retrieval_done(eval(sym(paste0("df_",df)))()) && !successfully_retrieved(eval(sym(paste0("df_",df)))())){
-          FALSE
-        } else {
-          TRUE
-        }
+    if(!is.null(d$processing) && d$processing){
+      shiny_print_logs("tbl_merge or df_scholar", sps)
+      if(is.null(tbl_merge())){
+        d$datainmerge <- character(0)
       } else {
-        FALSE
+        d$datainmerge <- tbl_merge() %>% dplyr::select(starts_with("in_")) %>% names() #%>% stringr::str_replace("in_","")
       }
-    })
-    # if all retrieved, but scholar not yet merged, give signal to merge scholar
-    if ((length(d$datainmerge) == (sum(d$dataininput)-1)) && successfully_retrieved(df_scholar())){
-      d$do_scholar_match <- TRUE
-      # if all merged (including scholar, or scholar not present) get citation metrics
-    } else if (length(d$datainmerge) == (sum(d$dataininput))){
-      if(input$retrieve_pubmetric){
-        shiny_print_logs("get pubmetrics", sps)
-        future(seed=NULL,{
-          retrieve_from_pubmed_with_doi(tbl_merge_iso[["doi"]]) %>% 
-            dplyr::right_join(tbl_merge_iso, by= "doi", suffix = c(".pubmetric",""))  %>% 
-            dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
-        }, globals = list(retrieve_from_pubmed_with_doi=retrieve_from_pubmed_with_doi,
-                          tbl_merge_iso=isolate(tbl_merge()),
-                          '%>%'= magrittr::'%>%')) %...>% 
-          tbl_merge()
+      d$dataininput <- purrr::map_lgl(all_poss_datasets, function(df){
+        if (valid_input(eval(sym(paste0("df_",df)))())){
+          if (retrieval_done(eval(sym(paste0("df_",df)))()) && !successfully_retrieved(eval(sym(paste0("df_",df)))())){
+            FALSE
+          } else {
+            TRUE
+          }
+        } else {
+          FALSE
+        }
+      })
+      # if all retrieved, but scholar not yet merged, give signal to merge scholar
+      if ((length(d$datainmerge) == (sum(d$dataininput)-1)) && successfully_retrieved(df_scholar())){
+        d$do_scholar_match <- TRUE
+        # if all merged (including scholar, or scholar not present) get citation metrics
+      } else if (length(d$datainmerge) == (sum(d$dataininput))){
+        if(input$retrieve_pubmetric){
+          shiny_print_logs("get pubmetrics", sps)
+          future(seed=NULL,{
+            retrieve_from_pubmed_with_doi(tbl_merge_iso[["doi"]]) %>% 
+              dplyr::right_join(tbl_merge_iso, by= "doi", suffix = c(".pubmetric",""))  %>% 
+              dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x)))
+          }, globals = list(retrieve_from_pubmed_with_doi=retrieve_from_pubmed_with_doi,
+                            tbl_merge_iso=isolate(tbl_merge()),
+                            '%>%'= magrittr::'%>%')) %...>% 
+            tbl_merge()
+        }
+        
+        shiny_print_logs("reset attributes", sps)
+        for(tmpdf in df_ls){
+          assign_to_reactiveVal(tmpdf, "try_to_retrieve", FALSE)
+          assign_to_reactiveVal(tmpdf, "retrieval_done", FALSE)
+          assign_to_reactiveVal(tmpdf, "successfully_retrieved", FALSE)
+          assign_to_reactiveVal(tmpdf, "try_to_merge", FALSE)
+        }
+        
+        # ActivateShowReportServer("show_report", df_ls, d)
+        shiny_print_logs("enable show_report", sps)
+        shinyjs::enable(NS("show_report","show_report"))
+        d$processing <- FALSE
+        updateBox("box_author_input",action = "toggle")
       }
-      
-      shiny_print_logs("reset attributes", sps)
-      for(tmpdf in df_ls){
-        assign_to_reactiveVal(tmpdf, "try_to_retrieve", FALSE)
-        assign_to_reactiveVal(tmpdf, "retrieval_done", FALSE)
-        assign_to_reactiveVal(tmpdf, "successfully_retrieved", FALSE)
-        assign_to_reactiveVal(tmpdf, "try_to_merge", FALSE)
-      }
-      
-      # ActivateShowReportServer("show_report", df_ls, d)
-      shiny_print_logs("enable show_report", sps)
-      shinyjs::enable(NS("show_report","show_report"))
-      d$processing <- FALSE
-      updateBox("box_author_input",action = "toggle")
     }
   })
   
@@ -317,17 +338,15 @@ shiny_zora_server <-  function(con,
     if (d$do_scholar_match && successfully_retrieved(df_scholar())){
       shiny_print_logs("merge scholar", sps)
       future(seed=NULL,{
-        tmpscholar <- df_scholar_matching(tbl_merge_iso, df_scholar_iso)
-        dplyr::full_join(tbl_merge_iso,tmpscholar,by="doi",suffix=c("",".scholar"))
+        tmpscholar <- df_scholar_matching(tbl_merge_iso, df_scholar_iso, scholar_matching_with_crossref)
+        merge_scholar_into_tbl_merge(tbl_merge_iso, tmpscholar)
       },  globals = list('%>%'= magrittr::'%>%',
                          df_scholar_matching=df_scholar_matching,
                          df_scholar_iso=isolate(df_scholar()),
-                         tbl_merge_iso=isolate(tbl_merge())
+                         scholar_matching_with_crossref=input$scholar_matching_with_crossref,
+                         tbl_merge_iso=isolate(tbl_merge()),
+                         merge_scholar_into_tbl_merge=merge_scholar_into_tbl_merge
       ))  %...>% 
-        dplyr::mutate(overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),
-                                          levels = names(open_cols_fn()))) %...>% 
-        dplyr::mutate(dplyr::across(dplyr::starts_with("in_"),~ifelse(is.na(.x),FALSE,.x))) %...>% 
-        dplyr::mutate(year = dplyr::if_else(is.na(year) & !is.na(year.scholar), as.integer(year.scholar), as.integer(year))) %...>% 
         tbl_merge()
       d$do_scholar_match <- FALSE
     }
@@ -344,20 +363,18 @@ shiny_zora_server <-  function(con,
     d$m_sub <- tbl_merge()
     d$m_sub_sel <- tbl_merge()
     # hide upset plot if only one dataset available
-    if (length(d$datainmerge) < 2){
-      hideTab("author_plots_tables", "Upset Plot")
+    tmp_datainmerge <-  tbl_merge() %>% dplyr::select(starts_with("in_")) %>% 
+      names()
+    if (length(tmp_datainmerge) < 2){
+      shinyjs::hide(id = "shinyjsbox_upsetplot")
     } else {
-      showTab("author_plots_tables", "Upset Plot")
+      shinyjs::show(id = "shinyjsbox_upsetplot")
     }
-  })
-  
   # activate some stuff and preparation
-  observeEvent(d$m,{
-    req(d$m)
     selection_ls$init <- TRUE
     selection_ls$redraw <- TRUE
     shinyjs::show(id = "shinyjsbox_author_filter")
-    shinyjs::show(id = "shinyjsbox_upsetplot")
+    # shinyjs::show(id = "shinyjsbox_upsetplot")
     shinyjs::show(id = "shinyjsbox_histogram")
     shinyjs::show(id = "shinyjsbox_table")
     shinyjs::show(id = "shinyjsbox_bibtex")
@@ -365,7 +382,7 @@ shiny_zora_server <-  function(con,
     shinyjs::show(id = "shinyjsbox_pubmetric_plot")
     shinyjs::show(id = "shinyjsbox_oa_perc_time")
     shinyjs::show(id = "shinyjsbox_fulltext_download")
-    updateBox("box_author_input",action = "toggle")
+    # updateBox("box_author_input",action = "toggle")
     # update and show selections
     # update single selection for plots and tables
     d$all_selection_choices <- colnames(d$m)[grep("in_",colnames(d$m))]
@@ -383,6 +400,11 @@ shiny_zora_server <-  function(con,
       dplyr::mutate(year=as.integer(year)) %>% 
       dplyr::filter(overall_oa %in% input$oa_status_filtered_table,
                     year >= input$range_year[1] | is.na(year),
+                    year <= input$range_year[2] | is.na(year))
+    d$m_upsetplot <-  d$m %>% 
+      dplyr::mutate(year=as.integer(year)) %>% 
+      dplyr::filter(overall_oa %in% input$oa_status_filtered_table,
+                    (year >= input$range_year[1]) | is.na(year),
                     year <= input$range_year[2] | is.na(year))
     d$m_sub <- m_filt
     d$m_sub_sel <- m_filt

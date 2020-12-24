@@ -114,6 +114,11 @@ connect_multiple_publications_with_scholar <- function(tbl_merge_new){
 #'   
 #'   merge_scholar_into_tbl_merge(tbl_merge, df_scholar_matched)
 merge_scholar_into_tbl_merge <- function(tbl_merge, df_scholar_matched){
+  if(is.null(tbl_merge)){
+    return(df_scholar_matched %>% 
+             dplyr::mutate(overall_oa=factor("unknown",levels = names(open_cols_fn())),
+                           oa_status.unpaywall=overall_oa))
+  }
   dplyr::full_join(tbl_merge,df_scholar_matched,by="doi",suffix=c("",".scholar")) %>% 
     dplyr::mutate(overall_oa = factor(dplyr::if_else(is.na(overall_oa), "unknown",as.character(overall_oa)),
                                       levels = names(open_cols_fn()))) %>% 

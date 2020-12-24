@@ -329,20 +329,36 @@ ProgressbarCreateServer <- function(id) {
 #'
 #' @param id for namespace
 #' @param d reactive value containing input
+#' @param df_ls list of reactive values
+#' @param tbl_merge tibble merge
 #'
 #' @export
 #' @import shiny
 #' 
-DeactivateShowReportServer <- function(id, d) {
+DeactivateShowReportServer <- function(id, d, df_ls, tbl_merge) {
   moduleServer(
     id,
     function(input, output, session) {
       observeEvent({input$show_report},{
+        shiny_print_logs(paste(rep("-",50),collapse = ""), d$sps)
         shiny_print_logs("deactivate show report, set data to NULL", d$sps)
         shinyjs::disable("show_report")
+        sps <- d$sps
+        # d <- reactiveValues()
         d$show_report <- input$show_report
         d$processing <- TRUE
-        d$m <- d$m_filt <- d$m_filt_sub <-  NULL
+        # d$sps <- sps
+        # d$m <- d$m_filt <- d$m_filt_sub <-  NULL
+        d$m <- d$m_sub <- d$m_sub_sel <- d$m_sub_sel_closed <-
+          d$m_sub_sel_closed_pdflink <- d$m_sub_all_oa <- d$datainmerge <-
+          d$dataininput <- d$do_scholar_match <- d$all_selection_choices <-
+          d$m_upsetplot <- d$in_selection <- d$plot_selected_ly_clicked <- NULL
+        for(tmpdf in df_ls){
+          tmpdf() %>% 
+            dplyr::slice(0) %>% 
+            tmpdf()
+        }
+        tbl_merge(NULL) 
       })  
     }
   )

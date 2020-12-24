@@ -21,8 +21,8 @@
 #' df_scholar <- df_scholar_matching(tbl_merge, df_scholar)
 #' 
 df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
-  if(dim(df_scholar)[1]==0){
-    return(df_scholar %>% dplyr::mutate(doi=character()))
+  if(dim(df_scholar)[1]==0 || is.null(tbl_merge) || dim(tbl_merge)[1]==0){
+    return(df_scholar %>% dplyr::mutate(doi=NA))
   }
   df_scholar <-  df_scholar %>% dplyr::mutate(doi = as.character(NA))
   if ("title.orcid" %in% names(tbl_merge)){

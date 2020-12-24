@@ -171,8 +171,8 @@ datasetSelectionsUpdateServer <- function(id, d, selection_ls) {
       }
       if(tmpfilt != ""){
         shiny_print_logs(paste("in datasetSelectionsUpdateServer: all_selection_choices:",
-                               paste(d$all_selection_choices,collapse = " "), 
-                               "--- with filter logic:",tmpfilt), d$sps)
+                               paste(d$all_selection_choices,collapse = " ")), d$sps)
+        shiny_print_logs(paste("--- with filter logic:",tmpfilt), d$sps)
         d$m_sub_all_oa <- subset(d$m,eval(parse(text=tmpfilt)))
       }
     }
@@ -204,12 +204,12 @@ datasetSelectionsRemoveServer <- function(id, d, selection_ls, df_ls, max_nr_dat
         d$show_report
       },{
         shiny_print_logs("run datasetSelectionsRemoveServer", d$sps)
-        d$m <- d$m_sub <- d$m_sub_sel <- d$m_sub_all_oa <- NULL
-        for(tmpdf in df_ls){
-          tmpdf() %>% 
-            dplyr::slice(0) %>% 
-            tmpdf()
-        }
+        # d$m <- d$m_sub <- d$m_sub_sel <- d$m_sub_all_oa <- NULL
+        # for(tmpdf in df_ls){
+        #   tmpdf() %>% 
+        #     dplyr::slice(0) %>% 
+        #     tmpdf()
+        # }
         purrr::map(seq_len(max_nr_datasets*3), function(i){
           selection_ls[[paste0("blab",i)]] <- NULL
         })

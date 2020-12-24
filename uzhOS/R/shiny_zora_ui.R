@@ -50,6 +50,11 @@ shiny_zora_ui <- function(request, fac_dep_filt) {
                              inputPubmedUI("input_check"),
                              # google scholar input
                              inputScholarUI("input_check"),
+                             # scholar match with crossref
+                             shinyWidgets::prettySwitch(inputId = "scholar_matching_with_crossref",
+                                                        label = "Use Crossref for increased accuracy in matching publications.", 
+                                                        value = TRUE,
+                                                        fill = TRUE, status = "primary"), 
                              # publons input
                              inputPublonsUI("input_check"),
                              # if pubmetrics

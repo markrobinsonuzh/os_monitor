@@ -48,8 +48,12 @@ orcidCheckServer <- function(id, df_orcid, con) {
     id,
     function(input, output, session) {
       observeEvent(input$orcid,{
-        inp_orcid <- stringr::str_trim(input$orcid)
+        url_inp_orcid <- stringr::str_extract(input$orcid, "([0-9X]{4}-){3}[0-9X]{4}")
+        inp_orcid <- dplyr::if_else(is.na(url_inp_orcid), stringr::str_trim(input$orcid), url_inp_orcid)
         assign_to_reactiveVal(df_orcid, "valid_input", in_orcid(inp_orcid, con))
+        if(valid_input(df_orcid())){
+          updateTextInput(session,"orcid",value=inp_orcid)
+        }
         # if(check_if_likely_orcid(inp_orcid)){
         #   assign_to_reactiveVal(df_orcid, 
         #                         "valid_input",
@@ -101,11 +105,15 @@ scholarCheckServer <- function(id, df_scholar) {
     id,
     function(input, output, session) {
       observeEvent(input$scholar,{
-        inp_scholar <- stringr::str_trim(input$scholar)
+        url_inp_scholar <- stringr::str_extract(input$scholar, "(?<=user=)[0-9a-zA-Z]+")
+        inp_scholar <- dplyr::if_else(is.na(url_inp_scholar), stringr::str_trim(input$scholar), url_inp_scholar)
         if (check_if_likely_scholar(inp_scholar)){
           assign_to_reactiveVal(df_scholar, "valid_input", any(tryCatch(scholar::get_profile(inp_scholar),error=function(e) "") != ""))
         } else {
           assign_to_reactiveVal(df_scholar, "valid_input", FALSE)
+        }
+        if(valid_input(df_scholar())){
+          updateTextInput(session,"scholar",value=inp_scholar)
         }
         shinyFeedback::feedbackWarning(
           "scholar", 

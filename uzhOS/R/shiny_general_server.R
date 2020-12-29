@@ -26,7 +26,7 @@ shiny_general_server <-  function(con, orcid_access_token){
   con_quosure <- rlang::eval_tidy(rlang::enquo(con))
   con <- rlang::eval_tidy(con_quosure)
   function(input, output,session) {
-  
+
   # somewhat random user id
   session$userData <- list()
   session$userData$userid <- paste0("userID-",as.integer(Sys.time())%%99999)
@@ -36,7 +36,7 @@ shiny_general_server <-  function(con, orcid_access_token){
   tbl_merge <- reactiveVal(NULL)
   
   shinyhelper::observe_helpers(session = session,
-                               help_dir = system.file("inst","extdata","helpfiles",package = "uzhOS"))
+                               help_dir = system.file("extdata","helpfiles",package = "uzhOS"))
   # oa help
   oa_diagram_Server("oa_diag")
   # data
@@ -58,6 +58,9 @@ shiny_general_server <-  function(con, orcid_access_token){
   df_ls <- list(df_zora, df_orcid, df_pubmed, df_publons, df_scholar)
   all_poss_datasets <- c("zora","orcid","pubmed","publons","scholar")
   
+  # timeout
+  time_out_server("timeout", sps)
+  
   # deactivate 'show_report' button while processing and set show_report in d (d$show_report)
   DeactivateShowReportServer("show_report", d, df_ls, tbl_merge)
   
@@ -73,6 +76,7 @@ shiny_general_server <-  function(con, orcid_access_token){
   # check for valid inputs
   orcidCheckServer("input_check", df_orcid, con)
   pubmedCheckServer("input_check", df_pubmed)
+  pubmedInfoServer("input_check")
   publonsCheckServer("input_check", df_publons)
   scholarCheckServer("input_check", df_scholar)
   observeEvent(input$scholar_matching_with_crossref,{
@@ -101,14 +105,28 @@ shiny_general_server <-  function(con, orcid_access_token){
   # df_pubmetric <- reactiveVal(empty_pubmetric())
   # merge results when they become available
   observeEvent({purrr::map(df_ls, ~ .x())},{
+    shiny_print_logs("observe df_ls", sps)
+    # print(purrr::map(df_ls, ~ attributes(.x())))
     if(!is.null(d$processing) && d$processing){
-      success_ls <- purrr::map_lgl(c(df_zora,df_orcid,df_pubmed,df_publons), ~successfully_retrieved(.x()))
-      merged_ls <- purrr::map_lgl(c(df_zora,df_orcid,df_pubmed,df_publons), ~try_to_merge(.x()))
-      if (any(success_ls & !merged_ls)){
-        shiny_print_logs(paste("start to merge:", paste(list(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]]() %>% name(),collapse = ", ")), sps)
-        shiny_print_logs(paste("will (or has) merge:", paste(c("df_zora","df_orcid","df_pubmed","df_publons")[success_ls],collapse = ", ")), sps)
+      # attributes table
+      attr_tib <- purrr::map(c(df_zora,df_orcid,df_pubmed,df_publons, df_scholar), 
+                             ~ tibble::as_tibble(attributes(.x())[c("successfully_retrieved","try_to_merge","retrieval_done", "valid_input")])) %>% 
+        purrr::reduce(rbind) %>% 
+        dplyr::mutate(df_name=all_poss_datasets)
+      # if not at least one successfully retrieved, stop
+      if (all(c(attr_tib$retrieval_done & !attr_tib$successfully_retrieved)[attr_tib$valid_input])){
+        shiny_print_logs("only unsuccessfull retrievals!", sps)
+        shinyjs::enable(NS("show_report","show_report"))
+        d$processing <- FALSE
+        shinyWidgets::show_alert(title="No publications found!", text = "The publication records of the given IDs seem to be empty.")
+      }
+      # attributes table without scholar
+      attr_tib_noscholar <- attr_tib %>% dplyr::filter(df_name != "scholar")
+      # merge if needed
+      if (any(attr_tib_noscholar$successfully_retrieved & !attr_tib_noscholar$try_to_merge)){
+        shiny_print_logs(paste("start to merge:", paste(list(df_zora,df_orcid,df_pubmed,df_publons)[attr_tib_noscholar$successfully_retrieved & !attr_tib_noscholar$try_to_merge][[1]]() %>% name(),collapse = ", ")), sps)
+        shiny_print_logs(paste("will (or has) merge:", paste(c("df_zora","df_orcid","df_pubmed","df_publons")[attr_tib_noscholar$successfully_retrieved],collapse = ", ")), sps)
         future(seed=NULL,{
-          # con <- DBI::dbConnect(odbc::odbc(), "PostgreSQL")
           con <- rlang::eval_tidy(con_quosure)
           create_combined_data(df_orcid, df_pubmed, df_zora, df_publons, con)
           }, globals=list(con_quosure=con_quosure,
@@ -118,10 +136,12 @@ shiny_general_server <-  function(con, orcid_access_token){
                           df_zora=isolate(df_zora()),
                           df_publons=isolate(df_publons()))) %...>%
           tbl_merge()
-        assign_to_reactiveVal(c(df_zora,df_orcid,df_pubmed,df_publons)[success_ls & !merged_ls][[1]], "try_to_merge", TRUE)
+        assign_to_reactiveVal(c(df_zora,df_orcid,df_pubmed,df_publons)[attr_tib_noscholar$successfully_retrieved & !attr_tib_noscholar$try_to_merge][[1]], "try_to_merge", TRUE)
       }
+
     }
   })
+  
   # check if all except scholar are merged (mainly used for progressbar)
   observeEvent({tbl_merge()},{
     req(tbl_merge())
@@ -237,7 +257,7 @@ shiny_general_server <-  function(con, orcid_access_token){
     shinyjs::show(id = "shinyjsbox_histogram")
     shinyjs::show(id = "shinyjsbox_table")
     shinyjs::show(id = "shinyjsbox_bibtex")
-    shinyjs::show(id = "shinyjsbox_pubmetric_table")
+    # shinyjs::show(id = "shinyjsbox_pubmetric_table")
     shinyjs::show(id = "shinyjsbox_pubmetric_plot")
     shinyjs::show(id = "shinyjsbox_oa_perc_time")
     shinyjs::show(id = "shinyjsbox_fulltext_download")
@@ -246,6 +266,10 @@ shiny_general_server <-  function(con, orcid_access_token){
     # update single selection for plots and tables
     d$all_selection_choices <- colnames(d$m)[grep("in_",colnames(d$m))]
     shiny_print_logs(paste("datasets in tbl_merge:", paste(d$all_selection_choices,collapse = ", ")), sps)
+    
+    # update year slider
+    min_year_tbl_merge <- min(tbl_merge()$year)
+    updateSliderInput(session,"range_year", min = min_year_tbl_merge, value = min_year_tbl_merge)
   })
   
   # modules for updating selection UI
@@ -271,53 +295,6 @@ shiny_general_server <-  function(con, orcid_access_token){
   
   # update summary when subset changes
   oaSummaryServer("oa_summary", d)
-  # observeEvent({d$m_sub},{
-  #   # summary of subset table
-  #   overall_oa_status <- dplyr::pull(d$m_sub,"overall_oa") %>% as.character()
-  #   # overall_oa_status[is.na(overall_oa_status)] <- "unknown"
-  #   # levels(overall_oa_status) <- names(open_cols_fn())
-  #   output$sub_summary <- renderPrint({
-  #     table(overall_oa_status,useNA = "ifany")
-  #   })
-  #   # total number of publications
-  #   tmp_total <- ifelse(!is.numeric(length(overall_oa_status)), 0, length(overall_oa_status))
-  #   # total number of open publications
-  #   tmp_open <- ifelse(tmp_total != 0, ((tmp_total-sum(overall_oa_status == "closed"))/tmp_total)*100, 0)
-  #   # total number of open publications without blue
-  #   tmp_open_blue <- ifelse(tmp_total != 0,((tmp_total-sum(overall_oa_status %in% c("closed","blue")))/tmp_total)*100, 0)
-  #   # simple summary bar of oa status
-  #   output$oa_summary_histogram_simple <- renderPlot({
-  #     simple_oa_summary_histogram(overall_oa_status)
-  #   },height = 50)
-  #   
-  #   output$pgb_closed <- renderUI(
-  #     boxPad(color = "teal",
-  #            # to change the color of "teal"
-  #            tags$style(HTML(".bg-teal {
-  #          background-color:#F0F8FF!important;
-  #          color:#000000!important;
-  #         }")),
-  #            h4("Summary filtered data"),
-  #            descriptionBlock(
-  #              text = verbatimTextOutput("sub_summary")
-  #            ),
-  #            plotOutput("oa_summary_histogram_simple",height = 50),
-  #            descriptionBlock(
-  #              text = paste("Percentage open:", 
-  #                           signif(tmp_open,digits=3),
-  #                           "%")
-  #            ),
-  #            shinydashboardPlus::progressBar(value = tmp_open),
-  #            descriptionBlock(
-  #              text = paste("Percentage open (without blue):",
-  #                           signif(tmp_open_blue,digits=3),
-  #                           "%")
-  #            ),
-  #            shinydashboardPlus::progressBar(value = tmp_open_blue)
-  #     )
-  #   )
-  # })
-
   
   ## oa status upset plot -----------------------------------------------------
   p_t$upset_plot <- reactive({tryCatch({upset_plot(d$m_upsetplot)},error=function(e) {print(e);ggplot() + geom_blank()})})
@@ -328,6 +305,7 @@ shiny_general_server <-  function(con, orcid_access_token){
   
   ## selected plot  -----------------------------------------------------------
   p_t$selected_plot <- reactive({tryCatch({oa_status_time_plot(d$m_sub,
+                                                               cutoff_year=input$range_year[1],
                                                                title = paste(paste0(d$in_selection,collapse = " + "), "OA Status"),
                                                                oa_status_used=overall_oa,use_plotly=TRUE)},
                                           error=function(e) {print(e);ggplot() + geom_blank()})})

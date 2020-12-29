@@ -341,24 +341,33 @@ DeactivateShowReportServer <- function(id, d, df_ls, tbl_merge) {
     function(input, output, session) {
       observeEvent({input$show_report},{
         shiny_print_logs(paste(rep("-",50),collapse = ""), d$sps)
-        shiny_print_logs("deactivate show report, set data to NULL", d$sps)
-        shinyjs::disable("show_report")
-        sps <- d$sps
-        # d <- reactiveValues()
-        d$show_report <- input$show_report
-        d$processing <- TRUE
-        # d$sps <- sps
-        # d$m <- d$m_filt <- d$m_filt_sub <-  NULL
-        d$m <- d$m_sub <- d$m_sub_sel <- d$m_sub_sel_closed <-
-          d$m_sub_sel_closed_pdflink <- d$m_sub_all_oa <- d$datainmerge <-
-          d$dataininput <- d$do_scholar_match <- d$all_selection_choices <-
-          d$m_upsetplot <- d$in_selection <- d$plot_selected_ly_clicked <- NULL
-        for(tmpdf in df_ls){
-          tmpdf() %>% 
-            dplyr::slice(0) %>% 
-            tmpdf()
+        if(any(purrr::map_lgl(df_ls, ~ valid_input(.x())))){
+          shiny_print_logs("deactivate show report, set data to NULL", d$sps)
+          shinyjs::disable("show_report")
+          sps <- d$sps
+          # d <- reactiveValues()
+          d$show_report <- input$show_report
+          d$processing <- TRUE
+          # d$sps <- sps
+          # d$m <- d$m_filt <- d$m_filt_sub <-  NULL
+          d$m <- d$m_sub <- d$m_sub_sel <- d$m_sub_sel_closed <-
+            d$m_sub_sel_closed_pdflink <- d$m_sub_all_oa <- d$datainmerge <-
+            d$dataininput <- d$do_scholar_match <- d$all_selection_choices <-
+            d$m_upsetplot <- d$in_selection <- d$plot_selected_ly_clicked <- NULL
+          for(tmpdf in df_ls){
+            tmpdf() %>% 
+              dplyr::slice(0) %>% 
+              tmpdf()
+            assign_to_reactiveVal(tmpdf, "try_to_retrieve", FALSE)
+            assign_to_reactiveVal(tmpdf, "retrieval_done", FALSE)
+            assign_to_reactiveVal(tmpdf, "successfully_retrieved", FALSE)
+            assign_to_reactiveVal(tmpdf, "try_to_merge", FALSE)
+          }
+          tbl_merge(NULL) 
+        } else {
+          shiny_print_logs("send empty input alert", d$sps)
+          shinyWidgets::show_alert(title = "No valid input provided!", text = "Please specify at least one valid ID.", type="error")
         }
-        tbl_merge(NULL) 
       })  
     }
   )

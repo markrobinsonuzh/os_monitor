@@ -38,10 +38,12 @@ shiny_general_ui <- function(request) {
       ),
     dashboardSidebar(collapsed = TRUE,
                      sidebarMenu(id="menu",
-                                 menuItem("Author", tabName = "Author", icon = icon("user"))
+                                 menuItem("Author", tabName = "Author", icon = icon("user")),
+                                 menuItem("About", tabName = "About", icon = icon("info"))
                      )
     ),
     dashboardBody(
+      time_out_ui("timeout"),
       useShinyjs(),
       shinyFeedback::useShinyFeedback(),
       tabItems(
@@ -50,22 +52,25 @@ shiny_general_ui <- function(request) {
                 fluidRow(
                   column(width = 4,
                          box(title = "Author information", width = NULL, collapsible = TRUE, id = "box_author_input",
+                             # info
+                             # boxPad(descriptionBlock(numberColor="aqua", "Enter one or more of the following IDs:")),
+                             p("Enter one or more of the following IDs:"),
                              # Orcid input
                              inputOrcidUI("input_check"),
-                             # Pubmed query input
-                             inputPubmedUI("input_check"),
                              # google scholar input
                              inputScholarUI("input_check"),
                              # scholar match with crossref
                              shinyWidgets::prettySwitch(inputId = "scholar_matching_with_crossref",
                                                         label = "Use Crossref for increased accuracy in matching publications.", 
-                                                        value = TRUE,
+                                                        value = FALSE,
                                                         fill = TRUE, status = "primary"),              
                              # publons input
                              inputPublonsUI("input_check"),
+                             # Pubmed query input
+                             inputPubmedUI("input_check"),
                              # if pubmetrics
                              shinyWidgets::prettySwitch(inputId = "retrieve_pubmetric",label = "Retrieve Pubmed citation metrics", 
-                                                        fill = TRUE, status = "primary"),                             
+                                                        fill = TRUE, status = "primary"),    
                              # aggregate data
                              showReportUI("show_report"),
                              ProgressbarUI("show_report")
@@ -83,7 +88,24 @@ shiny_general_ui <- function(request) {
                                            background-color:#FFFAFA!important;
                                            color:#000000!important;
                                           }")),
-                                          h4("Filter"),
+                                          fluidRow(
+                                            column(width = 10,
+                                                   h4("Filter")),
+                                            column(width = 2, 
+                                                   shinyWidgets::dropdown(
+                                                     style = "stretch", status= "primary", 
+                                                     tooltip = shinyWidgets::tooltipOptions(title = "Help"),
+                                                     icon=icon("question"),
+                                                     h5("Dataset selection"),
+                                                     p("A logical filter for the datasets can be specfied.
+                                                       For example: 'Not in orcid And in scholar' means to only show
+                                                       publications that are in Google scholar and at the same time not in ORCID."),
+                                                     h5("Cutoff year"),
+                                                     p("Only publications within the year limits are shown."),
+                                                     h5("OA status"),
+                                                     p("Only the publications with the selected OA status are shown.")
+                                                   ))
+                                          ),
                                           fluidRow(
                                             column(width = 8,
                                                    h5("Dataset selection"),
@@ -91,7 +113,7 @@ shiny_general_ui <- function(request) {
                                             ),
                                             column(width = 4,
                                                    sliderInput("range_year",
-                                                               label = "Cutoff year",
+                                                               label = "Cutoff year", sep = "",
                                                                min=2001, max = 2020,
                                                                value=c(2001,2020)),
                                                    selectizeInput("oa_status_filtered_table","OA status",
@@ -107,7 +129,24 @@ shiny_general_ui <- function(request) {
                          div(id="shinyjsbox_upsetplot",
                              box(width = NULL, title = "Upsetplot (alternative to Venn Diagram)", 
                                  collapsible = TRUE, id = "box_upsetplot",
-                                 plotOutput("plot_upset")
+                                 boxPad(color = "teal",
+                                        # to change the color of "teal"
+                                        tags$style(HTML(".bg-teal {
+                                           background-color:#FFFAFA!important;
+                                           color:#000000!important;
+                                          }")),
+                                         fluidRow(
+                                           column(width = 2, offset = 10,
+                                                  shinyWidgets::dropdown(
+                                                    style = "stretch", status= "primary",
+                                                    tooltip = shinyWidgets::tooltipOptions(title = "Help"),
+                                                    icon=icon("question"),
+                                                    p("A Upset plot is an alternative to a Venn Diagram in that
+                                                      it shows the size of different sets in which the publications can be found.")
+                                                  ))
+                                         ),
+                                         plotOutput("plot_upset")
+                                 )
                              )) %>% shinyjs::hidden()
                   ),
                   column(
@@ -169,10 +208,10 @@ shiny_general_ui <- function(request) {
                               shinyjs::hidden(),
                             verbatimTextOutput(NS("bibtex", "bibsummary"))
                         )) %>% shinyjs::hidden(),
-                    div(id="shinyjsbox_pubmetric_table", 
-                        box(width = NULL, collapsible = TRUE,  id = "box_pubmetric_table",
-                            DT::dataTableOutput("table_pubmetric")
-                        )) %>% shinyjs::hidden(),
+                    # div(id="shinyjsbox_pubmetric_table", 
+                    #     box(width = NULL, collapsible = TRUE,  id = "box_pubmetric_table",
+                    #         DT::dataTableOutput("table_pubmetric")
+                    #     )) %>% shinyjs::hidden(),
                     div(id="shinyjsbox_fulltext_download", 
                         box(width = NULL, collapsible = TRUE,  id = "box_fulltext_download", 
                             title = "Grey zone (Sci-hub)",collapsed = TRUE,
@@ -182,8 +221,22 @@ shiny_general_ui <- function(request) {
                         )) %>% shinyjs::hidden()
                   )
                 )
-        )
+        ),
+        # Second tab content
+        tabItem(tabName = "About",
+                fluidPage(
+                  withMathJax(
+                    includeMarkdown(
+                      file.path(
+                        system.file("extdata","helpfiles",package = "uzhOS"),
+                        "OA_monitor_documentation.md")
+                    )
+                  )
+                )
+                )
       )
     )
+    # ,
+    # footer=dashboardFooter("OA Monitor", "UZH")
   )
 }

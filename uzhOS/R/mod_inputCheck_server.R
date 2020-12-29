@@ -15,9 +15,9 @@ pubmedActivateServer <- function(id, df_zora, df_orcid, df_pubmed, con) {
     ## Below is the module function
     function(input, output, session) {
       observeEvent(input$activate_pubmed,{
-        showModal(modalDialog("This is an automatically generated query and is 
-                          unlikely to find all correct entries. For more details see:",
-                              a("NCBI pubmedhelp",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"),
+        showModal(modalDialog("This is an automatically generated example query and
+                          has to be updated. For more details on how to create your own queries see the",
+                              a("NCBI help page",href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",target="_blank"),
                               title = "Pubmed query info", size="s",easyClose = TRUE))
         
         pubmed_value <- tryCatch({
@@ -92,6 +92,14 @@ pubmedCheckServer <- function(id, df_pubmed) {
       })
     })}
 
+pubmedInfoServer <- function(id) {
+  moduleServer(
+    id,
+    function(input, output, session) {
+      output$info_pubmed <- renderPrint(rentrez::entrez_db_searchable("pubmed"))
+    })}
+
+
 #' check scholar input module
 #'
 #' @param id for namespace
@@ -138,7 +146,8 @@ publonsCheckServer <- function(id, df_publons) {
     id,
     function(input, output, session) {
       observeEvent(input$publons,{
-        inp_publons <- stringr::str_trim(input$publons)
+        url_inp_publons <- stringr::str_extract(input$publons, "(?<=researcher/)[0-9]+")
+        inp_publons <- dplyr::if_else(is.na(url_inp_publons), stringr::str_trim(input$publons), url_inp_publons)
         if(inp_publons != ""){
           ID_in_publons <- in_publons(inp_publons)
           if(is.null(ID_in_publons)){

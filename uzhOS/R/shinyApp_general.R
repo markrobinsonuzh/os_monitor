@@ -48,6 +48,11 @@ shinyApp_general <- function(con = odbc::dbConnect(odbc::odbc(), "PostgreSQL"),
   # token to get acces to orcid (currently Reto's token)
   Sys.setenv(ORCID_TOKEN=orcid_access_token)
   
+  message("Render Documentation page")
+  savedir <- system.file("extdata","helpfiles",package = "uzhOS")
+  rmdfile <- file.path(savedir,"OA_monitor_documentation.Rmd")
+  mdfile <- file.path(savedir,"OA_monitor_documentation.md")
+  knitr::knit(rmdfile, mdfile)
   message("Start application ...")
   shinyApp(ui = shiny_general_ui(), 
            server = shiny_general_server(con=con_quosure, orcid_access_token=orcid_access_token))

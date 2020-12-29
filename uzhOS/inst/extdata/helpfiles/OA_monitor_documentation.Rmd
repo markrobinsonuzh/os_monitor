@@ -1,0 +1,96 @@
+---
+title: "OA_monitor_documentation"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Documentation
+
+### Overview
+
+This application provides functionality to retrieve publication records from 
+multiple sources to provide an overview of the completeness of the individual profiles
+together with the open access status of all publications.
+
+### Data Sources
+
+Currently it is possible to retrieve publications from ORCID, Pubmed, Google scholar and
+Publons. 
+
+### Guide
+
+#### First step
+
+As a first step, at least one identifier of the author of interest needs to be obtained. 
+For each of the following identifiers first go to the respective webpage:
+
+* [ORCID](https://orcid.org/)
+* [Google scholar](https://scholar.google.com/)
+* [Publons](https://publons.com/search/)
+
+and then search for the author. Navigate to the profile of the researcher 
+of interest. The URL can then directly be copied into the corresponding field in the app.
+
+For Pubmed a search query has to be specified instead of an identifier. When pressing
+'Example Pubmed Query' in the app, a simple example query is generated which needs to 
+be adapted (!). For more information on how to write Pubmed queries go to [this help page](https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author).
+
+Furthermore there are two additional options that can be selected. The first one is
+the possibility to use Crossref for matching publications from Google scholar to other
+sources. The use of Crossref is not strictly needed but might find additional matches of publications
+from different sources than the standard matching. The drawback of using Crossref is the much longer time it
+takes to complete (usually several minutes). It is therefore recommended to first try without
+this option and only enable it when the quality of the publication matching is poor.
+The second additional option is to retrieve citation data from the [NIH Open Citation Collection](https://icite.od.nih.gov/)
+
+### Second step
+
+After entering at least one identifier 'show report' can be pressed to start retrieval
+and merging of the publication data. This will happen in the background and the
+app will update as soon as new data becomes available. Depending on the number
+of identifiers and the number of publications this can take several minutes.
+
+### Third step
+
+The obtained data can now be explored using the Histogram to the right and the Table below.
+Filters can be applied to subset the data. Filtering options include by dataset, by year and
+by open access (OA) status. The Upset plot below the filter box shows an overview of the data filtered
+by year and OA status.
+
+### Fourth step
+
+On top of the table the button 'Bibtex citation' can be pressed to generate a '.tex' citation file
+of all the entries in the table which will appear below the table and can be downloaded by pressing
+'Download Bibtex citation'. This file in turn can be uploaded within the web page of the respective
+profile to update the publications in that source.
+
+
+
+### Where does the open access status come from?
+
+The open access status is retrieved from [Unpaywall](https://unpaywall.org/) and 
+relies on the DOI. Since Google scholar does not use DOI's it is possible that
+the open access status for certain publications is unknown.
+
+
+## About
+### Source code
+
+The source code can be found on [www.github.com/markrobinsonuzh/os_monitor](https://github.com/markrobinsonuzh/os_monitor).
+
+### Bug reports
+
+If you encounter problems please file an issue on [www.github.com/markrobinsonuzh/os_monitor/issues](https://github.com/markrobinsonuzh/os_monitor/issues).
+
+### License
+
+This software is licensed under the [MIT License](https://github.com/markrobinsonuzh/os_monitor/blob/master/LICENSE).
+
+### Contact
+
+[Reto Gerber](mailto:reto.gerber@uzh.ch)
+
+[Mark D Robinson](mailto:mark.robinson@mls.uzh.ch)

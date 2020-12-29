@@ -35,7 +35,7 @@ oa_status_time_plot <- function(tbl_merge, cutoff_year=2000, colname=year,
   tmptib_1 <- tbl_merge %>% 
     dplyr::filter(!!q_colname >= cutoff_year, !!q_colname <= 2020)%>% 
     group_by(!!q_colname,!!q_oa_status_used) %>% 
-    summarise(Count=n()) %>%
+    summarise(Count=dplyr::n()) %>%
     ungroup() %>% 
     group_by(!!q_colname) %>% 
     mutate(Proportion=Count/sum(Count)) %>% 
@@ -220,7 +220,8 @@ upset_plot <- function(tbl_merge){
     dplyr::select( dplyr::starts_with("in_"), "overall_oa") %>% 
     dplyr::rename_all(stringr::str_replace, pattern = "in_",replacement = "")
     colnam_used <- colnames(tib_plt)
-    ComplexUpset::upset(tib_plt, colnam_used[!stringr::str_detect(colnam_used,"overall_oa")],
+    ComplexUpset::upset(tib_plt, colnam_used[!stringr::str_detect(colnam_used,"overall_oa")], 
+                        wrap=TRUE,
                         name = "",
                         base_annotations=list(
                           'Intersection size'=ComplexUpset::intersection_size(

@@ -25,6 +25,7 @@ Imports:
   htmltools,
   httr,
   iCiteR,
+  knitr,
   lubridate,
   magrittr,
   odbc,

@@ -96,14 +96,16 @@ shiny_general_ui <- function(request) {
                                                      style = "stretch", status= "primary", 
                                                      tooltip = shinyWidgets::tooltipOptions(title = "Help"),
                                                      icon=icon("question"),
-                                                     h5("Dataset selection"),
-                                                     p("A logical filter for the datasets can be specfied.
-                                                       For example: 'Not in orcid And in scholar' means to only show
-                                                       publications that are in Google scholar and at the same time not in ORCID."),
-                                                     h5("Cutoff year"),
-                                                     p("Only publications within the year limits are shown."),
-                                                     h5("OA status"),
-                                                     p("Only the publications with the selected OA status are shown.")
+                                                     div(style="width:500px",
+                                                       h5("Dataset selection"),
+                                                       p("A logical filter for the datasets can be specfied.
+                                                         For example: 'Not in orcid And in scholar' means to only show
+                                                         publications that are in Google scholar and at the same time not in ORCID."),
+                                                       h5("Cutoff year"),
+                                                       p("Only publications within the year limits are shown."),
+                                                       h5("OA status"),
+                                                       p("Only the publications with the selected OA status are shown.")
+                                                     )
                                                    ))
                                           ),
                                           fluidRow(
@@ -141,8 +143,10 @@ shiny_general_ui <- function(request) {
                                                     style = "stretch", status= "primary",
                                                     tooltip = shinyWidgets::tooltipOptions(title = "Help"),
                                                     icon=icon("question"),
-                                                    p("A Upset plot is an alternative to a Venn Diagram in that
-                                                      it shows the size of different sets in which the publications can be found.")
+                                                    div(style="width:500px",
+                                                      p("A Upset plot is an alternative to a Venn Diagram in that
+                                                        it shows the size of different sets in which the publications can be found.")
+                                                    )
                                                   ))
                                          ),
                                          plotOutput("plot_upset")

@@ -54,7 +54,7 @@ services:
                 ports:
                         - "3838:3838"
                 environment:
-                        - VIRTUAL_HOST=osmonitor.servebeer.com
+                        - VIRTUAL_HOST=130.60.24.80,osmonitor.servebeer.com
                         - VIRTUAL_PORT=3838
                         - LETSENCRYPT_HOST=osmonitor.servebeer.com
                         - LETSENCRYPT_EMAIL=retogerber93@gmail.com

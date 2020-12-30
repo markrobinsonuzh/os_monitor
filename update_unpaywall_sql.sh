@@ -2,8 +2,8 @@
 # script to automatically download changefiles from unpaywall and update the local postgresql database
 
 # number of most recent files to insert into database:
-NRFILES=3
-INTERVAL=week
+NRFILES=1
+INTERVAL=day
 if [ "$INTERVAL" = "week" ];
 then
 	# download overview file of all changefiles

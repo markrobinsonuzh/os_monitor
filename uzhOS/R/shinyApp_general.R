@@ -41,7 +41,8 @@
 #' @examples
 #' shinyApp_general()
 shinyApp_general <- function(con = odbc::dbConnect(odbc::odbc(), "PostgreSQL"),
-                             orcid_access_token = "8268867c-bf2c-4841-ab9c-bfeddd582a9c"){
+                             orcid_access_token = "8268867c-bf2c-4841-ab9c-bfeddd582a9c",
+                             docfile = file.path(system.file("extdata","helpfiles",package = "uzhOS"),"OA_monitor_documentation.Rmd")){
   con_quosure <- rlang::enquo(con)
   plan(multisession)
   
@@ -49,11 +50,11 @@ shinyApp_general <- function(con = odbc::dbConnect(odbc::odbc(), "PostgreSQL"),
   Sys.setenv(ORCID_TOKEN=orcid_access_token)
   
   message("Render Documentation page")
-  savedir <- system.file("extdata","helpfiles",package = "uzhOS")
-  rmdfile <- file.path(savedir,"OA_monitor_documentation.Rmd")
+  #savedir <- "/srv/shiny-server/uzhOS/inst/extdata/helpfiles"
+  savedir <- dirname(docfile)
   mdfile <- file.path(savedir,"OA_monitor_documentation.md")
-  knitr::knit(rmdfile, mdfile)
+  knitr::knit(docfile, mdfile)
   message("Start application ...")
-  shinyApp(ui = shiny_general_ui(), 
+  shinyApp(ui = shiny_general_ui(docfile=mdfile), 
            server = shiny_general_server(con=con_quosure, orcid_access_token=orcid_access_token))
 }

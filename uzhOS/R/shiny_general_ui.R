@@ -15,7 +15,7 @@
 #' @export
 #' @example 
 #'  shiny::shinyApp(ui=shiny_general_ui,server = function(input, output) { })
-shiny_general_ui <- function(request) {
+shiny_general_ui <- function(request, docfile = file.path(system.file("extdata","helpfiles",package = "uzhOS"),"OA_monitor_documentation.md")) {
   dashboardPage(
     preloader = list(
       waiter = list(html = tagList(waiter::spin_1(), "Loading ..."), color = "#3c8dbc"),
@@ -231,9 +231,7 @@ shiny_general_ui <- function(request) {
                 fluidPage(
                   withMathJax(
                     includeMarkdown(
-                      file.path(
-                        system.file("extdata","helpfiles",package = "uzhOS"),
-                        "OA_monitor_documentation.md")
+		      docfile
                     )
                   )
                 )

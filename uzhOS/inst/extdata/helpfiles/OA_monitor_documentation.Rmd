@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ### Overview
 
 This application provides functionality to retrieve publication records from 
-multiple sources to provide an overview of the completeness of the individual profiles
+multiple sources (such as ORCID) to provide an overview of the completeness of the respective source
 together with the open access status of all publications.
 
 ### Data Sources
@@ -20,7 +20,9 @@ together with the open access status of all publications.
 Currently it is possible to retrieve publications from ORCID, Pubmed, Google scholar and
 Publons. 
 
-### Guide
+### Guide 
+
+The following describes a step by step example use case of the app.
 
 #### First step
 
@@ -46,33 +48,39 @@ takes to complete (usually several minutes). It is therefore recommended to firs
 this option and only enable it when the quality of the publication matching is poor.
 The second additional option is to retrieve citation data from the [NIH Open Citation Collection](https://icite.od.nih.gov/)
 
-### Second step
+#### Second step
 
-After entering at least one identifier 'show report' can be pressed to start retrieval
+After entering at least one identifier `show report` can be pressed to start retrieval
 and merging of the publication data. This will happen in the background and the
 app will update as soon as new data becomes available. Depending on the number
 of identifiers and the number of publications this can take several minutes.
 
-### Third step
+#### Third step
 
-The obtained data can now be explored using the Histogram to the right and the Table below.
-Filters can be applied to subset the data. Filtering options include by dataset, by year and
-by open access (OA) status. The Upset plot below the filter box shows an overview of the data filtered
-by year and OA status.
+The obtained data can now be explored using the Histogram on the right hand side and the Table underneath it.
+Filters can be applied to subset the data in the box on the left hand side with the title `Filter options`. 
+Filtering options include by dataset, by year and by open access (OA) status. Most useful
+for the comparison of the publications in different sources is the option to filter by dataset. 
+This follows a logical selection of the datasets, e.g. `In` `Orcid` `and` `In` `Publons` 
+(i.e. `orcid & publons` in code) means to only show the publications that are in ORCID and 
+in Publons at the same time. The Upset plot underneath the filter box shows a 
+convenient overview of the different sets that can be found in the data. This plot
+is also the main visualization if one is only interested in updating the different sources
+since it is immediately visible which sources are complete and which are not.
 
-### Fourth step
+#### Fourth step
 
-On top of the table the button 'Bibtex citation' can be pressed to generate a '.tex' citation file
-of all the entries in the table which will appear below the table and can be downloaded by pressing
-'Download Bibtex citation'. This file in turn can be uploaded within the web page of the respective
+Above the table listing the publications, the button `Bibtex citation` can be pressed to generate a `.tex` citation file
+of all the entries in the table. The resulting content will appear underneath the table in a new box and can be downloaded by pressing
+`Download Bibtex citation`. This file in turn can be uploaded within the web page of the respective
 profile to update the publications in that source.
 
 
 
-### Where does the open access status come from?
+#### Where does the open access status come from?
 
 The open access status is retrieved from [Unpaywall](https://unpaywall.org/) and 
-relies on the DOI. Since Google scholar does not use DOI's it is possible that
+relies on the DOI of a publication. Since Google scholar does not use DOI's it is possible that
 the open access status for certain publications is unknown.
 
 
@@ -83,7 +91,8 @@ The source code can be found on [www.github.com/markrobinsonuzh/os_monitor](http
 
 ### Bug reports
 
-If you encounter problems please file an issue on [www.github.com/markrobinsonuzh/os_monitor/issues](https://github.com/markrobinsonuzh/os_monitor/issues).
+If you encounter problems please open an issue on Github at [www.github.com/markrobinsonuzh/os_monitor/issues](https://github.com/markrobinsonuzh/os_monitor/issues).
+Please make a short description of the error you encounter and provide the input that you used (like the ORCID or Google scholar ID). General feedback and feature requests are of course also welcome.
 
 ### License
 
@@ -91,6 +100,8 @@ This software is licensed under the [MIT License](https://github.com/markrobinso
 
 ### Contact
 
-[Reto Gerber](mailto:reto.gerber@uzh.ch)
+If you have other questions do not hesitate to contact us:
 
-[Mark D Robinson](mailto:mark.robinson@mls.uzh.ch)
+Reto Gerber: [reto.gerber@uzh.ch](mailto:reto.gerber@uzh.ch)
+
+Mark D Robinson: [mark.robinson@mls.uzh.ch](mailto:mark.robinson@mls.uzh.ch)

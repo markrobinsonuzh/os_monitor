@@ -1,6 +1,7 @@
 #' UI function for \code{\link{shinyApp_general}}
 #'
 #' @param request shiny internal stuff
+#' @param docfile filename of '.md' documentation file
 #'
 #' @return ui
 #' 
@@ -231,7 +232,7 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                 fluidPage(
                   withMathJax(
                     includeMarkdown(
-		      docfile
+                      docfile
                     )
                   )
                 )

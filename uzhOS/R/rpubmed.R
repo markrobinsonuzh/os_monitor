@@ -100,7 +100,7 @@ pubmed_search_string_from_zora_id <- function(author_vec, con, authorkeystablena
 #' pms <- retrieve_from_entrez(just_ids = pmids)
 retrieve_from_pubmed <- function(pmid_search, pmid_remove=NULL, pmid_add=NULL, just_ids=NULL) {
   if(is.null(just_ids)) {
-    x <- entrez_search(db = "pubmed", term = pmid_search, retmax = 1000)
+    x <- entrez_search(db = "pubmed", term = pmid_search, retmax = 500)
     x$ids <- unique(c(base::setdiff(x$ids, pmid_remove), pmid_add))
   } else {
     x <- list(ids=just_ids)

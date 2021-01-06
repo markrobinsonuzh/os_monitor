@@ -3,6 +3,8 @@
 #' @param con db connection function call, e.g. odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 #' @param orcid_access_token Access Token for orcid, 
 #'  See \code{\link[rorcid]{orcid_auth}}
+#' @param docfile filename of '.Rmd' documentation file
+#' @param future_plan \code{\link[future]{plan}}, e.g. future::plan(multisession, workers=2)
 #'   
 #' @return shiny.appobj
 #' 
@@ -42,9 +44,12 @@
 #' shinyApp_general()
 shinyApp_general <- function(con = odbc::dbConnect(odbc::odbc(), "PostgreSQL"),
                              orcid_access_token = "8268867c-bf2c-4841-ab9c-bfeddd582a9c",
-                             docfile = file.path(system.file("extdata","helpfiles",package = "uzhOS"),"OA_monitor_documentation.Rmd")){
+                             docfile = file.path(system.file("extdata","helpfiles",package = "uzhOS"),"OA_monitor_documentation.Rmd"),
+                             future_plan=plan(multisession,workers=10)){
   con_quosure <- rlang::enquo(con)
-  plan(multisession)
+  old_plan <- plan()
+  plan(future_plan)
+  on.exit(plan(old_plan))
   
   # token to get acces to orcid (currently Reto's token)
   Sys.setenv(ORCID_TOKEN=orcid_access_token)

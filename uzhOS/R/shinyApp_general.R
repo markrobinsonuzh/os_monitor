@@ -47,10 +47,9 @@ shinyApp_general <- function(con = odbc::dbConnect(odbc::odbc(), "PostgreSQL"),
                              docfile = file.path(system.file("extdata","helpfiles",package = "uzhOS"),"OA_monitor_documentation.Rmd"),
                              future_plan=plan(multisession,workers=10)){
   con_quosure <- rlang::enquo(con)
-  old_plan <- plan()
-  plan(future_plan)
-  on.exit(plan(old_plan))
-  
+  future_plan
+  print("future plan:")
+  print(plan())
   # token to get acces to orcid (currently Reto's token)
   Sys.setenv(ORCID_TOKEN=orcid_access_token)
   

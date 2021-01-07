@@ -3,12 +3,12 @@ con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
 author_vec <- "robinson mark d (orcid: 0000-0002-3048-5518)"
 test_that("pubmed_search_string_from_zora_id correct",{
   expect_equal(pubmed_search_string_from_zora_id(author_vec,con),
-  "(robinson mark d[au] or robinson m[au] or robinson md[au]) AND (2001:2020[pdat]) AND (zurich[affiliation])")
+  "(robinson mark d[au] or robinson m[au] or robinson md[au]) AND (2001:2021[pdat]) AND (zurich[affiliation])")
   expect_equal(pubmed_search_string_from_zora_id(author_vec,con,cutoff_year = 2019),
-               "(robinson mark d[au] or robinson m[au] or robinson md[au]) AND (2019:2020[pdat]) AND (zurich[affiliation])")
+               "(robinson mark d[au] or robinson m[au] or robinson md[au]) AND (2019:2021[pdat]) AND (zurich[affiliation])")
   expect_equal(pubmed_search_string_from_zora_id(author_vec,con,cutoff_year = 2019, orcid = "0000-0002-3048-5518"),
-               "(robinson mark d[au] or robinson m[au] or robinson md[au]) AND (2019:2020[pdat]) AND (zurich[affiliation]) OR (orcid 0000-0002-3048-5518 [auid])")
-  expect_equal(pubmed_search_string_from_zora_id("",con),"(max muster[au] or max m[au] or Max M[au]) AND (2001:2020[pdat]) AND (zurich[affiliation])")
+               "(robinson mark d[au] or robinson m[au] or robinson md[au]) AND (2019:2021[pdat]) AND (zurich[affiliation]) OR (orcid 0000-0002-3048-5518 [auid])")
+  expect_equal(pubmed_search_string_from_zora_id("",con),"(max muster[au] or max m[au] or Max M[au]) AND (2001:2021[pdat]) AND (zurich[affiliation])")
 })
 
 test_that("pubmed_search_string_from_zora_id correct",{

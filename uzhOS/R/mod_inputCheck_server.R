@@ -133,6 +133,27 @@ scholarCheckServer <- function(id, df_scholar) {
       })
     })}
 
+#' crossref input to d module
+#'
+#' @param id for namespace
+#' @param d \code{\link[shiny]{reactiveValues}}
+#'
+#' @export
+#' @import shiny
+#' 
+crossrefInputServer <- function(id, d) {
+  moduleServer(
+    id,
+    function(input, output, session) {
+      observeEvent(input$scholar_matching_with_crossref,{
+        d$scholar_matching_with_crossref <- input$scholar_matching_with_crossref
+        print(d$scholar_matching_with_crossref)
+      })
+    }
+  )
+}
+
+
 #' check publons input module
 #'
 #' @param id for namespace

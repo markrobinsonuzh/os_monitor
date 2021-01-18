@@ -79,16 +79,17 @@ shiny_general_server <-  function(con, orcid_access_token){
   pubmedInfoServer("input_check")
   publonsCheckServer("input_check", df_publons)
   scholarCheckServer("input_check", df_scholar)
-  observeEvent(input$scholar_matching_with_crossref,{
+  crossrefInputServer("input_check", d)
+  observeEvent(d$scholar_matching_with_crossref,{
     shinyFeedback::feedback(
-      "scholar_matching_with_crossref", 
-      !input$scholar_matching_with_crossref,
+      NS("input_check","scholar_matching_with_crossref"), 
+      !d$scholar_matching_with_crossref,
       "Possibly less publications from Google scholar will be matched to other sources."
     )
   })
   
   # wait for clicking of "show_report", then retrieve all data asynchronously 
-  scholarModalServer("show_report", df_scholar, input$scholar_matching_with_crossref)
+  scholarModalServer("show_report", df_scholar, d$scholar_matching_with_crossref)
   
   createOrcidServer("show_report", df_orcid, orcid_access_token, sps)
   ResultCheckServer("show_report", df_orcid, sps)
@@ -222,7 +223,7 @@ shiny_general_server <-  function(con, orcid_access_token){
       },  globals = list('%>%'= magrittr::'%>%',
                          df_scholar_matching=df_scholar_matching,
                          df_scholar_iso=isolate(df_scholar()),
-                         scholar_matching_with_crossref=input$scholar_matching_with_crossref,
+                         scholar_matching_with_crossref=d$scholar_matching_with_crossref,
                          tbl_merge_iso=isolate(tbl_merge()),
                          merge_scholar_into_tbl_merge=merge_scholar_into_tbl_merge
                          ))  %...>% 
@@ -268,8 +269,10 @@ shiny_general_server <-  function(con, orcid_access_token){
     shiny_print_logs(paste("datasets in tbl_merge:", paste(d$all_selection_choices,collapse = ", ")), sps)
     
     # update year slider
-    min_year_tbl_merge <- min(tbl_merge()$year)
-    updateSliderInput(session,"range_year", min = min_year_tbl_merge, value = min_year_tbl_merge)
+    min_year_tbl_merge <- as.integer(min(na.omit(tbl_merge()$year)))
+    max_year_tbl_merge <- as.integer(max(na.omit(tbl_merge()$year)))
+    updateSliderInput(session,"range_year", min = min_year_tbl_merge, max = max_year_tbl_merge,
+                      value = c(min_year_tbl_merge,max_year_tbl_merge))
   })
   
   # modules for updating selection UI

@@ -1,12 +1,12 @@
 ---
 title: "OA_monitor_documentation"
 output: html_document
+runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
 ## Documentation
 
 ### Overview
@@ -17,8 +17,9 @@ together with the open access status of all publications.
 
 ### Data Sources
 
-Currently it is possible to retrieve publications from ORCID, Pubmed, Google scholar and
-Publons. 
+Currently it is possible to retrieve publications from [ORCID](https://orcid.org/), 
+[Pubmed](https://pubmed.ncbi.nlm.nih.gov/), [Google scholar](https://scholar.google.com/) and
+[Publons](https://publons.com/search/). 
 
 ### Guide 
 
@@ -34,7 +35,9 @@ For each of the following identifiers first go to the respective webpage:
 * [Publons](https://publons.com/search/)
 
 and then search for the author. Navigate to the profile of the researcher 
-of interest. The URL can then directly be copied into the corresponding field in the app.
+of interest. Copy the identifier and paste it into the corresponding field in the app 
+(alternatively it is possible to directly copy the URL).
+
 
 For Pubmed a search query has to be specified instead of an identifier. When pressing
 'Example Pubmed Query' in the app, a simple example query is generated which needs to 
@@ -45,12 +48,12 @@ the possibility to use Crossref for matching publications from Google scholar to
 sources. The use of Crossref is not strictly needed but might find additional matches of publications
 from different sources than the standard matching. The drawback of using Crossref is the much longer time it
 takes to complete (usually several minutes). It is therefore recommended to first try without
-this option and only enable it when the quality of the publication matching is poor.
-The second additional option is to retrieve citation data from the [NIH Open Citation Collection](https://icite.od.nih.gov/)
+this option and only enable it when the quality of the publication matching is poor (or there are known missing links).
+The second additional option is to retrieve citation data from the [NIH Open Citation Collection](https://icite.od.nih.gov/).
 
 #### Second step
 
-After entering at least one identifier `show report` can be pressed to start retrieval
+After entering at least one identifier, `show report` can be pressed to start retrieval
 and merging of the publication data. This will happen in the background and the
 app will update as soon as new data becomes available. Depending on the number
 of identifiers and the number of publications this can take several minutes.
@@ -58,12 +61,17 @@ of identifiers and the number of publications this can take several minutes.
 #### Third step
 
 The obtained data can now be explored using the Histogram on the right hand side and the Table underneath it.
-Filters can be applied to subset the data in the box on the left hand side with the title `Filter options`. 
+
+The data can be filtered by using the given selection buttons in the box on the left hand side with the title `Filter options`. 
 Filtering options include by dataset, by year and by open access (OA) status. Most useful
 for the comparison of the publications in different sources is the option to filter by dataset. 
 This follows a logical selection of the datasets, e.g. `In` `Orcid` `and` `In` `Publons` 
 (i.e. `orcid & publons` in code) means to only show the publications that are in ORCID and 
-in Publons at the same time. The Upset plot underneath the filter box shows a 
+in Publons at the same time,  `In` `Orcid` `or` `In` `Publons` would mean all publications
+that are in either Publons or ORCID (or both), `Not in` `Orcid` `and` `In` `Publons` 
+are the ones that are not in ORCID but at the same time are in Publons.
+
+The Upset plot underneath the filter box shows a 
 convenient overview of the different sets that can be found in the data. This plot
 is also the main visualization if one is only interested in updating the different sources
 since it is immediately visible which sources are complete and which are not.
@@ -105,3 +113,10 @@ If you have other questions do not hesitate to contact us:
 Reto Gerber: [reto.gerber@uzh.ch](mailto:reto.gerber@uzh.ch)
 
 Mark D Robinson: [mark.robinson@mls.uzh.ch](mailto:mark.robinson@mls.uzh.ch)
+
+### Session Info
+
+```{r session info}
+sessionInfo()
+```
+

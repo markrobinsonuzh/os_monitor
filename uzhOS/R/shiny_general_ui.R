@@ -60,11 +60,6 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                              inputOrcidUI("input_check"),
                              # google scholar input
                              inputScholarUI("input_check"),
-                             # scholar match with crossref
-                             shinyWidgets::prettySwitch(inputId = "scholar_matching_with_crossref",
-                                                        label = "Use Crossref for increased accuracy in matching publications.", 
-                                                        value = FALSE,
-                                                        fill = TRUE, status = "primary"),              
                              # publons input
                              inputPublonsUI("input_check"),
                              # Pubmed query input
@@ -117,8 +112,8 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                                             column(width = 4,
                                                    sliderInput("range_year",
                                                                label = "Cutoff year", sep = "",
-                                                               min=2001, max = 2020,
-                                                               value=c(2001,2020)),
+                                                               min=2001, max = as.integer(format(Sys.time(), "%Y")),
+                                                               value=c(2001,as.integer(format(Sys.time(), "%Y")))),
                                                    selectizeInput("oa_status_filtered_table","OA status",
                                                                   names(open_cols_fn()),
                                                                   selected = names(open_cols_fn()), 
@@ -157,55 +152,77 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                   column(
                     width = 8,
                     div(id="shinyjsbox_histogram", 
-                        tabBox(width = NULL, title = "Histogram of publications", id = "box_histogram",
+                        tabBox(width = NULL, title = "", id = "box_histogram",
                                tabPanel("Time", value = "box_histogram_panel_time",
-                                        box(width = NULL, collapsible = TRUE, title = tags$p("Help",style="font-size:12px"), status = "info",
-                                            icon = tags$i(class = "fas fa-question-circle", style="font-size: 12px"),
-                                            column(width = 12,
-                                                   p("The data shown in this histogram is filtered based on the inputs specified in the
+                                        boxPad(color = "teal",
+                                               # to change the color of "teal"
+                                               tags$style(HTML(".bg-teal {
+                                           background-color:#FFFAFA!important;
+                                           color:#000000!important;
+                                          }")),
+                                          fluidRow(
+                                            column(width = 11,
+                                                   h4("Histogram of publications")),
+                                            column(width = 1, 
+                                                   shinyWidgets::dropdown(right=TRUE, 
+                                                                          style = "stretch", status= "primary", 
+                                                                          tooltip = shinyWidgets::tooltipOptions(title = "Help"),
+                                                                          icon=icon("question"),
+                                                                          div(style="width:500px",
+                                                                              p("The data shown in this histogram is filtered based on the inputs specified in the
                                                      box to the left ('Filter options')."),
-                                                   p("To show specific publications for the same year and same open access status, 
+                                                                              p("To show specific publications for the same year and same open access status, 
                                                      click directly in the histogram on the respective section. A popup table
                                                      will appear, showing the entries.")
-                                            )
+                                                                          )
+                                                   ))
+                                          ),
+                                          plotlyOutput("plot_selected") %>% 
+                                            shinyhelper::helper(type="markdown",
+                                                                title = "Histogram selection help",
+                                                                content = 'Histogram_selection')
+                                        )
                                         ),
-                                        plotlyOutput("plot_selected") %>% 
-                                          shinyhelper::helper(type="markdown",
-                                                              title = "Histogram selection help",
-                                                              content = 'Histogram_selection')),
                                tabPanel("Citations", value = "box_histogram_panel_citations",
                                         uiOutput("plot_pubmetric")
                                )
-                               #          )
-                               # box(width = NULL, title = "Histogram of publications", collapsible = TRUE, id = "box_histogram",
-                               #   plotlyOutput("plot_selected") %>% 
-                               #     shinyhelper::helper(type="markdown",
-                               #                         title = "Histogram selection help",
-                               #                         content = 'Histogram_selection')
-                        )) %>% shinyjs::hidden(),
+                        )
+                    )%>% shinyjs::hidden(),
                     div(id="shinyjsbox_table", 
                         box(width = NULL, title = "Table of publications", collapsible = TRUE,  id = "box_table",
-                            # tags$head( 
-                            #   tags$style(HTML(".box-header{height: 12px; padding-top: 0px; padding-bottom: 0px;}"))
-                            # ),
-                            box(width = NULL, collapsible = TRUE, title = tags$p("Help",style="font-size:12px"), status = "info",
-                                icon = tags$i(class = "fas fa-question-circle", style="font-size: 12px"),
-                                 column(width = 12,
-                                        p("The Table below showing the list of publications can be further filtered."),
-                                        p("Individual publications can be selected by directly clicking on the respective rows and 
-                                          the filter can be applied by pressing 'Apply selection'"),
-                                        p("To reverse the filter, press 'Reset selection'."),
-                                        p("A Citation list of all displayed publications can be generated by pressing 'Bibtex citation'.
-                                          This will start on confirmation and will be displayed underneath the table where also the
-                                          possibility for download as a file exists.")
-                                 )
-                            ),
-                            boxPad(fluidRow(
-                                   actionButton(inputId = "apply_DT_selection",label = HTML("Apply <br/> selection")),
-                                   actionButton(inputId = "reset_DT_selection",label = HTML("Reset <br/> selection")),
-                                   actionButton(NS("bibtex", "create_bibtex"),HTML("Bibtex <br/> citation")))
-                            ),
-                            DT::dataTableOutput("table_selected_closed")
+                            boxPad(color = "teal",
+                                   # to change the color of "teal"
+                                   tags$style(HTML(".bg-teal {
+                                           background-color:#FFFAFA!important;
+                                           color:#000000!important;
+                                          }")),
+                                   fluidRow(
+                                     column(width = 11,
+                                            actionButton(inputId = "apply_DT_selection",label = HTML("Apply <br/> selection")),
+                                            actionButton(inputId = "reset_DT_selection",label = HTML("Reset <br/> selection")),
+                                            actionButton(NS("bibtex", "create_bibtex"),HTML("Bibtex <br/> citation"))),
+                                     column(width = 1,
+                                            shinyWidgets::dropdown(
+                                              right=TRUE, 
+                                              style = "stretch", status= "primary", 
+                                              tooltip = shinyWidgets::tooltipOptions(title = "Help"),
+                                              icon=icon("question"),
+                                              div(style="width:500px",
+                                                  p("The Table below showing the list of publications can be further filtered."),
+                                                  p("Individual publications can be selected by directly clicking on the respective rows and the 
+                                           filter can be applied by pressing 'Apply selection'"),
+                                                  p("To reverse the filter, press 'Reset selection'."),
+                                                  p("A Citation list of all displayed publications can be generated by pressing 'Bibtex citation'. 
+                                           This will start on confirmation and will be displayed underneath the table where also the 
+                                           possibility for download as a file exists.")
+                                              )
+                                            ))
+                                   ),
+                                   br(),
+                                   fluidRow(
+                                     DT::dataTableOutput("table_selected_closed")
+                                   )
+                            )
                         )) %>% shinyjs::hidden(),
                     div(id="shinyjsbox_bibtex", 
                         box(width = NULL, collapsible = TRUE,  id = "box_bibtex",

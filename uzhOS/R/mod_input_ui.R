@@ -73,6 +73,11 @@ inputScholarUI <- function(id) {
       shinyhelper::helper(type="markdown",
                           title = "Google scholar id help",
                           content = 'Google_scholar_help'),
+    # scholar match with crossref
+    shinyWidgets::prettySwitch(inputId = ns("scholar_matching_with_crossref"),
+                               label = "Use Crossref for increased accuracy in matching publications.", 
+                               value = FALSE,
+                               fill = TRUE, status = "primary") 
   )
 }
 

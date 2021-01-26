@@ -228,7 +228,14 @@ shiny_general_server <-  function(con, orcid_access_token){
         if(!("oa_status.scholar" %in% names(tbl_merge_new))){
           tbl_merge_new <- dplyr::rename(tbl_merge_new, oa_status.scholar = oa_status)
         }
-        dplyr::mutate(tbl_merge_new, overall_oa=ifelse(overall_oa != "unknown",overall_oa,ifelse(is.na(oa_status.scholar),"unknown",oa_status.scholar)))
+        dplyr::mutate(tbl_merge_new, 
+                      overall_oa=factor(
+                          ifelse(as.character(overall_oa) != "unknown",
+                                 as.character(overall_oa),
+                                 ifelse(is.na(as.character(oa_status.scholar)),
+                                        "unknown",
+                                        as.character(oa_status.scholar))),
+                          levels = names(open_cols_fn())))
       },  globals = list('%>%'= magrittr::'%>%',
                          df_scholar_matching=df_scholar_matching,
                          df_scholar_iso=isolate(df_scholar()),
@@ -237,8 +244,9 @@ shiny_general_server <-  function(con, orcid_access_token){
                          tbl_merge_iso=isolate(tbl_merge()),
                          merge_scholar_into_tbl_merge=merge_scholar_into_tbl_merge,
                          oadoi_fetch_local=oadoi_fetch_local,
-                         con_quosure=con_quosure
-                         ))  %...>% 
+                         con_quosure=con_quosure,
+                         open_cols_fn=open_cols_fn
+                         ))  %...>%
         tbl_merge()
       d$do_scholar_match <- FALSE
     }

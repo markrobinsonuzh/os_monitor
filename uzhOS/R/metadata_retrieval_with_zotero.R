@@ -70,6 +70,7 @@ get_urls_from_scholar_cid <- function(cid, all=FALSE,
   html_resp <- R.cache::loadCache(list(pg_1))
   if (is.null(html_resp)){
     html_resp <- httr::GET(pg_1, handle = handle)
+    R.cache::saveCache(html_resp, key = list(pg_1))
   }
  
   urls <- NULL
@@ -111,6 +112,7 @@ get_urls_from_scholar_cid <- function(cid, all=FALSE,
       html_resp <- R.cache::loadCache(list(pg_2))
       if (is.null(html_resp)){
         html_resp <- httr::GET(pg_2, handle = handle)
+        R.cache::saveCache(html_resp, key = list(pg_2))
       }
       
       filelist <- html_resp %>%

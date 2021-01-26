@@ -219,15 +219,25 @@ shiny_general_server <-  function(con, orcid_access_token){
     if (d$do_scholar_match && successfully_retrieved(df_scholar())){
       shiny_print_logs("merge scholar", sps)
       future(seed=NULL,{
+        con <- rlang::eval_tidy(con_quosure)
         tmpscholar <- df_scholar_matching(tbl_merge_iso, df_scholar_iso, scholar_matching_with_crossref, scholar_matching_with_zotero)
-        merge_scholar_into_tbl_merge(tbl_merge_iso, tmpscholar)
+        tbl_merge_new <- merge_scholar_into_tbl_merge(tbl_merge_iso, tmpscholar)
+        ind_unknownoa <- which(tbl_merge_new$overall_oa == "unknown")
+        oaf <- oadoi_fetch_local(na.omit(tbl_merge_new$doi[ind_unknownoa]), con)
+        tbl_merge_new <- dplyr::full_join(tbl_merge_new, oaf, by = "doi", suffix=c("", ".unpaywall"))
+        if(!("oa_status.scholar" %in% names(tbl_merge_new))){
+          tbl_merge_new <- dplyr::rename(tbl_merge_new, oa_status.scholar = oa_status)
+        }
+        dplyr::mutate(tbl_merge_new, overall_oa=ifelse(overall_oa != "unknown",overall_oa,ifelse(is.na(oa_status.scholar),"unknown",oa_status.scholar)))
       },  globals = list('%>%'= magrittr::'%>%',
                          df_scholar_matching=df_scholar_matching,
                          df_scholar_iso=isolate(df_scholar()),
                          scholar_matching_with_crossref=d$scholar_matching_with_crossref,
                          scholar_matching_with_zotero=d$scholar_matching_with_zotero,
                          tbl_merge_iso=isolate(tbl_merge()),
-                         merge_scholar_into_tbl_merge=merge_scholar_into_tbl_merge
+                         merge_scholar_into_tbl_merge=merge_scholar_into_tbl_merge,
+                         oadoi_fetch_local=oadoi_fetch_local,
+                         con_quosure=con_quosure
                          ))  %...>% 
         tbl_merge()
       d$do_scholar_match <- FALSE

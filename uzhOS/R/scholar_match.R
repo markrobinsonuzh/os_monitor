@@ -26,7 +26,6 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE, with_
   if(dim(df_scholar)[1]==0 || is.null(tbl_merge) || dim(tbl_merge)[1]==0){
     if(with_zotero){
       df_scholar <- search_doi_in_scholar_using_zotero(df_scholar)
-      print(df_scholar)
     } else{
       df_scholar <- df_scholar %>% dplyr::mutate(doi=NA)
     }

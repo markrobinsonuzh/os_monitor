@@ -226,6 +226,7 @@ shiny_zora_server <-  function(con,
   publonsCheckServer("input_check", df_publons)
   scholarCheckServer("input_check", df_scholar)
   crossrefInputServer("input_check", d)
+  zoteroInputServer("input_check", d)
   observeEvent(d$scholar_matching_with_crossref,{
     shinyFeedback::feedback(
       NS("input_check","scholar_matching_with_crossref"), 
@@ -366,12 +367,13 @@ shiny_zora_server <-  function(con,
     if (d$do_scholar_match && successfully_retrieved(df_scholar())){
       shiny_print_logs("merge scholar", sps)
       future(seed=NULL,{
-        tmpscholar <- df_scholar_matching(tbl_merge_iso, df_scholar_iso, scholar_matching_with_crossref)
+        tmpscholar <- df_scholar_matching(tbl_merge_iso, df_scholar_iso, scholar_matching_with_crossref, scholar_matching_with_zotero)
         merge_scholar_into_tbl_merge(tbl_merge_iso, tmpscholar)
       },  globals = list('%>%'= magrittr::'%>%',
                          df_scholar_matching=df_scholar_matching,
                          df_scholar_iso=isolate(df_scholar()),
                          scholar_matching_with_crossref=d$scholar_matching_with_crossref,
+                         scholar_matching_with_zotero=d$scholar_matching_with_zotero,
                          tbl_merge_iso=isolate(tbl_merge()),
                          merge_scholar_into_tbl_merge=merge_scholar_into_tbl_merge
       ))  %...>% 

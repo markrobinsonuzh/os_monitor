@@ -71,6 +71,12 @@ services:
                 networks:
                         - proxy-tier
                         - db-tier
+        translation-server:
+                image: zotero/translation-server
+                ports: 
+                        - "1969:1969"
+                networks:
+                        -proxy-tier
 
 
 

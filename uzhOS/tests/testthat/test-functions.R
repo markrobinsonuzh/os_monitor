@@ -102,7 +102,7 @@ test_comb <- function(df_orcid,df_zora,df_publons,df_pubmed,title=""){
     expect_true("title" %in% names(tbl_merge))
     expect_true("year" %in% names(tbl_merge))
   })
-  df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_rcrossref=FALSE)
+  df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_zotero = FALSE,with_rcrossref=FALSE)
   test_that(paste("df_scholar_matching correct for tbl_merge:",title),{
     # with full scholar
     expect_equal(dim(df_scholar)[1],dim(df_scholar_matched)[1])
@@ -125,7 +125,7 @@ test_comb <- function(df_orcid,df_zora,df_publons,df_pubmed,title=""){
   
   test_that(paste("df_scholar_matching correct with empty scholar for tbl_merge:",title),{
     # with empty scholar
-    df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar_nores, with_rcrossref=FALSE)
+    df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar_nores, with_zotero = FALSE, with_rcrossref=FALSE)
     expect_equal(dim(df_scholar_nores)[1],dim(df_scholar_matched)[1])
     expect_equal(dim(df_scholar_nores)[2],dim(df_scholar_matched)[2]-1)
     expect_true(all(names(df_scholar_nores) %in% names(df_scholar_matched)))

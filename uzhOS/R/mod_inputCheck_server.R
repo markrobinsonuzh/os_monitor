@@ -153,6 +153,25 @@ crossrefInputServer <- function(id, d) {
   )
 }
 
+#' zotero input to d module
+#'
+#' @param id for namespace
+#' @param d \code{\link[shiny]{reactiveValues}}
+#'
+#' @export
+#' @import shiny
+#' 
+zoteroInputServer <- function(id, d) {
+  moduleServer(
+    id,
+    function(input, output, session) {
+      observeEvent(input$scholar_matching_with_zotero,{
+        d$scholar_matching_with_zotero <- input$scholar_matching_with_zotero
+        print(d$scholar_matching_with_zotero)
+      })
+    }
+  )
+}
 
 #' check publons input module
 #'

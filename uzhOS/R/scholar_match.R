@@ -3,6 +3,8 @@
 #' @param tbl_merge tibble with combined data from \code{\link{create_combined_data}}
 #' @param df_scholar tibble from \code{\link{retrieve_from_scholar}}
 #' @param with_rcrossref logical, get metadata from crossref
+#' @param with_zotero get doi from url using zotero translater (\code{\link{doi_from_cid}})
+#' @param ... additional parameters used in \code{\link{doi_from_cid}}
 #' 
 #' @return df_scholar with additional column 'doi'
 #' @export
@@ -20,9 +22,15 @@
 #' 
 #' df_scholar <- df_scholar_matching(tbl_merge, df_scholar)
 #' 
-df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
+df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE, with_zotero=TRUE, ...){
   if(dim(df_scholar)[1]==0 || is.null(tbl_merge) || dim(tbl_merge)[1]==0){
-    return(df_scholar %>% dplyr::mutate(doi=NA))
+    if(with_zotero){
+      df_scholar <- search_doi_in_scholar_using_zotero(df_scholar)
+      print(df_scholar)
+    } else{
+      df_scholar <- df_scholar %>% dplyr::mutate(doi=NA)
+    }
+    return(df_scholar)
   }
   df_scholar <-  df_scholar %>% dplyr::mutate(doi = as.character(NA))
   if ("title.orcid" %in% names(tbl_merge)){
@@ -61,7 +69,7 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
   if ("title.orcid" %in% names(tbl_merge)){
     doi_is_na <- which(is.na(df_scholar$doi))
     ld <- adist(toupper(df_scholar$title[doi_is_na]),toupper(tbl_merge$title.orcid))
-    ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/str_length(df_scholar$title[doi_is_na[i]]))
+    ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/stringr::str_length(df_scholar$title[doi_is_na[i]]))
     m3 <- unlist(apply(ld_rel, 2, function(x) {
       tmpind <- which(x==min(na.omit(x)) & x < 0.1)
       ifelse(length(tmpind)==0,NA,tmpind)}))
@@ -115,58 +123,11 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE){
     df_scholar$doi[doi_is_na[keep]] <- tbl_merge$doi[which_top_score[keep]]
   }
   
-  # 
-  # if ("title.orcid" %in% names(tbl_merge)){
-  #   ld <- adist(toupper(df_scholar$journal[doi_is_na]),toupper(tbl_merge$journal.orcid))
-  #   ld_rel <- t(sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/str_length(df_scholar$journal[doi_is_na][i])))
-  #   # m5 <- rep(Inf,length(df_scholar$journal[doi_is_na]))
-  #   m5 <- lapply(seq_len(dim(ld_rel)[1]), function(i) {
-  #     tmpind <- which(ld_rel[i,] < 0.05)
-  #     if(length(tmpind)==0) {NA
-  #     }else {tmpind}})
-  #   
-  #   # year
-  #   m7 <- lapply(seq_along(df_scholar$year[doi_is_na]),
-  #                function(i) which(as.integer(df_scholar$year[doi_is_na][i]) == as.integer(tbl_merge$year)))
-  #   
-  #   # authors
-  #   uncomplete_authors <- str_detect(df_scholar$author[doi_is_na],"\\.{3}")
-  #   df_scholar$author[doi_is_na][uncomplete_authors] <-  sapply(df_scholar$pubid[doi_is_na][uncomplete_authors], function(pubid) get_complete_authors(scholar_id,pubid))
-  #   
-  #   s_auth <- df_scholar$author[doi_is_na] %>% 
-  #     str_to_upper() %>% 
-  #     str_replace_all(" ?, ?",",") %>% 
-  #     str_split(",")
-  #   
-  #   m_auth <- tbl_merge$authors %>% 
-  #     str_to_upper() %>% 
-  #     str_replace_all(" ?, ?",",") %>% 
-  #     str_split(",")
-  #   
-  #   tmp <- lapply(seq_along(m_auth), function(i) m_auth[[i]] %>% stringi::stri_extract_all_words())
-  #   m_auth_family <- lapply(seq_along(m_auth), function(i) unlist(lapply(seq_along(m_auth[[i]]), function(j) tmp[[i]][[j]][which.max(str_length(tmp[[i]][[j]]))])))
-  #   
-  #   tmp <- lapply(seq_along(s_auth), function(i) s_auth[[i]] %>% stringi::stri_extract_all_words())
-  #   s_auth_family <- lapply(seq_along(s_auth), function(i) unlist(lapply(seq_along(s_auth[[i]]), function(j) tmp[[i]][[j]][which.max(str_length(tmp[[i]][[j]]))])))
-  #   
-  #   
-  #   m8 <- lapply(seq_along(s_auth_family),function(j){
-  #     which(sapply(seq_along(s_auth_family), function(i) {
-  #       tryCatch({
-  #         tmpld <- adist(s_auth_family[[j]],m_auth_family[[i]])
-  #         all(apply(tmpld< 3,1,function(x)sum(x)>0)) &
-  #           dim(tmpld)[1]==dim(tmpld)[2]
-  #       },error=function(e) FALSE)
-  #     }))
-  #   })
-  # 
-  #   mmm <- lapply(seq_along(doi_is_na), function(i) intersect(intersect(m5[[i]],m7[[i]]),m8[[i]]))
-  #   mmm_b <- sapply(mmm, function(x) length(x)>0)
-  #   which(mmm_b)
-  #   mmm[mmm_b]
-  #   df_scholar$doi[doi_is_na[mmm_b]] <- tbl_merge$doi[unlist(mmm[mmm_b])]
-  # }
-  # 
+  # try to find DOI's using Zotero
+  if (with_zotero){
+    df_scholar <- search_doi_in_scholar_using_zotero(df_scholar)
+  }
+
   if (with_rcrossref){
     doi_is_na <- which(is.na(df_scholar$doi))
     # get info from rcrossref

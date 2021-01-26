@@ -224,7 +224,7 @@ shiny_general_server <-  function(con, orcid_access_token){
         tbl_merge_new <- merge_scholar_into_tbl_merge(tbl_merge_iso, tmpscholar)
         ind_unknownoa <- which(tbl_merge_new$overall_oa == "unknown")
         oaf <- oadoi_fetch_local(na.omit(tbl_merge_new$doi[ind_unknownoa]), con)
-        tbl_merge_new <- dplyr::full_join(tbl_merge_new, oaf, by = "doi", suffix=c("", ".unpaywall"))
+        tbl_merge_new <- dplyr::full_join(tbl_merge_new, oaf, by = "doi", suffix=c("", ".scholar"))
         if(!("oa_status.scholar" %in% names(tbl_merge_new))){
           tbl_merge_new <- dplyr::rename(tbl_merge_new, oa_status.scholar = oa_status)
         }

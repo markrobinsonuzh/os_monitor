@@ -75,8 +75,14 @@ services:
                 image: zotero/translation-server
                 ports: 
                         - "1969:1969"
+                expose:
+                        - "80"
+                        - "443"
+                environment:
+                        - LETSENCRYPT_HOST=translation_server_osmonitor.servebeer.com
+                        - LETSENCRYPT_EMAIL=retogerber93@gmail.com
                 networks:
-                        -proxy-tier
+                        - proxy-tier
 
 
 

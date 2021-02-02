@@ -107,9 +107,9 @@ create_combined_data <- function(df_orcid, df_pubmed, df_zora, df_publons, con, 
   m$overall_oa <- factor(m$overall_oa, levels = names(open_cols_fn()))
   
   # preprints from orcid
-  if (!is.null(df_orcid)){
-    m$overall_oa[m$type.orcid=="other"] <- "preprint"
-  }
+ # if (!is.null(df_orcid)){
+ #   m$overall_oa[m$type.orcid=="other"] <- "preprint"
+ # }
   
   # other oa status from zora
   w <- is.na(m$overall_oa)

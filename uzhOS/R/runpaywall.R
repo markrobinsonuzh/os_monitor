@@ -29,17 +29,17 @@ oadoi_fetch_local <- function(dois, con, unpaywalltablename = "unpaywall"){
   dois <- tolower(dois)
   oaf <- tbl(con, unpaywalltablename) %>% 
     dplyr::filter(doi %in% dois) %>% 
-    dplyr::collect() %>% 
-    dplyr::mutate(oa_status = factor(stringr::str_trim(oa_status),levels = names(open_cols_fn())))
+    dplyr::collect() %>%
+    dplyr::mutate(oa_status = stringr::str_trim(oa_status)) 
   if ("version" %in% colnames(oaf)) {
     oaf <- oaf %>%
-      dplyr::mutate(oa_status = dplyr::if_else(oa_status == "green" &&
-                                                 !is.na(version) &&
-                                                 version == "submittedVersion",
-                                               "preprint",
-                                               oa_status)) %>%
+	    dplyr::mutate(version = stringr::str_trim(version))
+    oaf$oa_status[oaf$oa_status == "green" & !is.na(oaf$version) & oaf$version == "submittedVersion"] <- "preprint"
+    oaf <- oaf %>%
       dplyr::select(-version)
   }
+  oaf <- oaf %>% 
+    dplyr::mutate(oa_status = factor(stringr::str_trim(oa_status),levels = names(open_cols_fn())))
   if(length(oaf)==0){
     return(tibble::tibble(doi=character(),oa_status=factor(levels = names(open_cols_fn()))))
   } else {

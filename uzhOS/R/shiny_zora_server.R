@@ -440,7 +440,8 @@ shiny_zora_server <-  function(con,
     min_year_tbl_merge <- as.integer(min(na.omit(tbl_merge()$year)))
     max_year_tbl_merge <- as.integer(max(na.omit(tbl_merge()$year)))
     updateSliderInput(session,"range_year", min = min_year_tbl_merge, max = max_year_tbl_merge,
-                      value = c(min_year_tbl_merge,max_year_tbl_merge))
+                      value = c(min_year_tbl_merge,max_year_tbl_merge),
+                      step = 1)
   })
   
   # modules for updating selection UI
@@ -454,12 +455,14 @@ shiny_zora_server <-  function(con,
       dplyr::mutate(year=as.integer(year)) %>% 
       dplyr::filter(overall_oa %in% input$oa_status_filtered_table,
                     year >= input$range_year[1] | is.na(year),
-                    year <= input$range_year[2] | is.na(year))
+                    year <= input$range_year[2] | is.na(year)) %>% 
+      dplyr::arrange(desc(year))
     d$m_upsetplot <-  d$m %>% 
       dplyr::mutate(year=as.integer(year)) %>% 
       dplyr::filter(overall_oa %in% input$oa_status_filtered_table,
                     (year >= input$range_year[1]) | is.na(year),
-                    year <= input$range_year[2] | is.na(year))
+                    year <= input$range_year[2] | is.na(year)) %>% 
+      dplyr::arrange(desc(year))
     d$m_sub <- m_filt
     d$m_sub_sel <- m_filt
   })

@@ -181,8 +181,6 @@ overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
                                                  cid, "' target='_blank'>", cid, "</a>"))) %>% 
       dplyr::select(doi,oa_status.unpaywall, title, year, cid, dplyr::starts_with("title."))
   }
-  z <- z %>%
-    dplyr::arrange(desc(year))
   colns <- stringr::str_replace_all(colnames(z),"\\."," ")
   DT::datatable(z, 
                 extensions = c('ColReorder','Buttons', 'Responsive'),

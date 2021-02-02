@@ -66,7 +66,7 @@ do
 
 	echo "    $(date) jq for processing"
         # process json format into two column (doi and oa status) csv file (not comma separated but single whitespace separated, important for insertion into db)	
-	jq -r '{doi: .doi | ascii_downcase, oa_status: .oa_status} | .doi , .oa_status' /home/data_feed.json | awk '{if(NR%2!=0) printf("%-10s ",$0); else printf("%-10s",$0); if(NR%2==0) printf("\n");}' | awk '{$1=$1;print}' > /home/data_feed.csv
+	jq -r '{doi: .doi | ascii_downcase, oa_status: .oa_status, version: .best_oa_location.version} | .doi , .oa_status, .version' /home/data_feed.json | awk '{if(NR%3!=0) printf("%-10s ",$0); else printf("%-10s",$0); if(NR%3==0) printf("\n");}' | awk '{$1=$1;print}' > /home/data_feed.csv
         status3=$?
         if [ $status3 -eq 0 ];
         then

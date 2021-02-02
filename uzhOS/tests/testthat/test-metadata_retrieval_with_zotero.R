@@ -1,3 +1,4 @@
+skip_on_ci()
 url_pass <- "https://www.nature.com/articles/nprot.2013.099.pdf?origin=ppub"
 url_error <- "ölkj"
 url_no_doi <- "google.com"

@@ -64,18 +64,32 @@ df_lists <- lapply(fs, function(u) {
   tbl_subjects <- data.frame(eprintid=rep(eprintid, n_subjects),
                              subjects = unlist(subjects),
                              stringsAsFactors = FALSE)
-
   
-  tbl_eprints <- data.frame(eprintid=eprintid,
+    tbl_eprints <- data.frame(eprintid=eprintid,
              date=sapply(this, function(u) substr(first_na(u$date),1,4)),
              doi=sapply(this, function(u) first_na(u$doi)),
              title=sapply(this, function(u) first_na(u$title)),
              type=sapply(this, function(u) first_na(u$type)),
+             isbn=sapply(this, function(u) first_na(u$isbn)),
+             issn=sapply(this, function(u) first_na(u$issn)),
+             doaj=sapply(this, function(u) first_na(u$doaj)),
              refereed=sapply(this, function(u) first_na(u$refereed_set)),
              institution=sapply(this, function(u) first_na(u$institution)),
              oa_status=sapply(this, function(u) first_na(u$oa_status)),
              published_doc = published_doc,
              stringsAsFactors = FALSE)
+
+  # 
+  # tbl_eprints <- data.frame(eprintid=eprintid,
+  #            date=sapply(this, function(u) substr(first_na(u$date),1,4)),
+  #            doi=sapply(this, function(u) first_na(u$doi)),
+  #            title=sapply(this, function(u) first_na(u$title)),
+  #            type=sapply(this, function(u) first_na(u$type)),
+  #            refereed=sapply(this, function(u) first_na(u$refereed_set)),
+  #            institution=sapply(this, function(u) first_na(u$institution)),
+  #            oa_status=sapply(this, function(u) first_na(u$oa_status)),
+  #            published_doc = published_doc,
+  #            stringsAsFactors = FALSE)
   
   list_lookup <- lapply(this, function(uu) 
     sapply(seq_along(uu$contributor_lookup), function(i) {

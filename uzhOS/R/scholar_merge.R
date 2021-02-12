@@ -32,7 +32,7 @@
 #' Search for close matches between scholar and rest
 #'
 #' @param tbl_merge_new tbl_merge merged with df_scholar
-#'
+#' 
 #' @return tbl_merge_new with some changed entries
 #' @importFrom magrittr %>% 
 #' @export
@@ -55,12 +55,7 @@
 #'   
 #'   connect_multiple_publications_with_scholar(tbl_merge_new)
 connect_multiple_publications_with_scholar <- function(tbl_merge_new){
-  # ld <- adist(toupper(tbl_merge_new$title),toupper(tbl_merge_new$title))
-  # ld_y <-  as.matrix(dist(tbl_merge_new$year, diag=TRUE, upper = TRUE, method = "manhattan"))
-  # ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/stringr::str_length(tbl_merge_new$title[i]))
-  # m3 <- lapply(seq_len(dim(ld_rel)[1]), function(x) {
-  #   which(ld_rel[x,] < 0.1 & ld_y[x, ]<=2)
-  #   })
+  col_ind <- stringr::str_detect(names(tbl_merge_new),"scholar") | names(tbl_merge_new) == "cid"
   
   # assume scholar lists titles beginning with 'Correction:' with the original publication.
   replaced_titles <- toupper(stringr::str_replace(tbl_merge_new$title,"Correction:",""))
@@ -82,8 +77,8 @@ connect_multiple_publications_with_scholar <- function(tbl_merge_new){
           unlist() %>% 
           which()
         if(length(tmpmatch[which_is_scholar]) != 0){
-          tbl_merge_update[i, stringr::str_detect(names(tbl_merge_new),"scholar")] <- 
-            tbl_merge_new[tmpmatch[which_is_scholar], stringr::str_detect(names(tbl_merge_new),"scholar")]
+          tbl_merge_update[i, col_ind] <- 
+            tbl_merge_new[tmpmatch[which_is_scholar], col_ind]
         }
         
       }

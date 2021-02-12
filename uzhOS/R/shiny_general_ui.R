@@ -93,6 +93,9 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                                                      tooltip = shinyWidgets::tooltipOptions(title = "Help"),
                                                      icon=icon("question"),
                                                      div(style="width:500px",
+                                                       h5("Remove duplicates"),
+                                                       p("Remove preprints with existing peer reviewed publication.
+                                                         Matching of publications is done based on a fuzzy matching of the titles."),
                                                        h5("Dataset selection"),
                                                        p("A logical filter for the datasets can be specfied.
                                                          For example: 'Not in orcid And in scholar' means to only show
@@ -106,6 +109,9 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                                           ),
                                           fluidRow(
                                             column(width = 8,
+                                                   shinyWidgets::prettySwitch(inputId = "remove_duplicate_preprints",
+                                                                                       label = "Remove duplicates", 
+                                                                                       fill = TRUE, status = "primary",value = FALSE),
                                                    h5("Dataset selection"),
                                                    datasetSelectionsUpdateUI("selection_standard")
                                             ),
@@ -120,7 +126,8 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                                                                   multiple = TRUE, 
                                                                   options = list(maxOptions = 10,
                                                                                  placeholder="select oa status",
-                                                                                 maxItems=10)))
+                                                                                 maxItems=10))
+                                                   )
                                           )
                                    ))
                              )) %>% shinyjs::hidden(),

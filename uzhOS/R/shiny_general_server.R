@@ -319,6 +319,16 @@ shiny_general_server <-  function(con, orcid_access_token){
     d$m_sub_sel <- m_filt
   })
   
+  observeEvent(input$remove_duplicate_preprints,{
+    req(d$m_sub_all_oa)
+    if(input$remove_duplicate_preprints){
+      d$m_sub_all_oa_allpreprints <- d$m_sub_all_oa
+      d$m_sub_all_oa <- remove_duplicate_preprints(d$m_sub_all_oa)
+    } else {
+      d$m_sub_all_oa <- d$m_sub_all_oa_allpreprints
+    }
+  })
+  
   # update summary when subset changes
   oaSummaryServer("oa_summary", d)
   

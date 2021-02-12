@@ -353,7 +353,8 @@ DeactivateShowReportServer <- function(id, d, df_ls, tbl_merge) {
           d$m <- d$m_sub <- d$m_sub_sel <- d$m_sub_sel_closed <-
             d$m_sub_sel_closed_pdflink <- d$m_sub_all_oa <- d$datainmerge <-
             d$dataininput <- d$do_scholar_match <- d$all_selection_choices <-
-            d$m_upsetplot <- d$in_selection <- d$plot_selected_ly_clicked <- NULL
+            d$m_upsetplot <- d$in_selection <- d$plot_selected_ly_clicked <- 
+            d$m_sub_all_oa_allpreprints <- NULL
           for(tmpdf in df_ls){
             tmpdf() %>% 
               dplyr::slice(0) %>% 

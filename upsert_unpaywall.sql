@@ -6,7 +6,7 @@ CREATE TEMPORARY TABLE unpaywall_copy as (SELECT * FROM oa.unpaywall LIMIT 0);
 COPY unpaywall_copy_2 FROM '/home/data_feed.csv'
 DELIMITER ' ';
 /* Remove dublicates */
-INSERT INTO unpaywall_copy(doi, oa_status, version)
+INSERT INTO unpaywall_copy(doi, oa_status, version, firstversion)
 SELECT 
     DISTINCT ON (doi) doi,
     oa_status
@@ -16,13 +16,14 @@ DROP TABLE unpaywall_copy_2;
 /*Set memory limit*/
 SET work_mem = '256MB';
 /*Upsert into unpaywall table*/
-INSERT INTO oa.unpaywall (doi, oa_status, version)
-SELECT doi,oa_status,version 
+INSERT INTO oa.unpaywall (doi, oa_status, version, firstversion)
+SELECT doi,oa_status,version,firstversion
 FROM unpaywall_copy
 ON CONFLICT (doi)
 DO
    UPDATE SET oa_status = EXCLUDED.oa_status, 
-	      version = EXCLUDED.version;
+	      version = EXCLUDED.version,
+	      firstversion = EXCLUDED.firstversion;
 /*Remove temporary table*/
 DROP TABLE unpaywall_copy;
 /*Reset memory limit*/

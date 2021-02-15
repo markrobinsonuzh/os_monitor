@@ -58,7 +58,7 @@ services:
                         - VIRTUAL_PORT=3838
                         - LETSENCRYPT_HOST=osmonitor.servebeer.com
                         - LETSENCRYPT_EMAIL=retogerber93@gmail.com
-                        - APPLICATION_LOGS_TO_STDOUT=true
+                          #- APPLICATION_LOGS_TO_STDOUT=true
                 volumes:
                         - type: volume
                           source: shiny_logs

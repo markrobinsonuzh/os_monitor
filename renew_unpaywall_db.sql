@@ -5,7 +5,7 @@ ALTER TABLE oa.unpaywall DROP CONSTRAINT unpaywall_pkey;
 CREATE TEMPORARY TABLE unpaywall_copy_2 as (SELECT * FROM oa.unpaywall LIMIT 0);
 CREATE TEMPORARY TABLE unpaywall_copy as (SELECT * FROM oa.unpaywall LIMIT 0);
 
-COPY unpaywall_copy_2 FROM '/home/loca/snapshot_unpaywall_261120.csv'
+COPY unpaywall_copy_2 FROM '/home/snapshot_unpaywall_261120.csv'
 DELIMITER ' ';
 /* Remove dublicates */
 INSERT INTO unpaywall_copy(doi, oa_status)

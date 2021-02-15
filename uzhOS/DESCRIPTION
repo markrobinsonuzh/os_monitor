@@ -50,6 +50,7 @@ Imports:
   shinytest,
   shinyTree,
   shinyWidgets,
+  stringdist,
   stringr,
   testthat,
   tibble,

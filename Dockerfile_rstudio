@@ -69,7 +69,13 @@ RUN install2.r \
 	testthat \
 	UpSetR
 RUN R -e "devtools::install_github('krassowski/complex-upset')"
+RUN R -e "devtools::install_github('ropensci/RefManageR')"
 RUN R -e "devtools::install_github('RinteRface/shinydashboardPlus')"
+RUN R -e "devtools::install_github('jkeirstead/scholar')"
+
+
+RUN install2.r stringdist microbenchmark
+
 
 RUN mkdir /home/shinycannon && \
 	cd /home/shinycannon && \

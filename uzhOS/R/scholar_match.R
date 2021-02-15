@@ -67,7 +67,7 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE, with_
 
   if ("title.orcid" %in% names(tbl_merge)){
     doi_is_na <- which(is.na(df_scholar$doi))
-    ld <- adist(toupper(df_scholar$title[doi_is_na]),toupper(tbl_merge$title.orcid))
+    ld <- stringdist::stringdistmatrix(toupper(df_scholar$title[doi_is_na]),toupper(tbl_merge$title.orcid), method = "lv")
     ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/stringr::str_length(df_scholar$title[doi_is_na[i]]))
     m3 <- unlist(apply(ld_rel, 2, function(x) {
       tmpind <- which(x==min(na.omit(x)) & x < 0.1)
@@ -79,7 +79,7 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE, with_
   
   if ("title.pubmed" %in% names(tbl_merge)){
     doi_is_na <- which(is.na(df_scholar$doi))
-    ld <- adist(toupper(df_scholar$title[doi_is_na]),toupper(tbl_merge$title.pubmed))
+    ld <- stringdist::stringdistmatrix(toupper(df_scholar$title[doi_is_na]),toupper(tbl_merge$title.pubmed), method = "lv")
     ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/str_length(df_scholar$title[doi_is_na[i]]))
     m4 <- unlist(apply(ld_rel, 2, function(x) {
       tmpind <- which(x==min(na.omit(x)) & x < 0.1)

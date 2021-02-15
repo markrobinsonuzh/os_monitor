@@ -31,12 +31,17 @@ oadoi_fetch_local <- function(dois, con, unpaywalltablename = "unpaywall"){
     dplyr::filter(doi %in% dois) %>% 
     dplyr::collect() %>%
     dplyr::mutate(oa_status = stringr::str_trim(oa_status)) 
-  if ("version" %in% colnames(oaf)) {
+  if ("version" %in% colnames(oaf) & "firstversion" %in% colnames(oaf)) {
     oaf <- oaf %>%
-	    dplyr::mutate(version = stringr::str_trim(version))
-    oaf$oa_status[oaf$oa_status == "green" & !is.na(oaf$version) & oaf$version == "submittedVersion"] <- "preprint"
+	    dplyr::mutate(version = stringr::str_trim(version),
+	                  firstversion = stringr::str_trim(firstversion))
+    oaf$oa_status[oaf$oa_status == "green" & 
+                    !is.na(oaf$version) & oaf$version == "submittedVersion"] <- "preprint"
+    oaf$oa_status[oaf$oa_status == "green" & 
+                    !is.na(oaf$version) & oaf$version == "publishedVersion" & 
+                    !is.na(oaf$firstversion) & oaf$firstversion == "submittedVersion"] <- "preprint"
     oaf <- oaf %>%
-      dplyr::select(-version)
+      dplyr::select(-version,-firstversion)
   }
   oaf <- oaf %>% 
     dplyr::mutate(oa_status = factor(stringr::str_trim(oa_status),levels = names(open_cols_fn())))

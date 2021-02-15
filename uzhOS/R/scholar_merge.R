@@ -59,7 +59,7 @@ connect_multiple_publications_with_scholar <- function(tbl_merge_new){
   
   # assume scholar lists titles beginning with 'Correction:' with the original publication.
   replaced_titles <- toupper(stringr::str_replace(tbl_merge_new$title,"Correction:",""))
-  ld <- adist(replaced_titles,replaced_titles)
+  ld <- stringdist::stringdistmatrix(replaced_titles,replaced_titles, method = "lv")
   ld_y <-  as.matrix(dist(tbl_merge_new$year, diag=TRUE, upper = TRUE, method = "manhattan"))
   ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/stringr::str_length(tbl_merge_new$title[i]))
   m3 <- lapply(seq_len(dim(ld_rel)[1]), function(x) {

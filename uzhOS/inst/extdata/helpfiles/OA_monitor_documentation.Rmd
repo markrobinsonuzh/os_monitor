@@ -85,11 +85,16 @@ profile to update the publications in that source.
 
 
 
-#### Where does the open access status come from?
+### Methods
+
+#### Open access status
 
 The open access status is retrieved from [Unpaywall](https://unpaywall.org/) and 
 relies on the DOI of a publication. Since Google scholar does not use DOI's it is possible that
 the open access status for certain publications is unknown.
+Preprints are defined as having `oa == "green"` and `best_oa_location.version == "submittedVersion"` or 
+`oa == "green"` and `best_oa_location.version == "publishedVersion"` and `first_oa_location.version == "submittedVersion"` 
+(i.e. peer reviewed publication linked in unpaywall).
 
 
 ## About

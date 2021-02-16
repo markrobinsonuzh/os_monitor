@@ -36,7 +36,7 @@ retrieve_from_orcid <- function(orcid, orcid_access_token="8268867c-bf2c-4841-ab
   if (is.na(works)){
     return(empty_orcid())
   }
-  works <- works[[1]]$works
+  works <- tibble::as_tibble(works[[1]]$works)
   if(nrow(works)==0) {
     return(empty_orcid())
   }
@@ -44,6 +44,7 @@ retrieve_from_orcid <- function(orcid, orcid_access_token="8268867c-bf2c-4841-ab
                       function(u) ifelse(nrow(u)>0, u$`external-id-value`[u$`external-id-type`=="doi"], NA))
   works$doi <- tolower(works$doi)
   works$doi <- gsub("http://dx.doi.org/", "", works$doi)
+  works$doi <- gsub("doi: ", "", works$doi)
   works <- works %>% dplyr::filter(!(type %in% exclude)) %>%
     dplyr::mutate(title = title.title.value, 
                   journal = `journal-title.value`,
@@ -51,6 +52,7 @@ retrieve_from_orcid <- function(orcid, orcid_access_token="8268867c-bf2c-4841-ab
     dplyr::select(title, journal, type, doi, year)
   works$title <- sub("\\.$","",works$title)
   works <- unique(works)
+  works$doi[works$doi == "logical(0)"] <- NA
   works_split <- split(works, works$doi)
   n <- sapply(works_split, nrow)
   z <- lapply(works_split[n>=2], function(u) {

@@ -42,10 +42,10 @@ remove_duplicate_preprints <- function(tbl_merge){
           maxchrs <- suppressWarnings(purrr::map(seq_len(sum(string_diff_ind)), 
                                                  function(y) which.max(purrr::map_chr(splitstring, ~ .x[string_diff_ind][y]))))
           maxchr <- maxchrs[purrr::map_lgl(maxchrs, ~length(.x) == 1)] %>% unlist()
-	  maxchr <- as.integer(maxchr)
-	  if (is.integer(maxchr) & length(maxchr) > 0){
-              x_filt <- x_filt %>% dplyr::slice(maxchr)
-	  }
+	        maxchr <- as.integer(maxchr)
+      	  if (is.integer(maxchr) & length(maxchr) > 0){
+                    x_filt <- x_filt %>% dplyr::slice(maxchr)
+      	  }
         }
         x_filt
       })) %>% 
@@ -80,16 +80,17 @@ remove_duplicate_preprints <- function(tbl_merge){
         maxchrs <- suppressWarnings(purrr::map(seq_len(sum(string_diff_ind)), 
                                                function(y) which.max(purrr::map_chr(splitstring, ~ .x[string_diff_ind][y]))))
         maxchr <- maxchrs[purrr::map_lgl(maxchrs, ~length(.x) == 1)] %>% unlist()
-	maxchr <- as.integer(maxchr)
-	if (is.integer(maxchr) & length(maxchr) > 0){
-            x_filt <- x_filt %>% dplyr::slice(maxchr)
-	}
+      	maxchr <- as.integer(maxchr)
+      	if (is.integer(maxchr) & length(maxchr) > 0){
+                  x_filt <- x_filt %>% dplyr::slice(maxchr)
+      	}
       }
       x_filt
     })) %>% 
     tidyr::unnest(dataset) %>% 
     dplyr::select(-title_group)
-  tbl_merge <- rbind(tbl_merge_title_filtered, tbl_merge[!not_na,])
+  tbl_merge <- rbind(tbl_merge_title_filtered, tbl_merge[!not_na,]) %>% 
+    unique()
   tbl_merge
 }
 

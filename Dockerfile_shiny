@@ -79,7 +79,11 @@ RUN R -e "devtools::install_github('ropensci/RefManageR')"
 RUN R -e "devtools::install_github('RinteRface/shinydashboardPlus')"
 RUN R -e "devtools::install_github('jkeirstead/scholar')"
 
-RUN install2.r stringdist
+RUN mkdir /home/stringdist \
+        && cd /home/stringdist \ 
+        && git clone https://github.com/markvanderloo/stringdist.git /home/stringdist \
+        && mv pkg stringdist \
+        && R -e "devtools::install('stringdist')"
 
 RUN echo ""
 RUN rm -rf /srv/shiny-server/*

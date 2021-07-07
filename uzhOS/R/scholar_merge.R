@@ -77,8 +77,19 @@ connect_multiple_publications_with_scholar <- function(tbl_merge_new){
           unlist() %>% 
           which()
         if(length(tmpmatch[which_is_scholar]) != 0){
-          tbl_merge_update[i, col_ind] <- 
-            tbl_merge_new[tmpmatch[which_is_scholar], col_ind]
+          tmp_replace <- tbl_merge_new[tmpmatch[which_is_scholar], col_ind]
+          if(dim(tmp_replace)[1] > 1){
+            nrnotna <- rowSums(!is.na(tmp_replace))
+            ismaxnotna <- nrnotna == max(nrnotna)
+            if(sum(ismaxnotna) > 1){
+              tmpismaxnotna <- rep(FALSE, length(ismaxnotna))
+              tmpismaxnotna[which(ismaxnotna)[1]] <- TRUE
+              ismaxnotna <- tmpismaxnotna
+            }
+            tmp_replace <- tmp_replace[ismaxnotna,]
+          } 
+          tbl_merge_update[i, col_ind] <- tmp_replace
+            
         }
         
       }

@@ -1,4 +1,4 @@
-FROM rocker/rstudio
+FROM rocker/rstudio:4.1.0
 
 # system libraries of general use
 RUN apt-get update && apt-get install -y \
@@ -47,6 +47,7 @@ RUN install2.r \
 	here \
 	htmlTable\
 	iCiteR \
+	jsonlite \
 	shiny \
 	shinydashboard \
 	shinyFeedback \
@@ -55,6 +56,8 @@ RUN install2.r \
 	shinytest\
 	shinyTree \
 	shinyWidgets \
+	stringdist \
+	microbenchmark \
 	odbc \
 	plotly \
 	rcrossref \
@@ -72,16 +75,14 @@ RUN R -e "devtools::install_github('krassowski/complex-upset')"
 RUN R -e "devtools::install_github('ropensci/RefManageR')"
 RUN R -e "devtools::install_github('RinteRface/shinydashboardPlus')"
 RUN R -e "devtools::install_github('jkeirstead/scholar')"
+RUN R -e "devtools::install_github('ROpenSci/bibtex')"
 
 
-RUN install2.r stringdist microbenchmark
-
-
-RUN mkdir /home/shinycannon && \
-	cd /home/shinycannon && \
-	curl -L https://s3.amazonaws.com/rstudio-shinycannon-build/2019-11-22-20:24:21_1.0.0-9b22a92/deb/shinycannon_1.0.0-9b22a92_amd64.deb > /home/shinycannon/shinycannon_1.0.0-9b22a92_amd64.deb && \
-	dpkg -i /home/shinycannon/shinycannon_1.0.0-9b22a92_amd64.deb
-RUN R -e "devtools::install_github('rstudio/shinyloadtest')"
+#RUN mkdir /home/shinycannon && \
+#	cd /home/shinycannon && \
+#	curl -L https://s3.amazonaws.com/rstudio-shinycannon-build/2019-11-22-20:24:21_1.0.0-9b22a92/deb/shinycannon_1.0.0-9b22a92_amd64.deb > /home/shinycannon/shinycannon_1.0.0-9b22a92_amd64.deb && \
+#	dpkg -i /home/shinycannon/shinycannon_1.0.0-9b22a92_amd64.deb
+#RUN R -e "devtools::install_github('rstudio/shinyloadtest')"
 
 COPY odbc.ini /etc
 EXPOSE 8787	

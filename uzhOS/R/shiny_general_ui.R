@@ -18,13 +18,10 @@
 #'  shiny::shinyApp(ui=shiny_general_ui,server = function(input, output) { })
 shiny_general_ui <- function(request, docfile = file.path(system.file("extdata","helpfiles",package = "uzhOS"),"OA_monitor_documentation.md")) {
   dashboardPage(
-    preloader = list(
-      waiter = list(html = tagList(waiter::spin_1(), "Loading ..."), color = "#3c8dbc"),
-      duration = 1
-    ),
-    title =  "Open access monitor",
+    preloader = list(html = waiter::spin_1(), color = "#333e48"),
+    title =  "Publication assistant",
     dashboardHeader(
-      leftUi = tagList(h4("Open access monitor")),
+      leftUi = tagList(h4("Publication assistant")),
       dropdownMenu(type="tasks",
                    icon=icon("info fa-1g"),
                    badgeStatus=NULL,

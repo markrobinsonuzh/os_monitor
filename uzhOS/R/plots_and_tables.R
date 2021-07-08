@@ -24,7 +24,8 @@
 #' 
 oa_status_time_plot <- function(tbl_merge, cutoff_year=2000, colname=year, 
                                 title="OA Status",
-                                oa_status_used=oa_status, use_plotly=FALSE){
+                                oa_status_used=oa_status, use_plotly=FALSE,
+                                cutoff_year_upper=2021){
   q_colname <- enquo(colname)
   q_oa_status_used <- enquo(oa_status_used)
   tmp <- tbl_merge %>% dplyr::pull(!!q_oa_status_used) 
@@ -33,7 +34,7 @@ oa_status_time_plot <- function(tbl_merge, cutoff_year=2000, colname=year,
   tbl_merge <- tbl_merge %>% dplyr::mutate(!!q_oa_status_used := tmp)
   
   tmptib_1 <- tbl_merge %>% 
-    dplyr::filter(!!q_colname >= cutoff_year, !!q_colname <= 2020)%>% 
+    dplyr::filter(!!q_colname >= cutoff_year, !!q_colname <= cutoff_year_upper)%>% 
     group_by(!!q_colname,!!q_oa_status_used) %>% 
     summarise(Count=dplyr::n()) %>%
     ungroup() %>% 
@@ -233,7 +234,7 @@ upset_plot <- function(tbl_merge){
                             aes=aes(x=intersection, fill=overall_oa),
                             geom=list(
                               geom_bar(stat='count', position='fill'),
-                              scale_fill_manual(values=open_cols_fn())
+                              scale_fill_manual(values=open_cols_fn()[unique(tib_plt$overall_oa)])
                             )
                             )),
                         themes=ComplexUpset::upset_modify_themes(

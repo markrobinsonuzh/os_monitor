@@ -343,7 +343,8 @@ shiny_general_server <-  function(con, orcid_access_token){
   p_t$selected_plot <- reactive({tryCatch({oa_status_time_plot(d$m_sub,
                                                                cutoff_year=input$range_year[1],
                                                                title = paste(paste0(d$in_selection,collapse = " + "), "OA Status"),
-                                                               oa_status_used=overall_oa,use_plotly=TRUE)},
+                                                               oa_status_used=overall_oa,use_plotly=TRUE,
+                                                               cutoff_year_upper=input$range_year[2])},
                                           error=function(e) {print(e);ggplot() + geom_blank()})})
   output$plot_selected <- renderPlotly({
     req(d$m_sub)

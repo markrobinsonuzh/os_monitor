@@ -31,6 +31,14 @@ services:
                 ports:
                         - "8787:8787"
 
+        translation-server:
+                image: zotero/translation-server
+                ports: 
+                        - "1969:1969"
+                expose:
+                        - "80"
+                        - "443"
+
 volumes:
         sql_data_os_monitor:
                 external: true

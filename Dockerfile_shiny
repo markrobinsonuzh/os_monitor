@@ -1,4 +1,4 @@
-FROM rocker/shiny-verse
+FROM rocker/shiny-verse:4.1.0
 
 # system libraries of general use
 RUN apt-get update && apt-get install -y \
@@ -42,7 +42,7 @@ RUN apt-get update \
 
 
 # Install R packages
-RUN install2.r \
+RUN install2.r --error --skipinstalled \
 	data.tree \
 	DBI \
 	dbplyr \
@@ -52,7 +52,7 @@ RUN install2.r \
 	here \
 	htmlTable \
 	iCiteR \
-	mongolite \
+	jsonlite \
 	odbc \
 	plotly \
 	rcrossref \
@@ -78,6 +78,7 @@ RUN R -e "devtools::install_github('krassowski/complex-upset')"
 RUN R -e "devtools::install_github('ropensci/RefManageR')"
 RUN R -e "devtools::install_github('RinteRface/shinydashboardPlus')"
 RUN R -e "devtools::install_github('jkeirstead/scholar')"
+RUN R -e "devtools::install_github('ROpenSci/bibtex')"
 
 RUN mkdir /home/stringdist \
         && cd /home/stringdist \ 

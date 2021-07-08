@@ -54,7 +54,7 @@ services:
                 ports:
                         - "3838:3838"
                 environment:
-                        - VIRTUAL_HOST=pubassistant.ch,130.60.24.80
+                        - VIRTUAL_HOST=zora.pubassistant.ch,pubassistant.ch,130.60.24.80
                           #- VIRTUAL_HOST=172.23.87.134
                         - VIRTUAL_PORT=3838
                         - LETSENCRYPT_HOST=pubassistant.ch

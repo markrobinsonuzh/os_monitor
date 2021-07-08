@@ -2,86 +2,87 @@ FROM rocker/shiny-verse:4.1.0
 
 # system libraries of general use
 RUN apt-get update && apt-get install -y \
-	bzip2 \
-	ca-certificates \
-	ca-certificates-java \
-	curl \
-	default-jre-headless \
-    	git \
-	java-common \
-	jq \
-	libcurl4-gnutls-dev \
-    	libcairo2-dev \
-	libfontconfig \
-    	libssl-dev \
-    	libssh2-1-dev \
-    	libxml2 \
-    	libxml2-dev \
-    	libxt-dev \
-	odbc-postgresql \
-	openjdk-11-jre-headless \ 
-	pandoc \
-    	pandoc-citeproc \
-	sudo \
-	unixodbc \
-	unixodbc-dev \
-	vim  \
-	&& apt-get clean \
-	&& rm -rf /var/lib/apt/lists/*
-  
-RUN apt-get update \
-      && apt-get install -y --no-install-recommends \
-      && mkdir /tmp/phantomjs \
-      && curl -L https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2 \
-              | tar -xj --strip-components=1 -C /tmp/phantomjs \
-      && cd /tmp/phantomjs \
-      && mv bin/phantomjs /usr/local/bin \
-      && cd \
-      && rm -rf /tmp/* /var/lib/apt/lists/*
+        bzip2 \
+        ca-certificates \
+        ca-certificates-java \
+        curl \
+        default-jre-headless \
+        git \
+        java-common \
+        jq \
+        libcurl4-gnutls-dev \
+        libcairo2-dev \
+        libfontconfig \
+        libssl-dev \
+        libssh2-1-dev \
+        libxml2 \
+        libxml2-dev \
+        libxt-dev \
+        odbc-postgresql \
+        openjdk-11-jre-headless \
+        pandoc \
+        pandoc-citeproc \
+        sudo \
+        unixodbc \
+        unixodbc-dev \
+        vim  \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*
+
+COPY phantomjs/bin/phantomjs /usr/local/bin/phantomjs
 
 
+#RUN apt-get update \
+#      && apt-get install -y --no-install-recommends \
+#      && mkdir /tmp/phantomjs \
+#      && curl -L https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2 \
+#              | tar -xj --strip-components=1 -C /tmp/phantomjs \
+#      && cd /tmp/phantomjs \
+#      && mv bin/phantomjs /usr/local/bin \
+#      && cd \
+#      && rm -rf /tmp/* /var/lib/apt/lists/*
 
 # Install R packages
-RUN install2.r --error --skipinstalled \
-	data.tree \
-	DBI \
-	dbplyr \
-	devtools \
-	DiagrammeR \
-	future \
-	here \
-	htmlTable \
-	iCiteR \
-	jsonlite \
-	odbc \
-	plotly \
-	rcrossref \
-	readr \
-	rentrez \
-	rjson \
-	roadoi \
-	rorcid \
-	RPostgres \		
-	scholar \
-	shiny \
-	shinydashboard \
-	shinyFeedback \
-	shinyhelper \
-	shinyjs \
-	shinytest \
-	shinyTree \
-	shinyWidgets \
-	testthat \
-	UpSetR
+RUN install2.r --repos 'http://cran.rstudio.com/' --error --skipinstalled --ncpus 3\
+        data.tree \
+        DBI \
+        dbplyr \
+        devtools \
+        DiagrammeR \
+        future \
+        here \
+        htmlTable \
+        iCiteR \
+        jsonlite \
+        odbc \
+        plotly \
+        rcrossref \
+        readr \
+        rentrez \
+        rjson \
+        roadoi \
+        rorcid \
+        RPostgres \
+        scholar \
+        shiny \
+        shinydashboard \
+        shinyFeedback \
+        shinyhelper \
+        shinyjs \
+        shinytest \
+        shinyTree \
+        shinyWidgets \
+        testthat \
+        UpSetR
 
-RUN R -e "devtools::install_github('krassowski/complex-upset')"
-RUN R -e "devtools::install_github('ropensci/RefManageR')"
-RUN R -e "devtools::install_github('RinteRface/shinydashboardPlus')"
-RUN R -e "devtools::install_github('jkeirstead/scholar')"
-RUN R -e "devtools::install_github('ROpenSci/bibtex')"
+RUN R -e "devtools::install_github('krassowski/complex-upset',repos='http://cran.rstudio.com/')"
+RUN R -e "devtools::install_github('ropensci/RefManageR',repos='http://cran.rstudio.com/')"
+RUN R -e "devtools::install_github('RinteRface/shinydashboardPlus',repos='http://cran.rstudio.com/')"
+RUN R -e "devtools::install_github('jkeirstead/scholar',repos='http://cran.rstudio.com/')"
+RUN R -e "devtools::install_github('ROpenSci/bibtex',repos='http://cran.rstudio.com/')"
 
 RUN mkdir /home/stringdist \
-        && cd /home/stringdist \ 
+        && cd /home/stringdist \
         && git clone https://github.com/markvanderloo/stringdist.git /home/stringdist \
         && mv pkg stringdist \
         && R -e "devtools::install('stringdist')"
@@ -100,8 +101,7 @@ COPY odbc.ini /etc
 COPY data/orgtree.rds /srv/shiny-server/data/
 COPY data/fac_dep_filt.rds /srv/shiny-server/data/
 
-RUN R -e "devtools::install('/srv/shiny-server/uzhOS', upgrade = 'never')"
-
+RUN R -e "devtools::install('/srv/shiny-server/uzhOS', upgrade = 'never',repos='http://cran.rstudio.com/')"
 EXPOSE 3838
 # allow permission
 RUN sudo chown -R shiny:shiny /srv/shiny-server
@@ -109,3 +109,4 @@ RUN sudo chown -R shiny:shiny /srv/shiny-server
 RUN mkdir -p /var/log/shiny-server/zora_oa_app
 RUN mkdir -p /var/log/shiny-server/general_oa_app
 # run app
+                   

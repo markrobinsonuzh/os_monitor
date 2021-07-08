@@ -54,11 +54,12 @@ services:
                 ports:
                         - "3838:3838"
                 environment:
-                        - VIRTUAL_HOST=130.60.24.80,osmonitor.servebeer.com
+                        - VIRTUAL_HOST=pubassistant.ch,130.60.24.80
+                          #- VIRTUAL_HOST=172.23.87.134
                         - VIRTUAL_PORT=3838
-                        - LETSENCRYPT_HOST=osmonitor.servebeer.com
+                        - LETSENCRYPT_HOST=pubassistant.ch
                         - LETSENCRYPT_EMAIL=retogerber93@gmail.com
-                          #- APPLICATION_LOGS_TO_STDOUT=true
+                        - APPLICATION_LOGS_TO_STDOUT=true
                 volumes:
                         - type: volume
                           source: shiny_logs

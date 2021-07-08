@@ -1,4 +1,5 @@
 version: '3.3'
+
 services:
         db:
                 build:
@@ -12,18 +13,15 @@ services:
                           target: /var/lib/postgresql/data
                           volume:
                                   nocopy: true
-
-                                  #                networks:
-                                  #                        osnet_2:
-
-
+                networks:
+                        - db-tier
 
         shiny:
                 build: 
                         context: .
                         dockerfile: Dockerfile_shiny
                 ports:
-                        - "3839:3839"
+                        - "3838:3838"
                 volumes:
                         - type: volume
                           source: shiny_logs
@@ -31,22 +29,29 @@ services:
                         - type: volume
                           source: shiny_bookmarks
                           target: /var/lib/shiny-server/bookmarks
-                          #                networks:
-                          #                        osnet_2:
                 depends_on:
                         - db
-                environment:
-                        - APPLICATION_LOGS_TO_STDOUT=true
+                networks:
+                        - proxy-tier
+                        - db-tier
+        translation-server:
+                image: zotero/translation-server
+                ports: 
+                        - "1969:1969"
+                expose:
+                        - "80"
+                        - "443"
+                networks:
+                        - proxy-tier
+
+
 
 volumes:
         sql_data_os_monitor:
                 external: true
         shiny_logs:
-                external: true
         shiny_bookmarks:
-                external: true
 
-                #networks:
-                #        osnet_2:
-                #                external: true
-
+networks:
+        proxy-tier:
+        db-tier:

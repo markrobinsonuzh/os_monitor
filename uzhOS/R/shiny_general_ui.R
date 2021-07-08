@@ -22,9 +22,9 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
       waiter = list(html = tagList(waiter::spin_1(), "Loading ..."), color = "#3c8dbc"),
       duration = 1
     ),
-    title =  "Open access monitor",
+    title =  "Publication assistant",
     dashboardHeader(
-      leftUi = tagList(h4("Open access monitor")),
+      leftUi = tagList(h4("Publication assistant")),
       dropdownMenu(type="tasks",
                    icon=icon("info fa-1g"),
                    badgeStatus=NULL,

@@ -9,7 +9,9 @@ DELIMITER ' ';
 INSERT INTO unpaywall_copy(doi, oa_status, version, firstversion)
 SELECT 
     DISTINCT ON (doi) doi,
-    oa_status
+    oa_status,
+    version,
+    firstversion
 FROM unpaywall_copy_2; 
 /*Remove temporary table*/
 DROP TABLE unpaywall_copy_2;

@@ -69,7 +69,6 @@ RUN install2.r --error --skipinstalled \
 	shinyhelper \
 	shinyjs \
 	shinytest \
-	shinyTree \
 	shinyWidgets \
 	testthat \
 	UpSetR
@@ -79,6 +78,7 @@ RUN R -e "devtools::install_github('ropensci/RefManageR')"
 RUN R -e "devtools::install_github('RinteRface/shinydashboardPlus')"
 RUN R -e "devtools::install_github('jkeirstead/scholar')"
 RUN R -e "devtools::install_github('ROpenSci/bibtex')"
+RUN R -e "devtools::install_github('shinyTree/shinyTree')"
 
 RUN mkdir /home/stringdist \
         && cd /home/stringdist \ 

@@ -10,10 +10,7 @@
 #'
 shiny_zora_ui <- function(request, fac_dep_filt, docfile = file.path(system.file("extdata","helpfiles",package = "uzhOS"),"OA_monitor_documentation.md")) {
   dashboardPage(
-    preloader = list(
-      waiter = list(html = tagList(waiter::spin_1(), "Loading ..."), color = "#3c8dbc"),
-      duration = 1
-    ),
+    preloader = list(html = waiter::spin_1(), color = "#333e48"),
     title =  "Open access monitor",
     dashboardHeader(
       leftUi = tagList(h4("Open access monitor")),

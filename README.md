@@ -3,7 +3,7 @@
 ## Introduction
 Managing publication records on Platforms such as ORCID, Google scholar and Publons can be tedious as it often requires manual updating of individual publications. This R shiny application enables the interactive exploration of the publication profiles of an author from ORCID, Google scholar, Publons and Pubmed, automatic creation of a bibtex citation file for simple uploading and updating of the respective profile.
 
-A live version can be found here: 
+A live version can be found here: [pubassistant.ch](http://pubassistant.ch)
 
 
 ### Structure

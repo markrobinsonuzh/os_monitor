@@ -53,14 +53,14 @@ df1 <- df[df$parent_name=="07 Faculty of Science",]
 
 # nm <- names(sort(table(df$parent_name), decreasing = TRUE)[1:15])
 
-ggplot(df1, aes(x=date, fill=oa_status)) + 
+ggplot(df1 %>% filter(!is.na(date), !(name=="Institute of Zoology (former)")), aes(x=date, fill=oa_status)) + 
   geom_bar() + 
-  facet_wrap(~name, scales="free_y", ncol=4) +
+  facet_wrap(~name, scales="free_y", ncol=3) +
   theme(axis.text.x = element_text(angle = 90)) +
   xlab("year") + ylab("count") +
   my_scale
 
-ggsave("by_faculty.pdf", width=12, height=6)
+ggsave("ZORA_OA_numbers_MNF_by_department.pdf", width=12, height=9)
 
 
 df1 <- df1[df1$parent_name=="07 Faculty of Science",]

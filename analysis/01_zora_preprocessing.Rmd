@@ -94,9 +94,12 @@ df_lists <- lapply(fs, function(u) {
   list_lookup <- lapply(this, function(uu) 
     sapply(seq_along(uu$contributor_lookup), function(i) {
       tryCatch({
-        data.frame(authorkey=ifelse(is.null(unlist(uu$contributor_lookup[[i]]$lookup)),NA,unlist(uu$contributor_lookup[[i]]$lookup)),
-                   author_name_family=ifelse(is.null(unlist(uu$contributor_stat[[i]]$name$family)),NA,unlist(uu$contributor_stat[[i]]$name$family)),
-                   author_name_given=ifelse(is.null(unlist(uu$contributor_stat[[i]]$name$given)),NA,unlist(uu$contributor_stat[[i]]$name$given)))
+        data.frame(authorkey=ifelse(is.null(unlist(uu$contributor_lookup[[i]]$lookup)),
+                                    NA,unlist(uu$contributor_lookup[[i]]$lookup)),
+                   author_name_family=ifelse(is.null(unlist(uu$contributor_stat[[i]]$name$family)),
+                                             NA,unlist(uu$contributor_stat[[i]]$name$family)),
+                   author_name_given=ifelse(is.null(unlist(uu$contributor_stat[[i]]$name$given)),
+                                            NA,unlist(uu$contributor_stat[[i]]$name$given)))
       },error=function(e) {
         if (is.null(uu$contributor_lookup[[i]]$lookup)){
           data.frame(authorkey=NA,

@@ -13,15 +13,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 These have been run in advance and then gzipped to save space ..
 
-```{r eval=FALSE}
-stub <- "wget -O data/zora_YEAR.js --no-check-certificate https://www.zora.uzh.ch/cgi/exportview/yearnew/YEAR/JSON/YEAR.js"
+```{r eval=TRUE}
+stub <- "wget -q -O data/zora_YEAR.js --no-check-certificate https://www.zora.uzh.ch/cgi/exportview/yearnew/YEAR/JSON/YEAR.js"
 
-z <- 2020:2000
+z <- 2021:2001
 
 for(i in z) {
   cmd <- gsub("YEAR",i,stub)
   cat(cmd,"\n")
-  system(cmd, show.output.on.console = FALSE)
+  system(cmd)
 }
 system("gzip data/*.js")
 ```

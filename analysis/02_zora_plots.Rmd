@@ -41,26 +41,30 @@ ggplot(df %>% filter(date > 2007, date < 2020, name %in% "Institute of Molecular
   my_scale
 
 
-df <- df %>% filter(date > 2007, date < 2020, 
+df <- df %>% filter(date > 2007, date < 2021, 
                     !(df$parent_name %in% c("National licences", 
                                        "University of Zurich")))
 
-df1 <- df[grepl("^0[1-8] [FRV]", df$parent_name),]
+# df1 <- df[grepl("^0[1-8] [FRV]", df$parent_name),]
+
+
+df1 <- df[df$parent_name=="07 Faculty of Science",]
 
 
 # nm <- names(sort(table(df$parent_name), decreasing = TRUE)[1:15])
 
 ggplot(df1, aes(x=date, fill=oa_status)) + 
   geom_bar() + 
-  facet_wrap(~parent_name, scales="free_y", ncol=4) +
+  facet_wrap(~name, scales="free_y", ncol=4) +
   theme(axis.text.x = element_text(angle = 90)) +
+  xlab("year") + ylab("count") +
   my_scale
 
 ggsave("by_faculty.pdf", width=12, height=6)
 
 
 df1 <- df1[df1$parent_name=="07 Faculty of Science",]
-df1 <- na.omit(df1)
+# df1 <- na.omit(df1)
 
 ggplot(df1, aes(x=date, fill=oa_status)) + 
   geom_bar() + 

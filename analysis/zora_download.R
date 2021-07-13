@@ -2,7 +2,7 @@
 setwd("/srv/shiny-server")
 stub <- "wget -O data/zora_YEAR.js --no-check-certificate https://www.zora.uzh.ch/cgi/exportview/yearnew/YEAR/JSON/YEAR.js"
 
-z <- 2020:2000
+z <- 2021:2008
 
 for(i in z) {
   cmd <- gsub("YEAR",i,stub)

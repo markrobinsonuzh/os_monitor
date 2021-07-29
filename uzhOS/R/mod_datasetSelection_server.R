@@ -173,6 +173,7 @@ datasetSelectionsUpdateServer <- function(id, d, selection_ls) {
         shiny_print_logs(paste("in datasetSelectionsUpdateServer: all_selection_choices:",
                                paste(d$all_selection_choices,collapse = " ")), d$sps)
         shiny_print_logs(paste("--- with filter logic:",tmpfilt), d$sps)
+        d$update_m_sub_all_oa_allpreprints <- TRUE
         d$m_sub_all_oa <- d$m_sub_all_oa_allpreprints <- subset(d$m,eval(parse(text=tmpfilt)))
       }
     }

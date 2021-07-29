@@ -319,12 +319,33 @@ shiny_general_server <-  function(con, orcid_access_token){
     d$m_sub_sel <- m_filt
   })
   
-  observeEvent(input$remove_duplicate_preprints,{
-    req(d$m_sub_all_oa)
-    if(input$remove_duplicate_preprints){
-      d$m_sub_all_oa_allpreprints <- d$m_sub_all_oa
-      d$m_sub_all_oa <- remove_duplicate_preprints(d$m_sub_all_oa)
+  observeEvent({input$remove_duplicate_preprints; input$show_duplicate_preprints},{
+    req(!is.null(d$m_sub_all_oa) && dim(d$m_sub_all_oa)[2]>1)
+    req(!is.null(d$update_m_sub_all_oa_allpreprints))
+    if(input$remove_duplicate_preprints & input$show_duplicate_preprints){
+      shiny_print_logs("Duplication filter, Both TRUE", d$sps)
+      d$update_m_sub_all_oa_allpreprints <- FALSE
+      # d$m_sub_all_oa_allpreprints <- d$m_sub_all_oa
+      d$m_sub_all_oa <- d$m_sub_all_oa_allpreprints %>% dplyr::slice(0)
+    } else if (input$remove_duplicate_preprints){
+      shiny_print_logs("Duplication filter, Remove TRUE", d$sps)
+      if(d$update_m_sub_all_oa_allpreprints){
+        d$m_sub_all_oa_allpreprints <- d$m_sub_all_oa
+      } else{
+        d$m_sub_all_oa <- d$m_sub_all_oa_allpreprints
+      }
+      d$m_sub_all_oa <- remove_duplicate_preprints(d$m_sub_all_oa_allpreprints)
+    } else if(input$show_duplicate_preprints){
+      shiny_print_logs("Duplication filter, Show TRUE", d$sps)
+      if(d$update_m_sub_all_oa_allpreprints){
+        d$m_sub_all_oa_allpreprints <- d$m_sub_all_oa
+      } else{
+        d$m_sub_all_oa <- d$m_sub_all_oa_allpreprints
+      }
+      d$m_sub_all_oa <- remove_duplicate_preprints(d$m_sub_all_oa_allpreprints, return_only_duplicates=TRUE)
     } else {
+      shiny_print_logs("Duplication filter, None TRUE", d$sps)
+      d$update_m_sub_all_oa_allpreprints <- TRUE
       d$m_sub_all_oa <- d$m_sub_all_oa_allpreprints
     }
   })

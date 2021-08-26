@@ -407,12 +407,15 @@ shiny_general_server <-  function(con, orcid_access_token){
     d$m_sub_sel <- d$m_sub
   })
   # render table
-  p_t$selected_closed_table <- reactive({tryCatch({overall_closed_table(d$m_sub_sel, oa_status_zora = FALSE)},
-                                                  error=function(e) DT::datatable(head(d$m,0)))})
+  p_t$selected_closed_table <- reactive({tryCatch({
+    authorname <- input_value(df_orcid())
+    filename <- paste0("Publication_list",ifelse(authorname=="","","_"),authorname)
+    overall_closed_table(d$m_sub_sel, oa_status_zora = FALSE, filename=filename)
+    },error=function(e) DT::datatable(head(d$m,0)))})
   output$table_selected_closed <- DT::renderDataTable({
     req(d$m_sub_sel)
     p_t$selected_closed_table()
-  })
+  }, server=FALSE)
   
   
   ### Pubmetric table  -------------------------------------------------------

@@ -148,12 +148,18 @@ oa_percent_time_table <- function(m, cutoff_year){
 #' @importFrom magrittr %>%
 #'
 #' @examples
-#' tbl_merge <- tibble::tibble(overall_oa=rep(c("gold","closed"),10),
-#'                            year=rep(2017:2020,5),
-#'                            doi=paste0("madeupdoi",1:20),
-#'                            oa_status.unpaywall=overall_oa)
-#' overall_closed_table(tbl_merge, FALSE)
-overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
+# tbl_merge <- tibble::tibble(overall_oa=rep(c("gold","closed"),100),
+#                            year=rep(2017:2020,50),
+#                            doi=paste0("madeupdoi",1:200),
+#                            title = rep(letters[1:20],10),
+#                            oa_status.unpaywall=overall_oa,
+#                            in_scholar=rep(c(TRUE,FALSE),each=100),
+#                            cid=c(rep(paste0(paste0(letters,collapse = ""),
+#                                             ",",
+#                                             paste0(letters,collapse = "")), 100),
+#                                  rep(NA,100)))
+# overall_closed_table(tbl_merge, FALSE)
+overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE, filename="Publication_list"){
   
   if(oa_status_zora){
     z <- tbl_merge %>%
@@ -177,12 +183,14 @@ overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
   }
   if("in_scholar" %in% names(tbl_merge)){
     z <- z %>% dplyr::mutate(cid = tbl_merge$cid,
+                             cid = stringr::str_replace_all(cid,",",", "),
                              cid = ifelse(is.na(cid), "",
                                           paste0("<a href='https://scholar.google.com/scholar?oi=bibs&hl=de&cluster=",
                                                  cid, "' target='_blank'>", cid, "</a>"))) %>% 
       dplyr::select(doi,oa_status.unpaywall, title, year, cid, dplyr::starts_with("title."))
   }
   colns <- stringr::str_replace_all(colnames(z),"\\."," ")
+  title <- stringr::str_to_title(stringr::str_replace_all(filename,"_"," "))
   DT::datatable(z, 
                 extensions = c('ColReorder','Buttons', 'Responsive'),
                 colnames = colns,
@@ -190,7 +198,18 @@ overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
                                # pageLength = 200,
                                # keys=TRUE,
                                colReorder = TRUE,
-                               buttons = list('copy', 'csv', 'pdf')),
+                               buttons = list(list(extend="copy",
+                                                   filename=filename,
+                                                   title=title),
+                                              list(extend="csv",
+                                                   filename=filename,
+                                                   title=title,
+                                                   escapeChar='"',
+                                                   fieldBoundary='"'),
+                                              list(extend="pdf",
+                                                   filename=filename,
+                                                   title=title,
+                                                   pageSize="A3"))),
                 escape = FALSE, rownames = FALSE)
 }
 

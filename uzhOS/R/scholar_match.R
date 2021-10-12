@@ -21,7 +21,6 @@
 #' df_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
 #' 
 #' df_scholar <- df_scholar_matching(tbl_merge, df_scholar)
-#' 
 df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE, with_zotero=TRUE, ...){
   if(dim(df_scholar)[1]==0 || is.null(tbl_merge) || dim(tbl_merge)[1]==0){
     if(with_zotero){
@@ -67,59 +66,65 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE, with_
 
   if ("title.orcid" %in% names(tbl_merge)){
     doi_is_na <- which(is.na(df_scholar$doi))
-    ld <- stringdist::stringdistmatrix(toupper(df_scholar$title[doi_is_na]),toupper(tbl_merge$title.orcid), method = "lv")
-    ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/stringr::str_length(df_scholar$title[doi_is_na[i]]))
-    m3 <- unlist(apply(ld_rel, 2, function(x) {
-      tmpind <- which(x==min(na.omit(x)) & x < 0.1)
-      ifelse(length(tmpind)==0,NA,tmpind)}))
-    if (any(!is.na(m3))){
-      df_scholar$doi[doi_is_na] <- tbl_merge$doi[m3]
+    if(length(doi_is_na) > 1){
+      ld <- stringdist::stringdistmatrix(toupper(df_scholar$title[doi_is_na]),toupper(tbl_merge$title.orcid), method = "lv")
+      ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/stringr::str_length(df_scholar$title[doi_is_na[i]]))
+      m3 <- unlist(apply(ld_rel, 2, function(x) {
+        tmpind <- which(x==min(na.omit(x)) & x < 0.1)
+        ifelse(length(tmpind)==0,NA,tmpind)}))
+      if (any(!is.na(m3))){
+        df_scholar$doi[doi_is_na] <- tbl_merge$doi[m3]
+      }
     }
   }
   
   if ("title.pubmed" %in% names(tbl_merge)){
     doi_is_na <- which(is.na(df_scholar$doi))
-    ld <- stringdist::stringdistmatrix(toupper(df_scholar$title[doi_is_na]),toupper(tbl_merge$title.pubmed), method = "lv")
-    ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/str_length(df_scholar$title[doi_is_na[i]]))
-    m4 <- unlist(apply(ld_rel, 2, function(x) {
-      tmpind <- which(x==min(na.omit(x)) & x < 0.1)
-      ifelse(length(tmpind)==0,NA,tmpind)}))
-    if (any(!is.na(m4))){
-      df_scholar$doi[doi_is_na] <- tbl_merge$doi[m4]
+    if(length(doi_is_na) > 1){
+      ld <- stringdist::stringdistmatrix(toupper(df_scholar$title[doi_is_na]),toupper(tbl_merge$title.pubmed), method = "lv")
+      ld_rel <- sapply(seq_len(dim(ld)[1]), function(i) ld[i,]/str_length(df_scholar$title[doi_is_na[i]]))
+      m4 <- unlist(apply(ld_rel, 2, function(x) {
+        tmpind <- which(x==min(na.omit(x)) & x < 0.1)
+        ifelse(length(tmpind)==0,NA,tmpind)}))
+      if (any(!is.na(m4))){
+        df_scholar$doi[doi_is_na] <- tbl_merge$doi[m4]
+      }
     }
   }
   
   if ("title.orcid" %in% names(tbl_merge)){
     doi_is_na <- which(is.na(df_scholar$doi))
-    
-    # bit of faffing to match titles from SCHOLAR to ORCID
-    scores <- calcScore(df_scholar$title[doi_is_na], tbl_merge$title.orcid)
-    top_score <- apply(scores$dist, 1, max)
-    which_top_score <- apply(scores$dist, 1, which.max)
-    
-    scholar_to_orcid_matches <- data.frame(top_score, 
-                                           scholar_title=df_scholar$title[doi_is_na], 
-                                           orcid_title=scores$cols[which_top_score])
-    
-    cutoff <- .7999
-    keep <- top_score > cutoff
-    df_scholar$doi[doi_is_na[keep]] <- tbl_merge$doi[which_top_score[keep]]
+    if(length(doi_is_na) > 1){
+      # bit of faffing to match titles from SCHOLAR to ORCID
+      scores <- calcScore(df_scholar$title[doi_is_na], tbl_merge$title.orcid)
+      top_score <- apply(scores$dist, 1, max)
+      which_top_score <- apply(scores$dist, 1, which.max)
+      
+      scholar_to_orcid_matches <- data.frame(top_score, 
+                                             scholar_title=df_scholar$title[doi_is_na], 
+                                             orcid_title=scores$cols[which_top_score])
+      
+      cutoff <- .7999
+      keep <- top_score > cutoff
+      df_scholar$doi[doi_is_na[keep]] <- tbl_merge$doi[which_top_score[keep]]
+    }
   }
   
   if ("title.pubmed" %in% names(tbl_merge)){
     doi_is_na <- which(is.na(df_scholar$doi))
-    
-    # bit of faffing to match titles from SCHOLAR to ORCID
-    scores <- calcScore(df_scholar$title[doi_is_na], tbl_merge$title.pubmed)
-    top_score <- apply(scores$dist, 1, max)
-    which_top_score <- apply(scores$dist, 1, which.max)
-    
-    scholar_to_orcid_matches <- data.frame(top_score, scholar_title=df_scholar$title[doi_is_na], 
-                                           orcid_title=scores$cols[which_top_score])
-    
-    cutoff <- .7999
-    keep <- top_score > cutoff
-    df_scholar$doi[doi_is_na[keep]] <- tbl_merge$doi[which_top_score[keep]]
+    if(length(doi_is_na) > 1){
+      # bit of faffing to match titles from SCHOLAR to ORCID
+      scores <- calcScore(df_scholar$title[doi_is_na], tbl_merge$title.pubmed)
+      top_score <- apply(scores$dist, 1, max)
+      which_top_score <- apply(scores$dist, 1, which.max)
+      
+      scholar_to_orcid_matches <- data.frame(top_score, scholar_title=df_scholar$title[doi_is_na], 
+                                             orcid_title=scores$cols[which_top_score])
+      
+      cutoff <- .7999
+      keep <- top_score > cutoff
+      df_scholar$doi[doi_is_na[keep]] <- tbl_merge$doi[which_top_score[keep]]
+    }
   }
   
   # try to find DOI's using Zotero
@@ -129,33 +134,35 @@ df_scholar_matching <- function(tbl_merge,df_scholar, with_rcrossref=TRUE, with_
 
   if (with_rcrossref){
     doi_is_na <- which(is.na(df_scholar$doi))
-    # get info from rcrossref
-    qrows <- df_scholar[doi_is_na,]
-    Sys.setenv(crossref_email="retogerber93@gmail.com")
-    out <- lapply(seq_along(doi_is_na),function(i){
-      tryCatch({
-        sq <- rcrossref::cr_works(flq=list(query.bibliographic=paste(qrows$title[i],qrows$year[i], qrows$journal[i]),
-                                query.author=qrows$author[i]),limit = 3)
-        if(!is.null(sq$data)){
-          sq$data <-
-            sq$data %>% dplyr::mutate(score=as.numeric(score))
-            
-          if(dim(sq$data)[1] > 1){
+    if(length(doi_is_na) > 1){
+      # get info from rcrossref
+      qrows <- df_scholar[doi_is_na,]
+      Sys.setenv(crossref_email="retogerber93@gmail.com")
+      out <- lapply(seq_along(doi_is_na),function(i){
+        tryCatch({
+          sq <- rcrossref::cr_works(flq=list(query.bibliographic=paste(qrows$title[i],qrows$year[i], qrows$journal[i]),
+                                  query.author=qrows$author[i]),limit = 3)
+          if(!is.null(sq$data)){
             sq$data <-
-              sq$data %>% dplyr::filter(.data[["score"]]/c(.data[["score"]][-1],.data[["score"]][length(.data[["score"]][-1])]) > 1.5)
+              sq$data %>% dplyr::mutate(score=as.numeric(score))
+              
+            if(dim(sq$data)[1] > 1){
+              sq$data <-
+                sq$data %>% dplyr::filter(.data[["score"]]/c(.data[["score"]][-1],.data[["score"]][length(.data[["score"]][-1])]) > 1.5)
+            }
+            sq$data %>% 
+              dplyr::filter(score > 70) %>% 
+              dplyr::slice(1) %>% 
+              dplyr::select(doi,container.title,published.print,title)
+          } else{
+            tibble::tibble(doi=character(),container.title=character(),published.print=character(),title=character())
           }
-          sq$data %>% 
-            dplyr::filter(score > 70) %>% 
-            dplyr::slice(1) %>% 
-            dplyr::select(doi,container.title,published.print,title)
-        } else{
-          tibble::tibble(doi=character(),container.title=character(),published.print=character(),title=character())
-        }
-      }, error=function(e) tibble::tibble(doi=character(),container.title=character(),published.print=character(),title=character()))
-    })
-    empty_r <- sapply(seq_along(out), function(i) nrow(out[[i]])>0)
-    out_tib <- out %>% purrr::reduce(rbind)
-    df_scholar$doi[doi_is_na][empty_r] <- out_tib$doi
+        }, error=function(e) tibble::tibble(doi=character(),container.title=character(),published.print=character(),title=character()))
+      })
+      empty_r <- sapply(seq_along(out), function(i) nrow(out[[i]])>0)
+      out_tib <- out %>% purrr::reduce(rbind)
+      df_scholar$doi[doi_is_na][empty_r] <- out_tib$doi
+    }
   }
 
   return(df_scholar)

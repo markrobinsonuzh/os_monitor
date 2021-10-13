@@ -147,7 +147,16 @@ crossrefInputServer <- function(id, d) {
     function(input, output, session) {
       observeEvent(input$scholar_matching_with_crossref,{
         d$scholar_matching_with_crossref <- input$scholar_matching_with_crossref
-        print(d$scholar_matching_with_crossref)
+        shiny_print_logs(paste("Use crossref =",d$scholar_matching_with_crossref),d$sps)
+        if(d$scholar_matching_with_crossref){
+          shinyWidgets::show_toast("Retrival from Crossref can take a few minutes.",
+                                   type="warning",timer=3000, position = "center-start")
+        }
+        shinyFeedback::feedback(
+          "scholar_matching_with_crossref", 
+          d$scholar_matching_with_crossref,
+          "This can take a few minutes to retrieve."
+        )
       })
     }
   )
@@ -167,7 +176,16 @@ zoteroInputServer <- function(id, d) {
     function(input, output, session) {
       observeEvent(input$scholar_matching_with_zotero,{
         d$scholar_matching_with_zotero <- input$scholar_matching_with_zotero
-        print(d$scholar_matching_with_zotero)
+        shiny_print_logs(paste("Use zotero =",d$scholar_matching_with_zotero),d$sps)
+        if(d$scholar_matching_with_zotero){
+          shinyWidgets::show_toast("Retrival from Zotero can take a few minutes.",
+                                   type="warning",timer=3000, position = "center-start")
+        }
+        shinyFeedback::feedback(
+          "scholar_matching_with_zotero", 
+          d$scholar_matching_with_zotero,
+          "This can take a few minutes to retrieve."
+        )
       })
     }
   )

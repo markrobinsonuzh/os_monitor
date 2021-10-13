@@ -75,7 +75,7 @@ inputScholarUI <- function(id) {
                           content = 'Google_scholar_help'),
     shinyWidgets::prettySwitch(inputId = ns("scholar_matching_with_zotero"),
                                label = "Use Zotero to retrieve DOI of publications.", 
-                               value = TRUE,
+                               value = FALSE,
                                fill = TRUE, status = "primary"), 
     # scholar match with crossref
     shinyWidgets::prettySwitch(inputId = ns("scholar_matching_with_crossref"),

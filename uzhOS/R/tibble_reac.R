@@ -415,11 +415,30 @@ to_tibble_reac_template <- function(x, tbl_reac){
 #' @param x reactiveVal of class tibble_reac
 #'
 #' @export
-check_and_set_successfull_retrieval <- function(x){
-  if(dim(x())[1] != 0){
-    assign_to_reactiveVal(x, "successfully_retrieved", TRUE)
-  } else {
-    assign_to_reactiveVal(x, "successfully_retrieved", FALSE)
+check_and_set_successfull_retrieval <- function(x, assign_reac=TRUE, sps=NULL){
+  if(assign_reac){
+    if(dim(x())[1] != 0){
+      assign_to_reactiveVal(x, "successfully_retrieved", TRUE)
+    }else{
+      assign_to_reactiveVal(x, "successfully_retrieved", FALSE)
+    }
+    if(!is.null(sps)){
+      shiny_print_logs(paste("retrieval of", name(x()), ":", 
+                             ifelse(successfully_retrieved(x()),"Success","Failure!")), 
+                       sps)
+    }
+  }else{
+    if(dim(x)[1] != 0){
+      successfully_retrieved(x) <- TRUE
+    }else{
+      successfully_retrieved(x) <- FALSE
+    }
+    if(!is.null(sps)){
+      shiny_print_logs(paste("retrieval of", name(x), ":", 
+                             ifelse(successfully_retrieved(x),"Success","Failure!")), 
+                       sps)
+    }
+    return(x)
   }
 }
 

@@ -79,30 +79,23 @@ shiny_general_server <-  function(con, orcid_access_token){
   pubmedInfoServer("input_check")
   publonsCheckServer("input_check", df_publons)
   scholarCheckServer("input_check", df_scholar)
-  crossrefInputServer("input_check", d)
   zoteroInputServer("input_check", d)
-  observeEvent(d$scholar_matching_with_crossref,{
-    shinyFeedback::feedback(
-      NS("input_check","scholar_matching_with_crossref"), 
-      !d$scholar_matching_with_crossref,
-      "Possibly less publications from Google scholar will be matched to other sources."
-    )
-  })
+  crossrefInputServer("input_check", d)
   
   # wait for clicking of "show_report", then retrieve all data asynchronously 
   scholarModalServer("show_report", df_scholar, d$scholar_matching_with_crossref)
   
   createOrcidServer("show_report", df_orcid, orcid_access_token, sps)
-  ResultCheckServer("show_report", df_orcid, sps)
+  # ResultCheckServer("show_report", df_orcid, sps)
   
   createPublonsServer("show_report", df_publons, sps)
-  ResultCheckServer("show_report", df_publons, sps)
+  # ResultCheckServer("show_report", df_publons, sps)
   
   createScholarServer("show_report", df_scholar, sps)
-  ResultCheckServer("show_report", df_scholar, sps)
+  # ResultCheckServer("show_report", df_scholar, sps)
   
   createPubmedServer("show_report", df_pubmed, sps)
-  ResultCheckServer("show_report", df_pubmed, sps)
+  # ResultCheckServer("show_report", df_pubmed, sps)
   
   # df_pubmetric <- reactiveVal(empty_pubmetric())
   # merge results when they become available

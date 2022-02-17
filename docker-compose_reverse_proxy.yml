@@ -3,6 +3,7 @@ version: '3.3'
 services:
         proxy:
                 image: jwilder/nginx-proxy
+                container_name: nginx-proxy
                 restart: always
                 ports:
                         - 80:80
@@ -19,6 +20,7 @@ services:
         
         letsencrypt-companion:
                 image: jrcs/letsencrypt-nginx-proxy-companion
+                container_name: letsencrypt
                 restart: always
                 volumes:
                         - certs:/etc/nginx/certs
@@ -36,6 +38,7 @@ services:
                 build:
                         context: .
                         dockerfile: Dockerfile_db
+                container_name: db_unpaywall
                 env_file:
                         - postgres.env
                 volumes:
@@ -51,13 +54,14 @@ services:
                 build: 
                         context: .
                         dockerfile: Dockerfile_shiny
+                container_name: shiny
                 ports:
                         - "3838:3838"
                 environment:
-                        - VIRTUAL_HOST=zora.pubassistant.ch,pubassistant.ch,130.60.24.80
+                        - VIRTUAL_HOST=pubassistant.ch,zora.pubassistant.ch
                           #- VIRTUAL_HOST=172.23.87.134
                         - VIRTUAL_PORT=3838
-                        - LETSENCRYPT_HOST=pubassistant.ch
+                        - LETSENCRYPT_HOST=pubassistant.ch,zora.pubassistant.ch
                         - LETSENCRYPT_EMAIL=retogerber93@gmail.com
                         - APPLICATION_LOGS_TO_STDOUT=true
                 volumes:
@@ -74,14 +78,15 @@ services:
                         - db-tier
         translation-server:
                 image: zotero/translation-server
+                container_name: zotero_translator
                 ports: 
                         - "1969:1969"
                 expose:
                         - "80"
                         - "443"
-                environment:
-                        - LETSENCRYPT_HOST=translation_server_osmonitor.servebeer.com
-                        - LETSENCRYPT_EMAIL=retogerber93@gmail.com
+                          # environment:
+                          #         - LETSENCRYPT_HOST=translation_server_osmonitor.servebeer.com
+                          #         - LETSENCRYPT_EMAIL=retogerber93@gmail.com
                 networks:
                         - proxy-tier
 

@@ -79,30 +79,23 @@ shiny_general_server <-  function(con, orcid_access_token){
   pubmedInfoServer("input_check")
   publonsCheckServer("input_check", df_publons)
   scholarCheckServer("input_check", df_scholar)
-  crossrefInputServer("input_check", d)
   zoteroInputServer("input_check", d)
-  observeEvent(d$scholar_matching_with_crossref,{
-    shinyFeedback::feedback(
-      NS("input_check","scholar_matching_with_crossref"), 
-      !d$scholar_matching_with_crossref,
-      "Possibly less publications from Google scholar will be matched to other sources."
-    )
-  })
+  crossrefInputServer("input_check", d)
   
   # wait for clicking of "show_report", then retrieve all data asynchronously 
   scholarModalServer("show_report", df_scholar, d$scholar_matching_with_crossref)
   
   createOrcidServer("show_report", df_orcid, orcid_access_token, sps)
-  ResultCheckServer("show_report", df_orcid, sps)
+  # ResultCheckServer("show_report", df_orcid, sps)
   
   createPublonsServer("show_report", df_publons, sps)
-  ResultCheckServer("show_report", df_publons, sps)
+  # ResultCheckServer("show_report", df_publons, sps)
   
   createScholarServer("show_report", df_scholar, sps)
-  ResultCheckServer("show_report", df_scholar, sps)
+  # ResultCheckServer("show_report", df_scholar, sps)
   
   createPubmedServer("show_report", df_pubmed, sps)
-  ResultCheckServer("show_report", df_pubmed, sps)
+  # ResultCheckServer("show_report", df_pubmed, sps)
   
   # df_pubmetric <- reactiveVal(empty_pubmetric())
   # merge results when they become available
@@ -184,7 +177,7 @@ shiny_general_server <-  function(con, orcid_access_token){
         d$do_scholar_match <- TRUE
         # if all merged (including scholar, or scholar not present) get citation metrics
       } else if (length(d$datainmerge) == (sum(d$dataininput))){
-        if(input$retrieve_pubmetric){
+        if(!is.null(input$retrieve_pubmetric) && input$retrieve_pubmetric){
           shiny_print_logs("get pubmetrics", sps)
           future(seed=NULL,{
             retrieve_from_pubmed_with_doi(tbl_merge_iso[["doi"]]) %>% 
@@ -319,12 +312,33 @@ shiny_general_server <-  function(con, orcid_access_token){
     d$m_sub_sel <- m_filt
   })
   
-  observeEvent(input$remove_duplicate_preprints,{
-    req(d$m_sub_all_oa)
-    if(input$remove_duplicate_preprints){
-      d$m_sub_all_oa_allpreprints <- d$m_sub_all_oa
-      d$m_sub_all_oa <- remove_duplicate_preprints(d$m_sub_all_oa)
+  observeEvent({input$remove_duplicate_preprints; input$show_duplicate_preprints},{
+    req(!is.null(d$m_sub_all_oa) && dim(d$m_sub_all_oa)[2]>1)
+    req(!is.null(d$update_m_sub_all_oa_allpreprints))
+    if(input$remove_duplicate_preprints & input$show_duplicate_preprints){
+      shiny_print_logs("Duplication filter, Both TRUE", d$sps)
+      d$update_m_sub_all_oa_allpreprints <- FALSE
+      # d$m_sub_all_oa_allpreprints <- d$m_sub_all_oa
+      d$m_sub_all_oa <- d$m_sub_all_oa_allpreprints %>% dplyr::slice(0)
+    } else if (input$remove_duplicate_preprints){
+      shiny_print_logs("Duplication filter, Remove TRUE", d$sps)
+      if(d$update_m_sub_all_oa_allpreprints){
+        d$m_sub_all_oa_allpreprints <- d$m_sub_all_oa
+      } else{
+        d$m_sub_all_oa <- d$m_sub_all_oa_allpreprints
+      }
+      d$m_sub_all_oa <- remove_duplicate_preprints(d$m_sub_all_oa_allpreprints)
+    } else if(input$show_duplicate_preprints){
+      shiny_print_logs("Duplication filter, Show TRUE", d$sps)
+      if(d$update_m_sub_all_oa_allpreprints){
+        d$m_sub_all_oa_allpreprints <- d$m_sub_all_oa
+      } else{
+        d$m_sub_all_oa <- d$m_sub_all_oa_allpreprints
+      }
+      d$m_sub_all_oa <- remove_duplicate_preprints(d$m_sub_all_oa_allpreprints, return_only_duplicates=TRUE)
     } else {
+      shiny_print_logs("Duplication filter, None TRUE", d$sps)
+      d$update_m_sub_all_oa_allpreprints <- TRUE
       d$m_sub_all_oa <- d$m_sub_all_oa_allpreprints
     }
   })
@@ -343,7 +357,8 @@ shiny_general_server <-  function(con, orcid_access_token){
   p_t$selected_plot <- reactive({tryCatch({oa_status_time_plot(d$m_sub,
                                                                cutoff_year=input$range_year[1],
                                                                title = paste(paste0(d$in_selection,collapse = " + "), "OA Status"),
-                                                               oa_status_used=overall_oa,use_plotly=TRUE)},
+                                                               oa_status_used=overall_oa,use_plotly=TRUE,
+                                                               cutoff_year_upper=input$range_year[2])},
                                           error=function(e) {print(e);ggplot() + geom_blank()})})
   output$plot_selected <- renderPlotly({
     req(d$m_sub)
@@ -385,12 +400,15 @@ shiny_general_server <-  function(con, orcid_access_token){
     d$m_sub_sel <- d$m_sub
   })
   # render table
-  p_t$selected_closed_table <- reactive({tryCatch({overall_closed_table(d$m_sub_sel, oa_status_zora = FALSE)},
-                                                  error=function(e) DT::datatable(head(d$m,0)))})
+  p_t$selected_closed_table <- reactive({tryCatch({
+    authorname <- input_value(df_orcid())
+    filename <- paste0("Publication_list",ifelse(authorname=="","","_"),authorname)
+    overall_closed_table(d$m_sub_sel, oa_status_zora = FALSE, filename=filename)
+    },error=function(e) DT::datatable(head(d$m,0)))})
   output$table_selected_closed <- DT::renderDataTable({
     req(d$m_sub_sel)
     p_t$selected_closed_table()
-  })
+  }, server=FALSE)
   
   
   ### Pubmetric table  -------------------------------------------------------

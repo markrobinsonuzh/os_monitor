@@ -24,7 +24,8 @@
 #' 
 oa_status_time_plot <- function(tbl_merge, cutoff_year=2000, colname=year, 
                                 title="OA Status",
-                                oa_status_used=oa_status, use_plotly=FALSE){
+                                oa_status_used=oa_status, use_plotly=FALSE,
+                                cutoff_year_upper=2022){
   q_colname <- enquo(colname)
   q_oa_status_used <- enquo(oa_status_used)
   tmp <- tbl_merge %>% dplyr::pull(!!q_oa_status_used) 
@@ -33,7 +34,7 @@ oa_status_time_plot <- function(tbl_merge, cutoff_year=2000, colname=year,
   tbl_merge <- tbl_merge %>% dplyr::mutate(!!q_oa_status_used := tmp)
   
   tmptib_1 <- tbl_merge %>% 
-    dplyr::filter(!!q_colname >= cutoff_year, !!q_colname <= 2020)%>% 
+    dplyr::filter(!!q_colname >= cutoff_year, !!q_colname <= cutoff_year_upper)%>% 
     group_by(!!q_colname,!!q_oa_status_used) %>% 
     summarise(Count=dplyr::n()) %>%
     ungroup() %>% 
@@ -57,14 +58,15 @@ oa_status_time_plot <- function(tbl_merge, cutoff_year=2000, colname=year,
             add_bars() %>%
             layout(barmode = "stack",
                    title = title,
-                   yaxis=list(title="Counts"),
+                   yaxis=list(title=facetting),
                    xaxis=list(title=""))
         })
       )
     )})
     subplot(plt_ls[[1]], style(plt_ls[[2]],showlegend=FALSE),
     nrows=2,
-    shareX = TRUE)
+    shareX = TRUE,
+    titleY = TRUE)
     
     # ggplot
   } else {
@@ -147,12 +149,18 @@ oa_percent_time_table <- function(m, cutoff_year){
 #' @importFrom magrittr %>%
 #'
 #' @examples
-#' tbl_merge <- tibble::tibble(overall_oa=rep(c("gold","closed"),10),
-#'                            year=rep(2017:2020,5),
-#'                            doi=paste0("madeupdoi",1:20),
-#'                            oa_status.unpaywall=overall_oa)
-#' overall_closed_table(tbl_merge, FALSE)
-overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
+# tbl_merge <- tibble::tibble(overall_oa=rep(c("gold","closed"),100),
+#                            year=rep(2017:2020,50),
+#                            doi=paste0("madeupdoi",1:200),
+#                            title = rep(letters[1:20],10),
+#                            oa_status.unpaywall=overall_oa,
+#                            in_scholar=rep(c(TRUE,FALSE),each=100),
+#                            cid=c(rep(paste0(paste0(letters,collapse = ""),
+#                                             ",",
+#                                             paste0(letters,collapse = "")), 100),
+#                                  rep(NA,100)))
+# overall_closed_table(tbl_merge, FALSE)
+overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE, filename="Publication_list"){
   
   if(oa_status_zora){
     z <- tbl_merge %>%
@@ -176,12 +184,18 @@ overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
   }
   if("in_scholar" %in% names(tbl_merge)){
     z <- z %>% dplyr::mutate(cid = tbl_merge$cid,
+                             cid = stringr::str_replace_all(cid,",",", "),
                              cid = ifelse(is.na(cid), "",
                                           paste0("<a href='https://scholar.google.com/scholar?oi=bibs&hl=de&cluster=",
                                                  cid, "' target='_blank'>", cid, "</a>"))) %>% 
       dplyr::select(doi,oa_status.unpaywall, title, year, cid, dplyr::starts_with("title."))
   }
-  colns <- stringr::str_replace_all(colnames(z),"\\."," ")
+  colns <- stringr::str_replace_all(colnames(z),"\\."," ") %>% 
+    stringr::str_to_title() %>% 
+    stringr::str_replace("^Doi$","DOI") %>% 
+    stringr::str_replace("^Cid$","cid (Google scholar publication id)") %>% 
+    stringr::str_replace("(O|o)rcid","ORCID")
+  title <- stringr::str_to_title(stringr::str_replace_all(filename,"_"," "))
   DT::datatable(z, 
                 extensions = c('ColReorder','Buttons', 'Responsive'),
                 colnames = colns,
@@ -189,7 +203,18 @@ overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE){
                                # pageLength = 200,
                                # keys=TRUE,
                                colReorder = TRUE,
-                               buttons = list('copy', 'csv', 'pdf')),
+                               buttons = list(list(extend="copy",
+                                                   filename=filename,
+                                                   title=title),
+                                              list(extend="csv",
+                                                   filename=filename,
+                                                   title=title,
+                                                   escapeChar='"',
+                                                   fieldBoundary='"'),
+                                              list(extend="pdf",
+                                                   filename=filename,
+                                                   title=title,
+                                                   pageSize="A3"))),
                 escape = FALSE, rownames = FALSE)
 }
 
@@ -233,7 +258,7 @@ upset_plot <- function(tbl_merge){
                             aes=aes(x=intersection, fill=overall_oa),
                             geom=list(
                               geom_bar(stat='count', position='fill'),
-                              scale_fill_manual(values=open_cols_fn())
+                              scale_fill_manual(values=open_cols_fn()[unique(tib_plt$overall_oa)])
                             )
                             )),
                         themes=ComplexUpset::upset_modify_themes(

@@ -6,18 +6,20 @@
 #' @export
 #' @importFrom magrittr %>% 
 #' @examples
-#' con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
-#' df_orcid <- retrieve_from_orcid("0000-0002-3048-5518")
-#' df_publons <- retrieve_from_publons("0000-0002-3048-5518")
-#' df_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
-#' tbl_merge <- suppressWarnings(create_combined_data(df_orcid,uzhOS::empty_pubmed(),uzhOS::empty_zora(),df_publons,con))
-#' df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_zotero = FALSE,with_rcrossref=FALSE)
-#' tbl_merge_comb <- uzhOS::merge_scholar_into_tbl_merge(tbl_merge, df_scholar_matched)
-#' remove_duplicate_preprints(tbl_merge_comb)
-remove_duplicate_preprints <- function(tbl_merge){
-  
+# con <- odbc::dbConnect(odbc::odbc(), "PostgreSQL")
+# df_orcid <- retrieve_from_orcid("0000-0002-3048-5518")
+# # df_publons <- retrieve_from_publons("0000-0002-3048-5518")
+# df_publons <- empty_publons()
+# # df_scholar <- retrieve_from_scholar("XPfrRQEAAAAJ")
+# df_scholar <- empty_scholar()
+# tbl_merge <- suppressWarnings(create_combined_data(df_orcid,uzhOS::empty_pubmed(),uzhOS::empty_zora(),df_publons,con))
+# df_scholar_matched <- df_scholar_matching(tbl_merge,df_scholar, with_zotero = FALSE,with_rcrossref=FALSE)
+# tbl_merge_comb <- uzhOS::merge_scholar_into_tbl_merge(tbl_merge, df_scholar_matched)
+# tbl_merge_comb_red <- remove_duplicate_preprints(tbl_merge_comb, return_only_duplicates = TRUE)
+remove_duplicate_preprints <- function(tbl_merge, return_only_duplicates=FALSE){
+  tbl_merge <- tibble::rowid_to_column(tbl_merge, "id")
   # try to use Googles document identifier
-  if ("cid" %in% names(tbl_merge)){
+  if ("cid" %in% names(tbl_merge) && any(!is.na(tbl_merge$cid))){
     cid_ind <- !is.na(tbl_merge$cid) & tbl_merge$cid != ""
     cid_matches <- purrr::map_chr(seq_len(sum(cid_ind)), 
                                   ~ paste0(which(tbl_merge$cid[cid_ind] %in% tbl_merge$cid[cid_ind][.x]), collapse = " "))
@@ -49,9 +51,8 @@ remove_duplicate_preprints <- function(tbl_merge){
         }
         x_filt
       })) %>% 
-      tidyr::unnest(dataset) %>% 
-      dplyr::select(-cid_group)
-    tbl_merge <- rbind(tbl_merge_cid_filtered, tbl_merge[!cid_ind,])
+      tidyr::unnest(dataset)
+    tbl_merge <- rbind(dplyr::select(tbl_merge_cid_filtered, -cid_group), tbl_merge[!cid_ind,])
   }
   
   # with title
@@ -87,12 +88,35 @@ remove_duplicate_preprints <- function(tbl_merge){
       }
       x_filt
     })) %>% 
-    tidyr::unnest(dataset) %>% 
-    dplyr::select(-title_group)
-  tbl_merge <- rbind(tbl_merge_title_filtered, tbl_merge[!not_na,]) %>% 
+    tidyr::unnest(dataset)
+  tbl_merge <- rbind(dplyr::select(tbl_merge_title_filtered, -title_group), tbl_merge[!not_na,]) %>% 
     unique()
-  tbl_merge
+  if(!return_only_duplicates){
+    return(tbl_merge)
+  } else {
+    tmp2 <- unique(tbl_merge_title_filtered[,c("id","title_group")]) %>% 
+      dplyr::mutate(ndup_title= stringr::str_trim(title_group) %>% 
+                      stringr::str_split(" ") %>% 
+                      purrr::map_int(~length(.x)),
+                    dup_title=dplyr::if_else(ndup_title==1,FALSE,TRUE))
+    if(exists("tbl_merge_cid_filtered")){
+      tmp <- unique(tbl_merge_cid_filtered[,c("id","cid_group")]) %>% 
+        dplyr::mutate(ndup_cid= stringr::str_trim(cid_group) %>% 
+                        stringr::str_split(" ") %>% 
+                        purrr::map_int(~length(.x)),
+                      dup_cid=dplyr::if_else(ndup_cid==1,FALSE,TRUE))
+      tmp3 <- dplyr::inner_join(tmp, tmp2, by="id") %>% 
+        dplyr::rowwise() %>% 
+        dplyr::mutate(dup=any(dplyr::across(dplyr::starts_with("dup_")))) %>% 
+        dplyr::filter(dup) %>% 
+        dplyr::arrange(cid_group, title_group)
+    } else{
+      tmp3 <- tmp2 %>% 
+        dplyr::rowwise() %>% 
+        dplyr::mutate(dup=any(dplyr::across(dplyr::starts_with("dup_")))) %>% 
+        dplyr::filter(dup) %>% 
+        dplyr::arrange(title_group)
+    }
+    return(tbl_merge[tmp3$id,] %>% dplyr::arrange(title, doi, year))
+  }
 }
-
-
-

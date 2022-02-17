@@ -18,13 +18,10 @@
 #'  shiny::shinyApp(ui=shiny_general_ui,server = function(input, output) { })
 shiny_general_ui <- function(request, docfile = file.path(system.file("extdata","helpfiles",package = "uzhOS"),"OA_monitor_documentation.md")) {
   dashboardPage(
-    preloader = list(
-      waiter = list(html = tagList(waiter::spin_1(), "Loading ..."), color = "#3c8dbc"),
-      duration = 1
-    ),
-    title =  "Open access monitor",
+    preloader = list(html = waiter::spin_1(), color = "#333e48"),
+    title =  "Publication assistant",
     dashboardHeader(
-      leftUi = tagList(h4("Open access monitor")),
+      leftUi = tagList(h4("Publication assistant")),
       dropdownMenu(type="tasks",
                    icon=icon("info fa-1g"),
                    badgeStatus=NULL,
@@ -47,6 +44,7 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
       time_out_ui("timeout"),
       useShinyjs(),
       shinyFeedback::useShinyFeedback(),
+      prompter::use_prompt(),
       tabItems(
         # First tab content
         tabItem(tabName = "Author",
@@ -65,8 +63,8 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                              # Pubmed query input
                              inputPubmedUI("input_check"),
                              # if pubmetrics
-                             shinyWidgets::prettySwitch(inputId = "retrieve_pubmetric",label = "Retrieve Pubmed citation metrics", 
-                                                        fill = TRUE, status = "primary"),    
+                             # shinyWidgets::prettySwitch(inputId = "retrieve_pubmetric",label = "Retrieve Pubmed citation metrics", 
+                             #                            fill = TRUE, status = "primary"),    
                              # aggregate data
                              showReportUI("show_report"),
                              ProgressbarUI("show_report")
@@ -112,6 +110,9 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                                                    shinyWidgets::prettySwitch(inputId = "remove_duplicate_preprints",
                                                                                        label = "Remove duplicates", 
                                                                                        fill = TRUE, status = "primary",value = FALSE),
+                                                   shinyWidgets::prettySwitch(inputId = "show_duplicate_preprints",
+                                                                              label = "Show detected duplicates", 
+                                                                              fill = TRUE, status = "primary",value = FALSE),
                                                    h5("Dataset selection"),
                                                    datasetSelectionsUpdateUI("selection_standard")
                                             ),
@@ -189,10 +190,10 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                                                                 title = "Histogram selection help",
                                                                 content = 'Histogram_selection')
                                         )
-                                        ),
-                               tabPanel("Citations", value = "box_histogram_panel_citations",
-                                        uiOutput("plot_pubmetric")
-                               )
+                                        )#,
+                               # tabPanel("Citations", value = "box_histogram_panel_citations",
+                               #          uiOutput("plot_pubmetric")
+                               #)
                         )
                     )%>% shinyjs::hidden(),
                     div(id="shinyjsbox_table", 
@@ -205,9 +206,15 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                                           }")),
                                    fluidRow(
                                      column(width = 11,
-                                            actionButton(inputId = "apply_DT_selection",label = HTML("Apply <br/> selection")),
-                                            actionButton(inputId = "reset_DT_selection",label = HTML("Reset <br/> selection")),
-                                            actionButton(NS("bibtex", "create_bibtex"),HTML("Bibtex <br/> citation"))),
+                                            actionButton(inputId = "apply_DT_selection",label = HTML("Apply row <br/> selection")) %>% 
+                                              prompter::add_prompt(position = "bottom", 
+                                                                   message = HTML("Select rows in the table below, then press here to apply the selection")),
+                                            actionButton(inputId = "reset_DT_selection",label = HTML("Reset row <br/> selection")) %>% 
+                                              prompter::add_prompt(position = "bottom", 
+                                                                   message = HTML("Resets the selection of `Apply row selection`")),
+                                            actionButton(NS("bibtex", "create_bibtex"),HTML("Bibtex <br/> citation "))%>% 
+                                              prompter::add_prompt(position = "bottom", 
+                                                                   message = HTML("Retrieve citations of all publications currently listed below."))),
                                      column(width = 1,
                                             shinyWidgets::dropdown(
                                               right=TRUE, 
@@ -217,8 +224,8 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                                               div(style="width:500px",
                                                   p("The Table below showing the list of publications can be further filtered."),
                                                   p("Individual publications can be selected by directly clicking on the respective rows and the 
-                                           filter can be applied by pressing 'Apply selection'"),
-                                                  p("To reverse the filter, press 'Reset selection'."),
+                                           filter can be applied by pressing 'Apply row selection'"),
+                                                  p("To reverse the filter, press 'Reset row selection'."),
                                                   p("A Citation list of all displayed publications can be generated by pressing 'Bibtex citation'. 
                                            This will start on confirmation and will be displayed underneath the table where also the 
                                            possibility for download as a file exists.")
@@ -236,18 +243,18 @@ shiny_general_ui <- function(request, docfile = file.path(system.file("extdata",
                             downloadButton(NS("bibtex", "bibtex_download"), "Download Bibtex citation") %>% 
                               shinyjs::hidden(),
                             verbatimTextOutput(NS("bibtex", "bibsummary"))
-                        )) %>% shinyjs::hidden(),
+                        )) %>% shinyjs::hidden()#,
                     # div(id="shinyjsbox_pubmetric_table", 
                     #     box(width = NULL, collapsible = TRUE,  id = "box_pubmetric_table",
                     #         DT::dataTableOutput("table_pubmetric")
                     #     )) %>% shinyjs::hidden(),
-                    div(id="shinyjsbox_fulltext_download", 
-                        box(width = NULL, collapsible = TRUE,  id = "box_fulltext_download", 
-                            title = "Grey zone (Sci-hub)",collapsed = TRUE,
-                            p("Retrieve fulltext links of closed publications from sci-hub"),
-                            actionButton(NS("scihub", "fulltext_download_button"), label = "Get Fulltext links"),
-                            DT::dataTableOutput(NS("scihub","table_fulltext_links"))
-                        )) %>% shinyjs::hidden()
+                    # div(id="shinyjsbox_fulltext_download", 
+                    #     box(width = NULL, collapsible = TRUE,  id = "box_fulltext_download", 
+                    #         title = "Grey zone (Sci-hub)",collapsed = TRUE,
+                    #         p("Retrieve fulltext links of closed publications from sci-hub"),
+                    #         actionButton(NS("scihub", "fulltext_download_button"), label = "Get Fulltext links"),
+                    #         DT::dataTableOutput(NS("scihub","table_fulltext_links"))
+                    #     )) %>% shinyjs::hidden()
                   )
                 )
         ),

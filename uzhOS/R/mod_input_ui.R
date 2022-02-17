@@ -31,7 +31,8 @@ inputPubmedUI <- function(id) {
                               label = a("Pubmed Query",
                                         href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",
                                         target="_blank"), 
-                              value="") %>% 
+                              value="",
+                              placeholder="To activate, click on 'Example Pubmed Query'") %>% 
                   shinyjs::disabled(),
              ), 
              column(width = 2,
@@ -75,7 +76,7 @@ inputScholarUI <- function(id) {
                           content = 'Google_scholar_help'),
     shinyWidgets::prettySwitch(inputId = ns("scholar_matching_with_zotero"),
                                label = "Use Zotero to retrieve DOI of publications.", 
-                               value = TRUE,
+                               value = FALSE,
                                fill = TRUE, status = "primary"), 
     # scholar match with crossref
     shinyWidgets::prettySwitch(inputId = ns("scholar_matching_with_crossref"),

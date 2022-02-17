@@ -92,6 +92,7 @@ createZoraServer <- function(id, df_zora, con, sps) {
                           author_vec=isolate(input_value(df_zora())))) %...>% 
             to_tibble_reac_template(df_zora()) %...>% 
             `retrieval_done<-`(TRUE) %...>% 
+          check_and_set_successfull_retrieval(assign_reac=FALSE, sps=sps) %...>% 
             df_zora()
         }
       })
@@ -134,6 +135,7 @@ createOrcidServer <- function(id, df_orcid, orcid_access_token, sps) {
                             orcid_access_token=orcid_access_token)) %...>% 
             to_tibble_reac_template(df_orcid()) %...>% 
             `retrieval_done<-`(TRUE) %...>% 
+            check_and_set_successfull_retrieval(assign_reac=FALSE, sps=sps) %...>% 
             df_orcid()
         }
       })
@@ -157,12 +159,12 @@ ResultCheckServer <- function(id, df_whatever, sps) {
     function(input, output, session) {
       observeEvent(retrieval_done(df_whatever()),{
         req(input$show_report)
-        if (retrieval_done(df_whatever()) && !successfully_retrieved(df_whatever())){
-          check_and_set_successfull_retrieval(df_whatever)
+        # if (retrieval_done(df_whatever()) && !successfully_retrieved(df_whatever())){
+        #   check_and_set_successfull_retrieval(df_whatever)
           shiny_print_logs(paste("retrieval of", name(df_whatever()), ":", 
                                  ifelse(successfully_retrieved(df_whatever()),"Success","Failure!")), 
                            sps)
-        }
+        # }
       })
     }
   )
@@ -199,6 +201,7 @@ createScholarServer <- function(id, df_scholar, sps) {
                             scholar=isolate(input_value(df_scholar())))) %...>% 
             to_tibble_reac_template(df_scholar()) %...>% 
             `retrieval_done<-`(TRUE) %...>% 
+            check_and_set_successfull_retrieval(assign_reac=FALSE, sps=sps) %...>% 
             df_scholar()
         }
       })
@@ -237,6 +240,7 @@ createPubmedServer <- function(id, df_pubmed, sps) {
                             pubmed=isolate(input_value(df_pubmed())))) %...>% 
             to_tibble_reac_template(df_pubmed()) %...>% 
             `retrieval_done<-`(TRUE) %...>% 
+            check_and_set_successfull_retrieval(assign_reac=FALSE, sps=sps) %...>% 
             df_pubmed()
         }
       })
@@ -275,6 +279,7 @@ createPublonsServer <- function(id, df_publons, sps) {
                               publons=isolate(input_value(df_publons())))) %...>% 
             to_tibble_reac_template(df_publons()) %...>% 
             `retrieval_done<-`(TRUE) %...>%
+            check_and_set_successfull_retrieval(assign_reac=FALSE, sps=sps) %...>% 
             df_publons()
         }
       })

@@ -80,7 +80,7 @@ RUN R -e "devtools::install_github('ropensci/RefManageR',repos='http://cran.rstu
 RUN R -e "devtools::install_github('RinteRface/shinydashboardPlus',repos='http://cran.rstudio.com/')"
 RUN R -e "devtools::install_github('jkeirstead/scholar',repos='http://cran.rstudio.com/')"
 RUN R -e "devtools::install_github('ROpenSci/bibtex',repos='http://cran.rstudio.com/')"
-RUN R -e "devtools::install_github('shinyTree/shinyTree')"
+RUN R -e "devtools::install_github('shinyTree/shinyTree',repos='http://cran.rstudio.com/')"
 
 RUN mkdir /home/stringdist \
         && cd /home/stringdist \

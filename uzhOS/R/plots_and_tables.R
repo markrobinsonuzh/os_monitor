@@ -25,7 +25,7 @@
 oa_status_time_plot <- function(tbl_merge, cutoff_year=2000, colname=year, 
                                 title="OA Status",
                                 oa_status_used=oa_status, use_plotly=FALSE,
-                                cutoff_year_upper=2021){
+                                cutoff_year_upper=2022){
   q_colname <- enquo(colname)
   q_oa_status_used <- enquo(oa_status_used)
   tmp <- tbl_merge %>% dplyr::pull(!!q_oa_status_used) 
@@ -58,14 +58,15 @@ oa_status_time_plot <- function(tbl_merge, cutoff_year=2000, colname=year,
             add_bars() %>%
             layout(barmode = "stack",
                    title = title,
-                   yaxis=list(title="Counts"),
+                   yaxis=list(title=facetting),
                    xaxis=list(title=""))
         })
       )
     )})
     subplot(plt_ls[[1]], style(plt_ls[[2]],showlegend=FALSE),
     nrows=2,
-    shareX = TRUE)
+    shareX = TRUE,
+    titleY = TRUE)
     
     # ggplot
   } else {
@@ -189,7 +190,11 @@ overall_closed_table <- function(tbl_merge, oa_status_zora = TRUE, filename="Pub
                                                  cid, "' target='_blank'>", cid, "</a>"))) %>% 
       dplyr::select(doi,oa_status.unpaywall, title, year, cid, dplyr::starts_with("title."))
   }
-  colns <- stringr::str_replace_all(colnames(z),"\\."," ")
+  colns <- stringr::str_replace_all(colnames(z),"\\."," ") %>% 
+    stringr::str_to_title() %>% 
+    stringr::str_replace("^Doi$","DOI") %>% 
+    stringr::str_replace("^Cid$","cid (Google scholar publication id)") %>% 
+    stringr::str_replace("(O|o)rcid","ORCID")
   title <- stringr::str_to_title(stringr::str_replace_all(filename,"_"," "))
   DT::datatable(z, 
                 extensions = c('ColReorder','Buttons', 'Responsive'),

@@ -31,7 +31,8 @@ inputPubmedUI <- function(id) {
                               label = a("Pubmed Query",
                                         href= "https://www.ncbi.nlm.nih.gov/books/NBK3827/#pubmedhelp.How_do_I_search_by_author",
                                         target="_blank"), 
-                              value="") %>% 
+                              value="",
+                              placeholder="To activate, click on 'Example Pubmed Query'") %>% 
                   shinyjs::disabled(),
              ), 
              column(width = 2,

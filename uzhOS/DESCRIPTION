@@ -32,6 +32,7 @@ Imports:
   odbc,
   plotly,
   promises,
+  prompter,
   purrr,
   R.cache,
   rcrossref,

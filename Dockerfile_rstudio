@@ -60,6 +60,7 @@ RUN install2.r \
 	microbenchmark \
 	odbc \
 	plotly \
+	prompter \
 	rcrossref \
 	readr \
 	RefManageR \

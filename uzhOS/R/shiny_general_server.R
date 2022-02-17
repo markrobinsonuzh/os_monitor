@@ -177,7 +177,7 @@ shiny_general_server <-  function(con, orcid_access_token){
         d$do_scholar_match <- TRUE
         # if all merged (including scholar, or scholar not present) get citation metrics
       } else if (length(d$datainmerge) == (sum(d$dataininput))){
-        if(input$retrieve_pubmetric){
+        if(!is.null(input$retrieve_pubmetric) && input$retrieve_pubmetric){
           shiny_print_logs("get pubmetrics", sps)
           future(seed=NULL,{
             retrieve_from_pubmed_with_doi(tbl_merge_iso[["doi"]]) %>% 
